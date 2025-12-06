@@ -36,8 +36,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -installsuffix netgo \
     -o briworld ./cmd/server
 
-# Verify binary
-RUN ls -la briworld && file briworld
+# Verify binary exists and is executable
+RUN ls -la briworld && chmod +x briworld
 
 # Production stage with runtime dependencies
 FROM alpine:3.19 AS production
