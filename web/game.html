@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game - BriWorld</title>
+    <link rel="stylesheet" href="/static/css/global.css">
+    <link rel="stylesheet" href="/static/css/game.css">
+    <link rel="stylesheet" href="/static/css/animations.css">
+</head>
+<body>
+    <div class="game-container">
+        <div id="lastGuessed" style="position: fixed; top: 20px; left: 20px; background: rgba(255,255,255,0.95); padding: 1rem; border-radius: 0.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 100; display: none;">
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Last Guessed:</div>
+            <div id="lastGuessedName" style="font-size: 1.1rem; font-weight: bold; color: var(--text-primary);"></div>
+        </div>
+        <header class="game-header">
+            <div class="room-info">
+                <span id="roomCode" class="room-code">ROOM123</span>
+                <span id="roundCounter" class="round-counter">Round 0/10</span>
+            </div>
+            <div class="timer-container">
+                <div id="timer" class="timer timer--green">15</div>
+            </div>
+        </header>
+
+        <main class="game-main">
+            <div class="question-area">
+                <img id="flagImage" src="" alt="Flag" style="display: none;">
+                <div class="answer-input">
+                    <input type="text" id="answerInput" class="form-input" placeholder="Type country name..." autocomplete="off">
+                    <button onclick="submitAnswer()" class="btn btn--primary">Submit</button>
+                </div>
+            </div>
+        </main>
+
+        <aside class="leaderboard">
+            <h3>🏆 Leaderboard</h3>
+            <div id="scoreList"></div>
+        </aside>
+
+        <div class="chat">
+            <div id="chatMessages"></div>
+            <div class="chat-input-wrapper">
+                <input type="text" id="chatInput" class="form-input" placeholder="Type message...">
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/game.js"></script>
+</body>
+</html>

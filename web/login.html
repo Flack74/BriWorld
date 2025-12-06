@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - BriWorld</title>
+    <link rel="stylesheet" href="/static/css/global.css">
+</head>
+<body style="background: linear-gradient(135deg, #D9C18A 0%, #A89A73 47%, #626E57 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center;">
+    <div class="card" style="max-width: 450px; width: 90%; padding: var(--space-8);">
+        <h2 style="text-align: center; margin-bottom: var(--space-6);">🔑 Login</h2>
+        <form id="loginForm" style="display: flex; flex-direction: column; gap: var(--space-4);">
+            <div>
+                <label class="form-label">Email</label>
+                <input type="email" id="email" class="form-input" required>
+            </div>
+            <div>
+                <label class="form-label">Password</label>
+                <input type="password" id="password" class="form-input" required>
+            </div>
+            <div style="text-align: right;">
+                <a href="/forgot-password" style="color: var(--primary-600); text-decoration: none; font-size: var(--text-sm);">Forgot Password?</a>
+            </div>
+            <button type="submit" class="btn btn--primary btn--block">Login</button>
+            <div style="text-align: center; margin-top: var(--space-2);">
+                <span style="color: var(--text-secondary);">Don't have an account? </span>
+                <a href="/register" style="color: var(--primary-600); text-decoration: none; font-weight: var(--fw-semibold);">Register</a>
+            </div>
+            <div style="text-align: center;">
+                <a href="/" style="color: var(--text-secondary); text-decoration: none; font-size: var(--text-sm);">← Back to Home</a>
+            </div>
+        </form>
+        <div id="message" style="margin-top: var(--space-4); display: none;"></div>
+    </div>
+    <script src="/static/js/auth.js"></script>
+</body>
+</html>

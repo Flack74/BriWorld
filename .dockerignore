@@ -1,0 +1,38 @@
+# Git files
+.git
+.gitignore
+
+# Documentation (keep essential docs)
+README.md
+internal/documentation/
+
+# Development tools
+.air.toml
+docker-compose.yml
+docker-compose.*.yml
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+bin/
+tmp/
+dist/
+
+# Test files
+*_test.go
+testdata/
+
+# Logs
+*.log
+
+# Keep all source code, static assets, and templates
+# Keep .env files for configuration
+# Keep Makefile for build processes
