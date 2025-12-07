@@ -260,6 +260,29 @@
   }
 }
 
+@media (max-width: 768px) {
+  #mapContainer {
+    height: 60vh !important;
+    max-height: 500px;
+    border-radius: var(--radius-base);
+  }
+  
+  #recentGuesses {
+    font-size: 0.7rem !important;
+    padding: 6px !important;
+    max-width: 120px !important;
+  }
+  
+  .question-area h3 {
+    font-size: 1.1rem !important;
+  }
+  
+  .btn--sm {
+    min-width: 60px;
+    touch-action: manipulation;
+  }
+}
+
 @media (max-width: 640px) {
   .game-container {
     padding: var(--space-2);
@@ -277,10 +300,37 @@
   .answer-input {
     flex-direction: column;
   }
+  
+  .answer-input input {
+    font-size: 16px !important;
+  }
 
   .room-info {
     flex-direction: column;
     gap: var(--space-2);
     align-items: flex-start;
   }
+  
+  #mapContainer {
+    height: 55vh !important;
+    border-radius: var(--radius-base);
+  }
+}
+
+#mapContainer {
+  -webkit-overflow-scrolling: touch;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#mapWrapper {
+  will-change: transform;
+}
+
+#mapWrapper svg {
+  pointer-events: none;
+}
+
+#mapWrapper svg path {
+  pointer-events: auto;
 }

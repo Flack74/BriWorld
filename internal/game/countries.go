@@ -21,7 +21,9 @@ func LoadCountries(filepath string) error {
 func GetRandomCountry() (code, name string) {
 	keys := make([]string, 0, len(countries))
 	for k := range countries {
-		keys = append(keys, k)
+		if !IsCountryExcluded(k) {
+			keys = append(keys, k)
+		}
 	}
 	code = keys[rand.Intn(len(keys))]
 	name = countries[code]

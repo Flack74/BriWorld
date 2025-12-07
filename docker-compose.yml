@@ -31,7 +31,7 @@ services:
       target: development
     container_name: briworld_app
     ports:
-      - "8085:8085"
+      - "8080:8080"
     volumes:
       - .:/app
       - /app/tmp
@@ -43,7 +43,7 @@ services:
       - DB_NAME=briworld_db
       - REDIS_HOST=redis
       - REDIS_PORT=6380
-      - PORT=8085
+      - PORT=8080
       - ENV=development
     depends_on:
       - postgres

@@ -3,6 +3,7 @@ const roomCode = params.get('room');
 const username = params.get('username');
 const gameMode = params.get('mode') || 'FLAG';
 const roomType = params.get('type') || 'SINGLE';
+let mapPlayMode = params.get('mapMode') || null;
 
 let ws;
 let startTime;
@@ -13,7 +14,7 @@ let guessedCountries = new Map();
 let userAnsweredCorrectly = false;
 let currentTimerInterval = null;
 
-document.getElementById('roomCode').textContent = `Room: ${roomCode} | Mode: ${gameMode === 'FLAG' ? '🚩 Flag Quiz' : '🗺️ World Map'} | ${roomType === 'SINGLE' ? '👤 Single' : roomType === 'PRIVATE' ? '🔒 Private' : '🌐 Public'}`;
+document.getElementById('roomCode').textContent = `Room: ${roomCode} | Mode: ${gameMode === 'FLAG' ? '🚩 Flag Quiz' : mapPlayMode === 'FREE' ? '🌍 Free Map' : '🗺️ Timed Map'} | ${roomType === 'SINGLE' ? '👤 Single' : roomType === 'PRIVATE' ? '🔒 Private' : '🌐 Public'}`;
 
 fetch('/static/world.json')
     .then(r => r.json())
@@ -21,10 +22,61 @@ fetch('/static/world.json')
         worldData = data; 
         console.log('World data loaded:', Object.keys(worldData).length, 'countries'); 
         if (gameMode === 'WORLD_MAP') {
-            showColorPicker();
+            if (!mapPlayMode) {
+                showMapModeSelector();
+            } else {
+                showColorPicker();
+            }
         }
     })
     .catch(e => console.error('Failed to load world.json:', e));
+
+function showMapModeSelector() {
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1001;';
+    modal.innerHTML = `
+        <div style="background: var(--bg-primary); padding: var(--space-8); border-radius: var(--radius-lg); text-align: center; max-width: 600px; width: 90%;">
+            <h2 style="margin-bottom: var(--space-6); color: var(--text-primary); font-size: 2rem;">🗺️ Choose Map Mode</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); margin-bottom: var(--space-6);">
+                <button onclick="selectMapMode('TIMED')" class="mode-card" style="background: linear-gradient(135deg, #82A775, #6B8B68); color: white; padding: var(--space-6); border-radius: var(--radius-md); border: none; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    <div style="font-size: 3rem; margin-bottom: var(--space-3);">⏱️</div>
+                    <h3 style="font-size: 1.3rem; margin-bottom: var(--space-2);">Timed Mode</h3>
+                    <p style="font-size: 0.9rem; opacity: 0.9;">Race against time! Guess the highlighted country before time runs out.</p>
+                    <div style="margin-top: var(--space-3); font-size: 0.85rem; opacity: 0.8;">⚡ Fast-paced<br>🏆 Competitive</div>
+                </button>
+                <button onclick="selectMapMode('FREE')" class="mode-card" style="background: linear-gradient(135deg, #4A90A4, #3A7A8A); color: white; padding: var(--space-6); border-radius: var(--radius-md); border: none; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    <div style="font-size: 3rem; margin-bottom: var(--space-3);">🌍</div>
+                    <h3 style="font-size: 1.3rem; margin-bottom: var(--space-2);">Free Mode</h3>
+                    <p style="font-size: 0.9rem; opacity: 0.9;">No timer! Freely guess countries and paint the map with your color.</p>
+                    <div style="margin-top: var(--space-3); font-size: 0.85rem; opacity: 0.8;">🎨 Relaxed<br>🗺️ Exploratory</div>
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    window.mapModeModal = modal;
+}
+
+window.selectMapMode = function(mode) {
+    mapPlayMode = mode;
+    if (window.mapModeModal) {
+        window.mapModeModal.remove();
+    }
+    
+    // Connect WebSocket only for timed mode
+    if (mode === 'TIMED') {
+        connectWebSocket();
+        if (roomType === 'SINGLE') {
+            setTimeout(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'start_game' }));
+                }
+            }, 1000);
+        }
+    }
+    
+    showColorPicker();
+};
 
 function showColorPicker() {
     const colors = [
@@ -59,11 +111,18 @@ function selectColor(color) {
     if (window.colorModal) {
         window.colorModal.remove();
     }
+    
+    // Start free mode immediately
+    if (gameMode === 'WORLD_MAP' && mapPlayMode === 'FREE') {
+        setTimeout(() => showFreeMapMode(), 500);
+    }
 }
 
 function connectWebSocket() {
     const rounds = params.get('rounds') || '10';
-    ws = new WebSocket(`ws://localhost:8085/ws?room=${roomCode}&username=${username}&mode=${gameMode}&type=${roomType}&rounds=${rounds}`);
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    ws = new WebSocket(`${protocol}//${host}/ws?room=${roomCode}&username=${username}&mode=${gameMode}&type=${roomType}&rounds=${rounds}`);
 
     ws.onopen = () => {
         console.log('Connected to game server');
@@ -85,6 +144,9 @@ function connectWebSocket() {
 }
 
 function handleMessage(msg) {
+    // Ignore all messages in free mode
+    if (mapPlayMode === 'FREE') return;
+    
     switch(msg.type) {
         case 'room_update':
             if (msg.payload.status === 'waiting') {
@@ -120,6 +182,9 @@ function handleMessage(msg) {
 }
 
 function startRound(payload) {
+    // Don't start rounds in free mode
+    if (mapPlayMode === 'FREE') return;
+    
     userAnsweredCorrectly = false;
     
     const lastGuessed = document.getElementById('lastGuessed');
@@ -177,35 +242,84 @@ function submitAnswer() {
     const answerInput = document.getElementById('answerInput');
     if (!answerInput || answerInput.disabled) return;
     
-    if (answerInput.getAttribute('data-valid') !== 'true') {
+    const answer = answerInput.value.trim();
+    if (!answer) return;
+    
+    // Case-insensitive exact match
+    const matched = Object.entries(worldData).find(([code, name]) => 
+        name.toLowerCase() === answer.toLowerCase()
+    );
+    
+    if (!matched) {
         answerInput.style.animation = 'shake 0.3s';
-        setTimeout(() => answerInput.style.animation = '', 300);
+        answerInput.style.borderColor = '#B05F66';
+        setTimeout(() => {
+            answerInput.style.animation = '';
+            answerInput.style.borderColor = '';
+        }, 300);
         return;
     }
     
-    const answer = answerInput.value.trim();
-    if (!answer) return;
-
-    const responseTime = Date.now() - startTime;
-    
-    if (gameMode === 'WORLD_MAP' && targetCountryPath) {
-        const countryCode = targetCountryPath.getAttribute('id');
-        if (countryCode) {
-            guessedCountries.set(countryCode.toUpperCase(), { color: userColor, name: answer });
+    // Free mode handling
+    if (mapPlayMode === 'FREE') {
+        const [code, name] = matched;
+        if (guessedCountries.has(code.toUpperCase())) {
+            answerInput.style.animation = 'shake 0.3s';
+            answerInput.style.borderColor = '#D9C18A';
+            setTimeout(() => {
+                answerInput.style.animation = '';
+                answerInput.style.borderColor = '';
+            }, 300);
+            answerInput.value = '';
+            return;
         }
+        
+        guessedCountries.set(code.toUpperCase(), { color: userColor, name });
+        recentGuesses.unshift(name);
+        if (recentGuesses.length > 5) recentGuesses.pop();
+        updateRecentGuessesList();
+        
+        const paths = svgElement.querySelectorAll('path, g[id]');
+        paths.forEach(path => {
+            const id = path.getAttribute('id');
+            if (id && id.toUpperCase() === code.toUpperCase()) {
+                path.style.fill = userColor;
+                path.style.stroke = '#64513B';
+                path.style.strokeWidth = '2';
+            }
+        });
+        
+        const scoreDisplay = document.getElementById('freeScore');
+        if (scoreDisplay) {
+            scoreDisplay.textContent = guessedCountries.size;
+        }
+        
+        answerInput.value = '';
+        answerInput.style.borderColor = '#82A775';
+        answerInput.style.backgroundColor = 'rgba(130, 167, 117, 0.2)';
+        setTimeout(() => {
+            answerInput.style.borderColor = '';
+            answerInput.style.backgroundColor = '';
+        }, 500);
+        return;
     }
+
+    // Timed mode handling
+    if (userAnsweredCorrectly) return;
+    
+    const responseTime = Date.now() - startTime;
     
     ws.send(JSON.stringify({
         type: 'submit_answer',
         payload: {
-            answer: answer,
+            answer: matched[1],
             response_time_ms: responseTime
         }
     }));
 
     answerInput.value = '';
-    answerInput.disabled = true;
-    answerInput.removeAttribute('data-valid');
+    answerInput.style.borderColor = '';
+    answerInput.style.backgroundColor = '';
 }
 
 function updateScores(payload) {
@@ -248,11 +362,30 @@ function showAnswerFeedback(payload) {
             lastGuessedName.textContent = payload.country_name;
             lastGuessed.style.display = 'block';
         }
+        
+        // Update recent guesses for map mode
+        if (gameMode === 'WORLD_MAP') {
+            recentGuesses.unshift(payload.country_name);
+            if (recentGuesses.length > 5) recentGuesses.pop();
+            updateRecentGuessesList();
+        }
     }
     
     if (payload.player === username) {
         if (payload.is_correct) {
             userAnsweredCorrectly = true;
+            
+            // Disable input after correct answer
+            const answerInput = document.getElementById('answerInput');
+            if (answerInput) answerInput.disabled = true;
+            
+            // Color the map country only when answer is correct
+            if (gameMode === 'WORLD_MAP' && targetCountryPath) {
+                const countryCode = targetCountryPath.getAttribute('id');
+                if (countryCode) {
+                    guessedCountries.set(countryCode.toUpperCase(), { color: userColor, name: payload.country_name });
+                }
+            }
             
             if (currentTimerInterval) {
                 clearInterval(currentTimerInterval);
@@ -538,12 +671,7 @@ document.addEventListener('keypress', (e) => {
     const answerInput = document.getElementById('answerInput');
     if (e.key === 'Enter' && answerInput && document.activeElement === answerInput) {
         e.preventDefault();
-        if (answerInput.getAttribute('data-valid') === 'true') {
-            submitAnswer();
-        } else {
-            answerInput.style.animation = 'shake 0.3s';
-            setTimeout(() => answerInput.style.animation = '', 300);
-        }
+        submitAnswer();
     }
 });
 
@@ -558,18 +686,22 @@ shakeStyle.textContent = `
 document.head.appendChild(shakeStyle);
 
 document.addEventListener('input', (e) => {
-    if (e.target.id === 'answerInput' && !e.target.disabled) {
+    if (e.target.id === 'answerInput' && !e.target.disabled && !userAnsweredCorrectly) {
         const value = e.target.value.trim();
-        if (value.length >= 3 && Object.keys(worldData).length > 0) {
+        if (value.length >= 2) {
             const matched = Object.entries(worldData).find(([code, name]) => 
                 name.toLowerCase() === value.toLowerCase()
             );
             if (matched) {
-                e.target.setAttribute('data-valid', 'true');
-                setTimeout(() => submitAnswer(), 100);
+                e.target.style.borderColor = '#82A775';
+                e.target.style.backgroundColor = 'rgba(130, 167, 117, 0.1)';
             } else {
-                e.target.removeAttribute('data-valid');
+                e.target.style.borderColor = '';
+                e.target.style.backgroundColor = '';
             }
+        } else {
+            e.target.style.borderColor = '';
+            e.target.style.backgroundColor = '';
         }
     }
 });
@@ -581,23 +713,30 @@ let svgDoc = null;
 let svgElement = null;
 let isDragging = false;
 let dragStart = { x: 0, y: 0 };
+let lastTouchDistance = 0;
+let recentGuesses = [];
 
 function showWorldMap(countryCode, countryName, timeLimit) {
     const questionArea = document.querySelector('.question-area');
     questionArea.style.position = 'relative';
+    const isMobile = window.innerWidth <= 768;
     questionArea.innerHTML = `
-        <div style="text-align: center; width: 100%;">
-            <h3 style="margin-bottom: var(--space-4); color: var(--text-primary);">What country is highlighted?</h3>
-            <div style="display: flex; gap: var(--space-2); justify-content: center; margin-bottom: var(--space-3);">
-                <button onclick="window.zoomIn()" class="btn btn--secondary btn--sm">🔍 Zoom In</button>
-                <button onclick="window.zoomOut()" class="btn btn--secondary btn--sm">🔍 Zoom Out</button>
-                <button onclick="window.resetZoom()" class="btn btn--secondary btn--sm">↺ Reset View</button>
+        <div style="text-align: center; width: 100%; position: relative;">
+            <div id="recentGuesses" style="position: absolute; left: 10px; top: 10px; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 8px; max-width: 150px; z-index: 10; display: none;">
+                <div style="color: white; font-size: 0.8rem; font-weight: bold; margin-bottom: 4px;">Recent Guesses:</div>
+                <div id="recentGuessesList" style="font-size: 0.75rem; color: #ddd;"></div>
             </div>
-            <div id="mapContainer" style="background: #D1BE9D; border-radius: var(--radius-md); max-width: 900px; margin: 0 auto; overflow: hidden; position: relative; height: 500px; cursor: grab; z-index: 1;">
-                <div id="mapWrapper" style="width: 100%; height: 100%; transform-origin: center center; transition: transform 0.3s ease;"></div>
+            <h3 style="margin-bottom: var(--space-3); color: var(--text-primary); font-size: ${isMobile ? '1.2rem' : '1.5rem'};">What country is highlighted?</h3>
+            <div style="display: flex; gap: var(--space-2); justify-content: center; margin-bottom: var(--space-3); flex-wrap: wrap;">
+                <button onclick="window.zoomIn()" class="btn btn--secondary btn--sm" style="padding: ${isMobile ? '0.5rem 0.8rem' : '0.6rem 1rem'}; font-size: ${isMobile ? '0.85rem' : '0.9rem'};">🔍+</button>
+                <button onclick="window.zoomOut()" class="btn btn--secondary btn--sm" style="padding: ${isMobile ? '0.5rem 0.8rem' : '0.6rem 1rem'}; font-size: ${isMobile ? '0.85rem' : '0.9rem'};">🔍-</button>
+                <button onclick="window.resetZoom()" class="btn btn--secondary btn--sm" style="padding: ${isMobile ? '0.5rem 0.8rem' : '0.6rem 1rem'}; font-size: ${isMobile ? '0.85rem' : '0.9rem'};">↺ Reset</button>
             </div>
-            <div class="answer-input" style="margin-top: var(--space-4);">
-                <input type="text" id="answerInput" class="form-input" placeholder="Type country name..." autocomplete="off">
+            <div id="mapContainer" style="background: #D1BE9D; border-radius: var(--radius-md); max-width: ${isMobile ? '100%' : '900px'}; margin: 0 auto; overflow: hidden; position: relative; height: ${isMobile ? '60vh' : '500px'}; cursor: grab; z-index: 1; touch-action: none;">
+                <div id="mapWrapper" style="width: 100%; height: 100%; transform-origin: center center; transition: transform 0.2s ease;"></div>
+            </div>
+            <div class="answer-input" style="margin-top: var(--space-3);">
+                <input type="text" id="answerInput" class="form-input" placeholder="Type country name..." autocomplete="off" style="font-size: ${isMobile ? '16px' : '1rem'};">
             </div>
         </div>
     `;
@@ -716,13 +855,15 @@ function setupMapInteraction() {
     
     if (!wrapper || !container) return;
     
+    // Mouse wheel zoom
     container.addEventListener('wheel', (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? 0.9 : 1.1;
         currentZoom = Math.min(Math.max(currentZoom * delta, 0.5), 16);
         updateMapTransform();
-    });
+    }, { passive: false });
     
+    // Mouse drag
     container.addEventListener('mousedown', (e) => {
         isDragging = true;
         dragStart = { x: e.clientX - currentPan.x, y: e.clientY - currentPan.y };
@@ -745,6 +886,46 @@ function setupMapInteraction() {
         isDragging = false;
         container.style.cursor = 'grab';
     });
+    
+    // Touch support
+    let touchStartPos = null;
+    
+    container.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            isDragging = true;
+            touchStartPos = { x: e.touches[0].clientX - currentPan.x, y: e.touches[0].clientY - currentPan.y };
+        } else if (e.touches.length === 2) {
+            isDragging = false;
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            lastTouchDistance = Math.sqrt(dx * dx + dy * dy);
+        }
+    }, { passive: true });
+    
+    container.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1 && isDragging) {
+            currentPan.x = e.touches[0].clientX - touchStartPos.x;
+            currentPan.y = e.touches[0].clientY - touchStartPos.y;
+            updateMapTransform();
+        } else if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (lastTouchDistance > 0) {
+                const delta = distance / lastTouchDistance;
+                currentZoom = Math.min(Math.max(currentZoom * delta, 0.5), 16);
+                updateMapTransform();
+            }
+            lastTouchDistance = distance;
+        }
+    }, { passive: false });
+    
+    container.addEventListener('touchend', () => {
+        isDragging = false;
+        lastTouchDistance = 0;
+    }, { passive: true });
 }
 
 function updateMapTransform() {
@@ -770,12 +951,99 @@ window.resetZoom = function() {
     updateMapTransform();
 }
 
-if (roomType === 'SINGLE') {
-    setTimeout(() => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'start_game' }));
-        }
-    }, 1000);
+// For FLAG mode, connect immediately
+if (gameMode === 'FLAG') {
+    connectWebSocket();
+    
+    if (roomType === 'SINGLE') {
+        setTimeout(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'start_game' }));
+            }
+        }, 1000);
+    }
+}
+// For WORLD_MAP, connection happens after mode selection in selectMapMode()
+
+function showFreeMapMode() {
+    const questionArea = document.querySelector('.question-area');
+    questionArea.style.position = 'relative';
+    const isMobile = window.innerWidth <= 768;
+    
+    document.getElementById('timer').textContent = '∞';
+    document.getElementById('timer').className = 'timer timer--green';
+    document.getElementById('roundCounter').textContent = 'Free Mode';
+    
+    questionArea.innerHTML = `
+        <div style="text-align: center; width: 100%; position: relative;">
+            <div id="recentGuesses" style="position: absolute; left: 10px; top: 10px; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 8px; max-width: 150px; z-index: 10; display: none;">
+                <div style="color: white; font-size: 0.8rem; font-weight: bold; margin-bottom: 4px;">Recent Guesses:</div>
+                <div id="recentGuessesList" style="font-size: 0.75rem; color: #ddd;"></div>
+            </div>
+            <div style="position: absolute; right: 10px; top: 10px; background: linear-gradient(135deg, #82A775, #6B8B68); padding: 12px 16px; border-radius: 8px; z-index: 10;">
+                <div style="color: white; font-size: 0.8rem; opacity: 0.9;">Countries Found</div>
+                <div id="freeScore" style="color: white; font-size: 2rem; font-weight: bold;">0</div>
+            </div>
+            <h3 style="margin-bottom: var(--space-3); color: var(--text-primary); font-size: ${isMobile ? '1.2rem' : '1.5rem'};">🌍 Guess any country and paint the map!</h3>
+            <div style="display: flex; gap: var(--space-2); justify-content: center; margin-bottom: var(--space-3); flex-wrap: wrap;">
+                <button onclick="window.zoomIn()" class="btn btn--secondary btn--sm" style="padding: ${isMobile ? '0.5rem 0.8rem' : '0.6rem 1rem'}; font-size: ${isMobile ? '0.85rem' : '0.9rem'};">🔍+</button>
+                <button onclick="window.zoomOut()" class="btn btn--secondary btn--sm" style="padding: ${isMobile ? '0.5rem 0.8rem' : '0.6rem 1rem'}; font-size: ${isMobile ? '0.85rem' : '0.9rem'};">🔍-</button>
+                <button onclick="window.resetZoom()" class="btn btn--secondary btn--sm" style="padding: ${isMobile ? '0.5rem 0.8rem' : '0.6rem 1rem'}; font-size: ${isMobile ? '0.85rem' : '0.9rem'};">↺ Reset</button>
+            </div>
+            <div id="mapContainer" style="background: #D1BE9D; border-radius: var(--radius-md); max-width: ${isMobile ? '100%' : '900px'}; margin: 0 auto; overflow: hidden; position: relative; height: ${isMobile ? '60vh' : '500px'}; cursor: grab; z-index: 1; touch-action: none;">
+                <div id="mapWrapper" style="width: 100%; height: 100%; transform-origin: center center; transition: transform 0.2s ease;"></div>
+            </div>
+            <div class="answer-input" style="margin-top: var(--space-3);">
+                <input type="text" id="answerInput" class="form-input" placeholder="Type any country name..." autocomplete="off" style="font-size: ${isMobile ? '16px' : '1rem'};">
+            </div>
+        </div>
+    `;
+    
+    fetch('/static/world.svg')
+        .then(r => r.text())
+        .then(svgText => {
+            const wrapper = document.getElementById('mapWrapper');
+            wrapper.innerHTML = svgText;
+            
+            svgElement = wrapper.querySelector('svg');
+            if (svgElement) {
+                const originalViewBox = svgElement.getAttribute('viewBox') || '0 0 2000 1000';
+                svgElement.setAttribute('viewBox', originalViewBox);
+                svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                svgElement.style.width = '100%';
+                svgElement.style.height = '100%';
+                svgElement.style.display = 'block';
+                svgElement.style.background = 'transparent';
+                
+                const paths = svgElement.querySelectorAll('path, g[id]');
+                paths.forEach(path => {
+                    const id = path.getAttribute('id');
+                    path.style.fill = '#626E57';
+                    path.style.stroke = '#4A5C48';
+                    path.style.strokeWidth = '0.5';
+                });
+                
+                setupMapInteraction();
+            }
+            
+            const answerInput = document.getElementById('answerInput');
+            if (answerInput) answerInput.focus();
+        })
+        .catch(e => console.error('Failed to load SVG:', e));
 }
 
-connectWebSocket();
+function updateRecentGuessesList() {
+    const list = document.getElementById('recentGuessesList');
+    const container = document.getElementById('recentGuesses');
+    if (!list || !container) return;
+    
+    if (recentGuesses.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'block';
+    list.innerHTML = recentGuesses.map((country, i) => 
+        `<div style="padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.2);">${i + 1}. ${country}</div>`
+    ).join('');
+}

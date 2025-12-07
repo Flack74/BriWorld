@@ -1,4 +1,22 @@
-# Multi-stage production build with all dependencies
+# Development stage with Air for hot reload
+FROM golang:1.25-alpine AS development
+
+RUN apk add --no-cache git ca-certificates tzdata gcc musl-dev curl bash make
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+RUN go install github.com/air-verse/air@latest
+
+COPY . .
+
+EXPOSE 8080
+
+CMD ["air", "-c", ".air.toml"]
+
+# Builder stage for production
 FROM golang:1.25-alpine AS builder
 
 # Install all build dependencies

@@ -198,13 +198,21 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 	json.Unmarshal(data, &answer)
 
 	r.mu.Lock()
-	if r.GameState.Answered[client.Username] || !r.GameState.RoundActive {
+	// Allow multiple attempts - only check if round is active
+	if !r.GameState.RoundActive {
+		r.mu.Unlock()
+		return
+	}
+	
+	// Check if already answered correctly
+	if r.GameState.Answered[client.Username] {
 		r.mu.Unlock()
 		return
 	}
 	
 	correctAnswer := r.GameState.Question.CountryName
-	isCorrect := fuzzyMatch(answer.Answer, correctAnswer, 2)
+	// Case-insensitive exact match only
+	isCorrect := strings.EqualFold(strings.TrimSpace(answer.Answer), strings.TrimSpace(correctAnswer))
 	
 	if isCorrect {
 		points := 100 - (answer.Time / 1000 * 5)
@@ -212,33 +220,36 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 			points = 25
 		}
 		r.GameState.Scores[client.Username] += points
+		r.GameState.Answered[client.Username] = true
 	}
 	
-	r.GameState.Answered[client.Username] = true
 	allAnswered := len(r.GameState.Answered) == len(r.Clients)
 	r.mu.Unlock()
 
-	r.BroadcastMessage("answer_submitted", map[string]interface{}{
-		"player":     client.Username,
-		"is_correct": isCorrect,
-		"points":     r.GameState.Scores[client.Username],
-	})
-	
-	r.BroadcastMessage("score_update", map[string]interface{}{
-		"scores": r.GameState.Scores,
-	})
-	
-	if allAnswered || (isCorrect && len(r.Clients) == 1) {
-		r.mu.Lock()
-		if r.GameState.RoundActive {
-			r.GameState.RoundActive = false
-			r.mu.Unlock()
-			go func() {
-				time.Sleep(3 * time.Second)
-				r.EndRound()
-			}()
-		} else {
-			r.mu.Unlock()
+	// Only broadcast if correct
+	if isCorrect {
+		r.BroadcastMessage("answer_submitted", map[string]interface{}{
+			"player":       client.Username,
+			"is_correct":   true,
+			"country_name": correctAnswer,
+		})
+		
+		r.BroadcastMessage("score_update", map[string]interface{}{
+			"scores": r.GameState.Scores,
+		})
+		
+		if allAnswered || len(r.Clients) == 1 {
+			r.mu.Lock()
+			if r.GameState.RoundActive {
+				r.GameState.RoundActive = false
+				r.mu.Unlock()
+				go func() {
+					time.Sleep(2 * time.Second)
+					r.EndRound()
+				}()
+			} else {
+				r.mu.Unlock()
+			}
 		}
 	}
 }
@@ -316,42 +327,4 @@ func (r *Room) BroadcastChatMessage(username string, payload interface{}) {
 	log.Printf("Chat in room %s - %s: %s", r.ID, username, chat.Message)
 }
 
-func fuzzyMatch(answer, expected string, maxDistance int) bool {
-	a := strings.ToLower(strings.TrimSpace(answer))
-	e := strings.ToLower(strings.TrimSpace(expected))
-	return a == e || levenshtein(a, e) <= maxDistance
-}
 
-func levenshtein(a, b string) int {
-	if len(a) == 0 {
-		return len(b)
-	}
-	if len(b) == 0 {
-		return len(a)
-	}
-	dp := make([][]int, len(a)+1)
-	for i := range dp {
-		dp[i] = make([]int, len(b)+1)
-		dp[i][0] = i
-	}
-	for j := range dp[0] {
-		dp[0][j] = j
-	}
-	for i := 1; i <= len(a); i++ {
-		for j := 1; j <= len(b); j++ {
-			cost := 0
-			if a[i-1] != b[j-1] {
-				cost = 1
-			}
-			dp[i][j] = minInt(dp[i-1][j]+1, minInt(dp[i][j-1]+1, dp[i-1][j-1]+cost))
-		}
-	}
-	return dp[len(a)][len(b)]
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
