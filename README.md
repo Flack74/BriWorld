@@ -229,18 +229,6 @@ The project includes `render.yaml` for one-click deployment:
 git push origin main
 ```
 
-## 📚 Documentation
-
-All documentation is located in [`internal/documentation/`](internal/documentation/):
-
-- [`SETUP.md`](internal/documentation/SETUP.md) - Detailed setup guide
-- [`QUICKSTART.md`](internal/documentation/QUICKSTART.md) - Quick start guide
-- [`CSS_GUIDE.md`](internal/documentation/CSS_GUIDE.md) - Design system
-- [`FINAL_STATUS.md`](internal/documentation/FINAL_STATUS.md) - Implementation status
-- [`DATABASE_FINAL.md`](internal/documentation/DATABASE_FINAL.md) - Database schema
-- [`GAME_MODES.md`](internal/documentation/GAME_MODES.md) - Game mechanics
-- [`UI_DESIGN.md`](internal/documentation/UI_DESIGN.md) - UI/UX design
-
 ## 🎯 API Endpoints
 
 ### Authentication
