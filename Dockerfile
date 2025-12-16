@@ -19,7 +19,7 @@ CMD ["air", "-c", ".air.toml"]
 # Builder stage for production
 FROM golang:1.25-alpine AS builder
 
-# Install all build dependencies
+# Install all build dependencies including Node.js
 RUN apk add --no-cache \
     git \
     ca-certificates \
@@ -29,7 +29,9 @@ RUN apk add --no-cache \
     curl \
     wget \
     bash \
-    make
+    make \
+    nodejs \
+    npm
 
 WORKDIR /app
 
@@ -40,10 +42,13 @@ RUN go mod download && go mod verify
 # Copy all source code and assets
 COPY . .
 
+# Build frontend first
+RUN chmod +x build-frontend.sh && ./build-frontend.sh
+
 # Verify all required files exist
 RUN ls -la && \
     ls -la static/ && \
-    ls -la web/ && \
+    ls -la web-dist/ && \
     ls -la cmd/server/
 
 # Build optimized production binary
@@ -85,7 +90,7 @@ WORKDIR /app
 # Copy binary and all application files
 COPY --from=builder /app/briworld ./
 COPY --from=builder --chown=appuser:appgroup /app/static ./static/
-COPY --from=builder --chown=appuser:appgroup /app/web ./web/
+COPY --from=builder --chown=appuser:appgroup /app/web-dist ./web-dist/
 
 # Copy health check script
 COPY --chown=appuser:appgroup healthcheck.sh ./
@@ -94,7 +99,7 @@ RUN chmod +x ./briworld ./healthcheck.sh
 # Verify all files are copied correctly
 RUN ls -la && \
     ls -la static/ && \
-    ls -la web/ && \
+    ls -la web-dist/ && \
     echo "Files verification complete"
 
 # Set proper ownership

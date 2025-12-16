@@ -16,6 +16,8 @@ type Client struct {
 	Send        chan []byte
 	Room        *Room
 	RoundsCount int
+	GameMode    string
+	RoomType    string
 }
 
 type Message struct {

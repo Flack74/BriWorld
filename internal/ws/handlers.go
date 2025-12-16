@@ -59,6 +59,8 @@ func HandleWebSocket(c *websocket.Conn) {
 		Conn:        c,
 		Send:        make(chan []byte, 256),
 		RoundsCount: roundsCount,
+		GameMode:    gameMode,
+		RoomType:    roomType,
 	}
 
 	room.Register <- client

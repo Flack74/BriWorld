@@ -37,3 +37,31 @@ func GetCountryName(code string) string {
 func GetAllCountries() CountryData {
 	return countries
 }
+
+func FindCountryByName(name string) (code, countryName string) {
+	// Convert to lowercase for comparison
+	lowerName := ""
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		if c >= 'A' && c <= 'Z' {
+			c += 32
+		}
+		lowerName += string(c)
+	}
+	
+	// Try exact match first
+	for k, v := range countries {
+		lowerCountry := ""
+		for i := 0; i < len(v); i++ {
+			c := v[i]
+			if c >= 'A' && c <= 'Z' {
+				c += 32
+			}
+			lowerCountry += string(c)
+		}
+		if lowerName == lowerCountry {
+			return k, v
+		}
+	}
+	return "", ""
+}

@@ -17,7 +17,9 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config) {
 	authService := services.NewAuthServiceGorm(gormDB)
 	authHandler := handlers.NewAuthHandlerGorm(authService, cfg.JWT.Secret, cfg.JWT.Expiry, cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.From)
 
+	// Static files
 	app.Static("/static", "./static")
+	app.Static("/assets", "./web-dist/assets")
 	
 	app.Get("/api/rooms", handlers.GetPublicRooms)
 	
@@ -42,22 +44,8 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config) {
 	app.Use("/ws", ws.UpgradeWebSocket)
 	app.Get("/ws", websocket.New(ws.HandleWebSocket))
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendFile("./web/index.html")
-	})
-	app.Get("/lobby", func(c *fiber.Ctx) error {
-		return c.SendFile("./web/lobby.html")
-	})
-	app.Get("/game", func(c *fiber.Ctx) error {
-		return c.SendFile("./web/game.html")
-	})
-	app.Get("/login", func(c *fiber.Ctx) error {
-		return c.SendFile("./web/login.html")
-	})
-	app.Get("/register", func(c *fiber.Ctx) error {
-		return c.SendFile("./web/register.html")
-	})
-	app.Get("/forgot-password", func(c *fiber.Ctx) error {
-		return c.SendFile("./web/forgot-password.html")
+	// Serve React app for all routes
+	app.Get("/*", func(c *fiber.Ctx) error {
+		return c.SendFile("./web-dist/index.html")
 	})
 }

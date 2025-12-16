@@ -67,13 +67,17 @@ func (h *Hub) GetPublicRooms(gameMode string) []map[string]interface{} {
 	var publicRooms []map[string]interface{}
 	for code, room := range h.rooms {
 		room.mu.RLock()
-		if room.GameState.RoomType == "PUBLIC" && room.GameState.GameMode == gameMode && room.GameState.Status == "waiting" {
+		// Only show public rooms with at least 1 player, in waiting status, matching game mode
+		if room.GameState.RoomType == "PUBLIC" && 
+		   room.GameState.Status == "waiting" && 
+		   len(room.Clients) > 0 &&
+		   room.GameState.GameMode == gameMode {
 			publicRooms = append(publicRooms, map[string]interface{}{
-				"code":        code,
+				"id":          code,
+				"host":        room.Owner,
 				"players":     len(room.Clients),
-				"max_players": 6,
+				"maxPlayers":  6,
 				"mode":        room.GameState.GameMode,
-				"status":      room.GameState.Status,
 			})
 		}
 		room.mu.RUnlock()

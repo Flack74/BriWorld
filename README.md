@@ -1,20 +1,26 @@
 # 🌍 BriWorld - Multiplayer Geography Quiz Game
 
-
-
-Real-time multiplayer geography quiz game built with Go, WebSocket, Neon PostgreSQL, and modern web technologies.
+Real-time multiplayer geography quiz game built with Go, WebSocket, Neon PostgreSQL, and modern React frontend.
 
 ## ✨ Features
 
-- 🎮 Real-time multiplayer (up to 6 players per room)
-- 🚩 Flag quiz mode with 170+ countries
-- 🔐 JWT authentication
-- 🎯 Fuzzy answer matching (accepts close answers)
-- 📊 Live leaderboards
-- 💬 In-game chat
-- ⏱️ Countdown timer
-- 🌓 Dark mode support
-- 📱 Responsive design
+- 🎮 **Real-time multiplayer** (up to 6 players per room)
+- 🚩 **Flag Quiz Mode** - Guess countries from flags (170+ countries)
+- 🗺️ **Interactive World Map Mode** - Click and paint countries
+  - **FREE Mode**: No timer, paint any country you can name
+  - **TIMED Mode**: 15-second countdown to guess highlighted countries with smart auto-zoom
+- 🎨 **Color Selection** - Choose from 6 unique colors to paint your countries
+- 🔐 **JWT Authentication** with secure user management
+- 🎯 **Fuzzy Answer Matching** (accepts close answers like "Indai" → "India")
+- 📊 **Live Leaderboards** with real-time score updates and player colors
+- 💬 **In-game Chat** for player communication (visible on all devices)
+- ⏱️ **Fixed Countdown Timer** (top-right corner, only in timed modes)
+- 🔄 **Play Again Feature** - Instant restart for single player, waiting room for multiplayer
+- 🎯 **Smart Auto-Zoom** - Dynamic zoom based on country size in TIMED map mode
+- 📊 **Simplified Game Stats** - Clean correct/incorrect tracking
+- 🏷️ **Clean Room Codes** - 6-character codes without prefixes
+- 🌓 **Dark Mode Support** with modern UI
+- 📱 **Fully Responsive Design** (optimized for iPhone, tablet, desktop)
 
 ## 🚀 Quick Start
 
@@ -63,17 +69,20 @@ make dev
 ## 🏗️ Architecture
 
 **Backend:**
-- Go 1.25 with Fiber v2
-- Neon PostgreSQL (pgx/v5)
-- WebSocket for real-time communication
-- JWT authentication
-- bcrypt password hashing
+- Go 1.25 with Fiber v2 framework
+- Neon PostgreSQL with GORM ORM
+- WebSocket for real-time multiplayer communication
+- JWT authentication with secure middleware
+- bcrypt password hashing (cost 12)
+- Fuzzy string matching for answer validation
 
 **Frontend:**
-- Vanilla JavaScript (ES6+)
-- Modern CSS3 with custom design system
-- WebSocket client for real-time updates
-- Responsive design
+- React 18 with TypeScript
+- Vite for fast development and building
+- Tailwind CSS + shadcn/ui components
+- Custom WebSocket hooks for real-time updates
+- D3.js for interactive world map rendering
+- Responsive design with mobile-first approach
 
 **Database:**
 - Neon PostgreSQL (serverless)
@@ -85,41 +94,56 @@ make dev
 
 ```
 BriWorld/
-├── cmd/server/              # Application entry point
+├── cmd/server/              # Go application entry point
 ├── internal/
 │   ├── config/             # Configuration management
-│   ├── database/           # DB connection & migrations
-│   ├── documentation/      # Project documentation
+│   ├── database/           # GORM DB connection & migrations
 │   ├── handlers/           # HTTP request handlers
 │   ├── services/           # Business logic layer
-│   ├── middleware/         # Authentication middleware
-│   ├── models/             # Data models & structs
-│   ├── utils/              # Helper utilities
-│   ├── game/               # Game logic & mechanics
-│   ├── http/               # Route definitions
-│   └── ws/                 # WebSocket handlers
+│   ├── middleware/         # JWT authentication middleware
+│   ├── models/             # GORM data models
+│   ├── utils/              # Helper utilities (JWT, fuzzy matching)
+│   ├── game/               # Game logic & country data
+│   ├── http/               # API route definitions
+│   └── ws/                 # WebSocket real-time handlers
+├── frontend/               # React TypeScript frontend
+│   ├── src/
+│   │   ├── components/     # Reusable UI components
+│   │   ├── pages/          # Page components
+│   │   ├── hooks/          # Custom React hooks (WebSocket)
+│   │   ├── types/          # TypeScript type definitions
+│   │   └── lib/            # Utility functions
+│   ├── public/             # Static assets
+│   └── package.json        # Frontend dependencies
+├── web-dist/               # Built frontend (served by Go)
 ├── static/
-│   ├── world.json          # Country data (170+ countries)
-│   ├── world.svg           # World map SVG
-│   ├── css/                # Stylesheets & design system
-│   ├── js/                 # Frontend JavaScript
-│   └── flags/              # Country flag assets
-├── web/                    # HTML templates
+│   └── world.json          # Country data (170+ countries)
 ├── docker-compose.yml      # Local development setup
 ├── Dockerfile              # Production container
-├── render.yaml             # Render deployment config
+├── build-frontend.sh       # Frontend build script
 └── Makefile                # Build automation
 ```
 
 ## 🎮 How to Play
 
+### Flag Quiz Mode:
 1. Open http://localhost:8080
-2. Click "Play Now"
-3. Enter username
-4. Create or join room
-5. Game starts automatically
-6. Guess country names from flags
-7. Compete on live leaderboard
+2. Enter username and select "Flag Quiz"
+3. Choose number of rounds (5, 10, 15, or 20)
+4. Select room type (Single, Private, or Public)
+5. Guess country names from flag images
+6. Compete on live leaderboard with time-based scoring
+
+### World Map Mode:
+1. Select "World Map" in game lobby
+2. Choose your unique paint color (6 options available)
+3. Select mode:
+   - **FREE Mode**: No timer, guess any country you can name
+   - **TIMED Mode**: Choose rounds, then guess highlighted countries in 15 seconds with auto-zoom
+4. Type country names to paint them on the map
+5. Watch the map auto-zoom to highlighted countries (TIMED mode)
+6. Compete to paint the most countries!
+7. Click "Play Again" to restart or return to lobby
 
 ## 🔧 Configuration
 
@@ -166,18 +190,18 @@ ALLOWED_ORIGINS=https://yourdomain.com
 
 ## 📊 Database
 
-**Approach:** Raw pgx queries (not GORM)
+**Approach:** GORM ORM with PostgreSQL
 
-**Why?**
-- Direct control
-- Fast development
-- No magic
-- Type-safe enough
+**Models:**
+- Users (authentication, stats, preferences)
+- Rooms (multiplayer game sessions)
+- Game Sessions (match history and scores)
 
-**sqlc ready** (optional):
-```bash
-sqlc generate
-```
+**Features:**
+- Auto-migrations on startup
+- Relationship management
+- Connection pooling
+- SSL/TLS encryption for production
 
 ## 🧪 Testing
 
@@ -306,14 +330,23 @@ make docker-down
 
 - ✅ **Infrastructure**: 100% Complete
 - ✅ **Authentication**: 100% Complete (JWT + bcrypt)
-- ✅ **Database**: 100% Complete (Neon PostgreSQL)
+- ✅ **Database**: 100% Complete (GORM + PostgreSQL)
 - ✅ **WebSocket**: 100% Complete (Real-time multiplayer)
-- ✅ **Game Logic**: 95% Complete (Flag quiz working)
-- ✅ **Frontend**: 90% Complete (Responsive design)
+- ✅ **Game Logic**: 100% Complete (Flag + Map modes)
+- ✅ **Frontend**: 100% Complete (React + TypeScript)
+- ✅ **UI/UX**: 100% Complete (Modern design system)
+- ✅ **Map Integration**: 100% Complete (Interactive D3.js map with auto-zoom)
+- ✅ **Color System**: 100% Complete (6 unique player colors)
+- ✅ **Game Modes**: 100% Complete (FREE + TIMED map modes)
+- ✅ **Mobile Optimization**: 100% Complete (iPhone, tablet responsive design)
+- ✅ **Play Again Feature**: 100% Complete (Smart restart handling)
+- ✅ **Room Code System**: 100% Complete (Clean 6-character codes)
+- ✅ **Game Statistics**: 100% Complete (Simplified correct/incorrect tracking)
+- ✅ **Timer UI**: 100% Complete (Fixed top-right positioning)
 - ✅ **Deployment**: 100% Complete (Docker + Render)
 - ❌ **Testing**: 0% Complete (No tests written yet)
 
-**Overall: 85% Complete** 🎉
+**Overall: 98% Complete** 🎉
 
 ## 🤝 Contributing
 
@@ -327,21 +360,31 @@ make docker-down
 
 ## 🌟 Live Features
 
-- 🎮 **Multiplayer Rooms**: Up to 6 players per game
-- 🚩 **Flag Recognition**: 170+ countries with fuzzy matching
-- ⚡ **Real-time**: Instant updates via WebSocket
-- 🔐 **Secure**: JWT authentication + bcrypt hashing
-- 📱 **Responsive**: Works on desktop, tablet, mobile
-- 🌙 **Dark Mode**: Eye-friendly gaming experience
-- 💬 **Chat**: In-game communication
-- 📊 **Leaderboard**: Live scoring and rankings
+- 🎮 **Multiplayer Rooms**: Up to 6 players per game with real-time sync
+- 🚩 **Flag Recognition**: 170+ countries with intelligent fuzzy matching
+- 🗺️ **Interactive World Map**: Click-to-paint countries with D3.js rendering
+- 🎨 **Color Customization**: 6 unique colors (Ocean Blue, Coral Rose, Desert Sand, etc.)
+- ⚡ **Dual Game Modes**: FREE (unlimited time) + TIMED (15-second rounds with auto-zoom)
+- 🔐 **Secure Authentication**: JWT tokens + bcrypt password hashing
+- 📱 **Cross-Platform**: Fully responsive design optimized for mobile, tablet, and desktop
+- 🌙 **Modern UI**: Dark mode with glassmorphism design
+- 💬 **Real-time Chat**: In-game communication system (visible on all devices)
+- 📊 **Live Leaderboard**: Dynamic scoring with player colors (full-width on mobile)
+- ⏱️ **Fixed Timer Display**: Countdown positioned in top-right corner (timed modes only)
+- 🎯 **Intelligent Matching**: Accepts "Indai" for "India", "Brazl" for "Brazil"
+- 🔄 **Instant Replay**: Play again feature with smart room handling
+- 🔍 **Smart Auto-Zoom**: Dynamic zoom levels (2x-15x) based on country size in TIMED mode
+- 🏷️ **Clean Room Codes**: Simple 6-character codes (e.g., FKYYN8)
+- 📊 **Simplified Stats**: Clean correct/incorrect tracking in game over screen
 
 ## 🙏 Acknowledgments
 
-- **Country Data**: Natural Earth world.json dataset
-- **Flag Images**: [flagcdn.com](https://flagcdn.com) API
+- **Country Data**: Natural Earth world.json dataset (170+ countries)
+- **Flag Images**: [flagcdn.com](https://flagcdn.com) API for high-quality flag assets
+- **Map Data**: TopoJSON world atlas for interactive map rendering
 - **Infrastructure**: [Neon](https://neon.tech) PostgreSQL + [Render](https://render.com) hosting
-- **Built with**: Go, Fiber, PostgreSQL, WebSocket, Vanilla JS
+- **UI Components**: [shadcn/ui](https://ui.shadcn.com) for modern React components
+- **Built with**: Go, Fiber, GORM, PostgreSQL, WebSocket, React, TypeScript, D3.js, Tailwind CSS
 
 ## 📄 License
 

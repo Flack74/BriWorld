@@ -8,7 +8,6 @@ import (
 
 type Config struct {
 	DB    DBConfig
-	Redis RedisConfig
 	JWT   JWTConfig
 	Game  GameConfig
 	SMTP  SMTPConfig
@@ -23,12 +22,6 @@ type DBConfig struct {
 	Password string
 	Name     string
 	SSLMode  string
-}
-
-type RedisConfig struct {
-	Host     string
-	Port     string
-	Password string
 }
 
 type JWTConfig struct {
@@ -66,11 +59,6 @@ func Load() *Config {
 			Password: getEnv("DB_PASSWORD", ""),
 			Name:     getEnv("DB_NAME", "briworld_db"),
 			SSLMode:  getEnv("DB_SSL_MODE", sslMode),
-		},
-		Redis: RedisConfig{
-			Host:     getEnv("REDIS_HOST", "localhost"),
-			Port:     getEnv("REDIS_PORT", "6379"),
-			Password: getEnv("REDIS_PASSWORD", ""),
 		},
 		JWT: JWTConfig{
 			Secret:             getEnv("JWT_SECRET", "change-me-in-production"),
