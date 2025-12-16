@@ -1,0 +1,223 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Ocean-inspired palette for geography game */
+    --background: 210 40% 98%;
+    --foreground: 215 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    /* Deep teal primary */
+    --primary: 185 70% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Warm sand secondary */
+    --secondary: 45 40% 92%;
+    --secondary-foreground: 215 25% 15%;
+
+    --muted: 210 30% 95%;
+    --muted-foreground: 215 15% 45%;
+
+    /* Gold accent */
+    --accent: 40 95% 55%;
+    --accent-foreground: 215 25% 15%;
+
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 25% 88%;
+    --input: 210 25% 88%;
+    --ring: 185 70% 35%;
+
+    --radius: 1rem;
+
+    /* Custom game colors */
+    --game-ocean: 200 85% 45%;
+    --game-land: 145 45% 42%;
+    --game-highlight: 40 95% 55%;
+    --game-success: 150 65% 45%;
+    --game-timer: 15 90% 55%;
+
+    /* Gradients */
+    --gradient-ocean: linear-gradient(135deg, hsl(200 85% 45%) 0%, hsl(185 70% 35%) 50%, hsl(170 60% 40%) 100%);
+    --gradient-sunset: linear-gradient(135deg, hsl(40 95% 55%) 0%, hsl(25 90% 55%) 100%);
+    --gradient-earth: linear-gradient(180deg, hsl(210 40% 98%) 0%, hsl(45 35% 90%) 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
+
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(215 25% 15% / 0.1);
+    --shadow-medium: 0 8px 30px -8px hsl(215 25% 15% / 0.15);
+    --shadow-glow: 0 0 40px hsl(185 70% 35% / 0.3);
+    --shadow-gold: 0 4px 20px hsl(40 95% 55% / 0.4);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 215 35% 10%;
+    --foreground: 210 40% 96%;
+
+    --card: 215 30% 14%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 215 30% 14%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 185 65% 50%;
+    --primary-foreground: 215 35% 10%;
+
+    --secondary: 215 25% 20%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 215 25% 18%;
+    --muted-foreground: 210 20% 60%;
+
+    --accent: 40 90% 50%;
+    --accent-foreground: 215 35% 10%;
+
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 25% 22%;
+    --input: 215 25% 22%;
+    --ring: 185 65% 50%;
+
+    --gradient-ocean: linear-gradient(135deg, hsl(200 70% 35%) 0%, hsl(185 60% 30%) 50%, hsl(170 50% 35%) 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+
+    --shadow-soft: 0 4px 20px -4px hsl(0 0% 0% / 0.3);
+    --shadow-medium: 0 8px 30px -8px hsl(0 0% 0% / 0.4);
+    --shadow-glow: 0 0 40px hsl(185 65% 50% / 0.25);
+
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50 shadow-[var(--shadow-soft)];
+  }
+
+  .glass-card-strong {
+    @apply bg-card/95 backdrop-blur-2xl border border-border/30 shadow-[var(--shadow-medium)];
+  }
+
+  .gradient-ocean {
+    background: var(--gradient-ocean);
+  }
+
+  .gradient-sunset {
+    background: var(--gradient-sunset);
+  }
+
+  .gradient-earth {
+    background: var(--gradient-earth);
+  }
+
+  .text-gradient-ocean {
+    @apply bg-clip-text text-transparent;
+    background: var(--gradient-ocean);
+  }
+
+  .glow-primary {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .glow-gold {
+    box-shadow: var(--shadow-gold);
+  }
+
+  /* Game-specific utilities */
+  .game-header {
+    @apply glass-card-strong rounded-2xl px-6 py-3;
+  }
+
+  .game-panel {
+    @apply glass-card rounded-3xl p-6;
+  }
+
+  .selection-card {
+    @apply glass-card rounded-2xl p-4 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-[var(--shadow-medium)];
+  }
+
+  .selection-card-active {
+    @apply border-primary bg-primary/10 shadow-[var(--shadow-glow)];
+  }
+}
+
+@layer utilities {
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s ease-in-out infinite;
+  }
+
+  .animate-spin-slow {
+    animation: spin 20s linear infinite;
+  }
+
+  .animate-gradient {
+    animation: gradient-shift 8s ease infinite;
+    background-size: 200% 200%;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
