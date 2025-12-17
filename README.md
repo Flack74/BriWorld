@@ -503,4 +503,4 @@ MIT License - see [LICENSE](LICENSE) file for details
 - **Database queries**: <10ms average response time (Neon PostgreSQL)
 - **Frontend bundle**: 486KB (gzipped: 153KB)
 
-**🌍 Made with ❤️ by Flack for Briella and geography enthusiasts worldwide**
+**🌍 Made with ❤️ by Flack for geography enthusiasts worldwide**
