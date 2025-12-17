@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Gamepad2, User, Lock, Globe, Flag, Map, Users, ChevronLeft, LogOut } from "lucide-react";
+import { Gamepad2, User, Lock, Globe, Flag, Map, Users, ChevronLeft, LogOut, UserCircle } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GameConfig } from "@/types/game";
 
@@ -115,17 +115,28 @@ const Lobby = () => {
         Back
       </Button>
 
-      {/* Logout button */}
+      {/* User menu */}
       {isLoggedIn && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="absolute top-6 right-6 gap-2"
-          onClick={handleLogout}
-        >
-          <LogOut className="w-4 h-4" />
-          Logout
-        </Button>
+        <div className="absolute top-6 right-6 flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => navigate("/profile")}
+          >
+            <UserCircle className="w-4 h-4" />
+            Profile
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={handleLogout}
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </Button>
+        </div>
       )}
 
       {/* Main Card */}
@@ -140,17 +151,19 @@ const Lobby = () => {
         </p>
 
         <div className="space-y-6">
-          {/* Username */}
-          <div className="space-y-2">
-            <Label htmlFor="username" className="font-semibold">Username</Label>
-            <Input
-              id="username"
-              placeholder="Enter your username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="h-12 rounded-xl bg-card/50 border-border focus:border-primary"
-            />
-          </div>
+          {/* Username - Only show if not logged in */}
+          {!isLoggedIn && (
+            <div className="space-y-2">
+              <Label htmlFor="username" className="font-semibold">Username</Label>
+              <Input
+                id="username"
+                placeholder="Enter your username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="h-12 rounded-xl bg-card/50 border-border focus:border-primary"
+              />
+            </div>
+          )}
 
           {/* Game Mode */}
           <div className="space-y-2">

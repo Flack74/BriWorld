@@ -13,6 +13,8 @@ type User struct {
 	Email               string     `gorm:"uniqueIndex;size:255;not null" json:"email"`
 	PasswordHash        string     `gorm:"size:255;not null" json:"-"`
 	AvatarURL           string     `gorm:"size:255" json:"avatar_url,omitempty"`
+	SessionID           string     `gorm:"size:255;index" json:"session_id,omitempty"`
+	LastActive          *time.Time `json:"last_active,omitempty"`
 	IsActive            bool       `gorm:"default:true" json:"is_active"`
 	EmailVerified       bool       `gorm:"default:false" json:"email_verified"`
 	VerificationToken   string     `gorm:"size:64" json:"-"`

@@ -50,8 +50,22 @@ func (h *Hub) GetOrCreateRoom(roomCode string) *Room {
 		room = NewRoom(roomCode)
 		h.rooms[roomCode] = room
 		go room.Run()
+	} else {
+		room.mu.RLock()
+		isClosed := room.GameState.Status == "closed" || room.isCleanedUp
+		room.mu.RUnlock()
+		if isClosed {
+			// Room was closed/cleaned up, reject reconnection
+			return nil
+		}
 	}
 	return room
+}
+
+func (h *Hub) RemoveRoom(roomCode string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.rooms, roomCode)
 }
 
 func (h *Hub) GetRoom(roomCode string) *Room {

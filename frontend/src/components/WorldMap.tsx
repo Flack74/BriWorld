@@ -37,11 +37,8 @@ export const WorldMap = ({
   onReset,
 }: WorldMapProps) => {
   const [showGuesses, setShowGuesses] = useState(false);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
 
 
@@ -55,12 +52,12 @@ export const WorldMap = ({
       .then(topology => {
         const countries = feature(topology, topology.objects.countries);
         
-        const width = 6000;
-        const height = 3500;
+        const width = 960;
+        const height = 500;
         
         const projection = d3.geoMercator()
-          .scale(900)
-          .center([0, 10])
+          .scale(150)
+          .center([0, 20])
           .translate([width / 2, height / 2]);
         
         const path = d3.geoPath().projection(projection);
@@ -69,6 +66,8 @@ export const WorldMap = ({
         svgElement.selectAll('*').remove();
         
         svgElement
+          .attr('width', width)
+          .attr('height', height)
           .attr('viewBox', `0 0 ${width} ${height}`)
           .attr('preserveAspectRatio', 'xMidYMid meet')
           .style('width', '100%')
@@ -128,95 +127,12 @@ export const WorldMap = ({
     'WS': [-172, -13], 'AD': [1, 42], 'AG': [-61, 17], 'BB': [-59, 13], 'VA': [12, 41]
   };
 
-  useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg || !currentCountry) {
-      if (!currentCountry) {
-        setZoom(1);
-        setPan({ x: 0, y: 0 });
-      }
-      return;
-    }
-
-    // Delay to ensure SVG is fully rendered
-    const timer = setTimeout(() => {
-      const countryMap: any = {
-        'AF': '004', 'AL': '008', 'DZ': '012', 'AD': '020', 'AO': '024', 'AG': '028', 'AR': '032', 'AM': '051',
-        'AU': '036', 'AT': '040', 'AZ': '031', 'BS': '044', 'BH': '048', 'BD': '050', 'BB': '052', 'BY': '112',
-        'BE': '056', 'BZ': '084', 'BJ': '204', 'BT': '064', 'BO': '068', 'BA': '070', 'BW': '072', 'BR': '076',
-        'BN': '096', 'BG': '100', 'BF': '854', 'BI': '108', 'KH': '116', 'CM': '120', 'CA': '124', 'CV': '132',
-        'CF': '140', 'TD': '148', 'CL': '152', 'CN': '156', 'CO': '170', 'KM': '174', 'CG': '178', 'CD': '180',
-        'CR': '188', 'CI': '384', 'HR': '191', 'CU': '192', 'CY': '196', 'CZ': '203', 'DK': '208', 'DJ': '262',
-        'DM': '212', 'DO': '214', 'EC': '218', 'EG': '818', 'SV': '222', 'GQ': '226', 'ER': '232', 'EE': '233',
-        'ET': '231', 'FJ': '242', 'FI': '246', 'FR': '250', 'GA': '266', 'GM': '270', 'GE': '268', 'DE': '276',
-        'GH': '288', 'GR': '300', 'GD': '308', 'GL': '304', 'GT': '320', 'GN': '324', 'GW': '624', 'GY': '328', 'HT': '332',
-        'HN': '340', 'HU': '348', 'IS': '352', 'IN': '356', 'ID': '360', 'IR': '364', 'IQ': '368', 'IE': '372',
-        'IL': '376', 'IT': '380', 'JM': '388', 'JP': '392', 'JO': '400', 'KZ': '398', 'KE': '404', 'KI': '296',
-        'KP': '408', 'KR': '410', 'KW': '414', 'KG': '417', 'LA': '418', 'LV': '428', 'LB': '422', 'LS': '426',
-        'LR': '430', 'LY': '434', 'LI': '438', 'LT': '440', 'LU': '442', 'MG': '450', 'MW': '454', 'MY': '458',
-        'MV': '462', 'ML': '466', 'MT': '470', 'MH': '584', 'MR': '478', 'MU': '480', 'MX': '484', 'FM': '583',
-        'MD': '498', 'MC': '492', 'MN': '496', 'ME': '499', 'MA': '504', 'MZ': '508', 'MM': '104', 'NA': '516',
-        'NR': '520', 'NP': '524', 'NL': '528', 'NZ': '554', 'NI': '558', 'NE': '562', 'NG': '566', 'MK': '807',
-        'NO': '578', 'OM': '512', 'PK': '586', 'PW': '585', 'PS': '275', 'PA': '591', 'PG': '598', 'PY': '600',
-        'PE': '604', 'PH': '608', 'PL': '616', 'PT': '620', 'QA': '634', 'RO': '642', 'RU': '643', 'RW': '646',
-        'KN': '659', 'LC': '662', 'VC': '670', 'WS': '882', 'SM': '674', 'ST': '678', 'SA': '682', 'SN': '686',
-        'RS': '688', 'SC': '690', 'SL': '694', 'SG': '702', 'SK': '703', 'SI': '705', 'SB': '090', 'SO': '706',
-        'ZA': '710', 'SS': '728', 'ES': '724', 'LK': '144', 'SD': '729', 'SR': '740', 'SZ': '748', 'SE': '752',
-        'CH': '756', 'SY': '760', 'TJ': '762', 'TZ': '834', 'TH': '764', 'TL': '626', 'TG': '768', 'TO': '776',
-        'TT': '780', 'TN': '788', 'TR': '792', 'TM': '795', 'TV': '798', 'UG': '800', 'UA': '804', 'AE': '784',
-        'GB': '826', 'US': '840', 'UY': '858', 'UZ': '860', 'VU': '548', 'VA': '336', 'VE': '862', 'VN': '704',
-        'YE': '887', 'ZM': '894', 'ZW': '716'
-      };
-
-      const numericId = countryMap[currentCountry];
-      if (numericId) {
-        const path = d3.select(svg).selectAll('path').filter((d: any) => d.id === numericId);
-        if (!path.empty()) {
-          const bbox = (path.node() as SVGPathElement).getBBox();
-          const area = bbox.width * bbox.height;
-          const centerX = bbox.x + bbox.width / 2;
-          const centerY = bbox.y + bbox.height / 2;
-          
-          // Calculate zoom based on country size
-          let targetZoom = 2;
-          if (area < 1000) targetZoom = 15;
-          else if (area < 5000) targetZoom = 12;
-          else if (area < 15000) targetZoom = 8;
-          else if (area < 50000) targetZoom = 5;
-          else if (area < 150000) targetZoom = 3;
-          
-          const container = svg.parentElement;
-          if (container) {
-            const viewWidth = container.clientWidth;
-            const viewHeight = container.clientHeight;
-            
-            // Center calculation
-            const panX = (viewWidth / 2) - (centerX * targetZoom);
-            const panY = (viewHeight / 2) - (centerY * targetZoom);
-            
-            // Clamp pan values to keep map visible
-            const maxPan = 3000 * targetZoom;
-            const clampedX = Math.max(-maxPan, Math.min(maxPan, panX));
-            const clampedY = Math.max(-maxPan, Math.min(maxPan, panY));
-            
-            // Simple approach: just zoom, user can see highlighted country
-            console.log('Country:', currentCountry, 'Area:', area, 'Zoom:', targetZoom);
-            setZoom(targetZoom);
-            // Reset pan to center
-            setPan({ x: 0, y: 0 });
-          }
-        }
-      }
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [currentCountry]);
+  // No zoom/pan logic - just static map with highlighting
 
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
 
-    // ISO 3166-1 alpha-2 to numeric mapping
     const countryMap: any = {
       'AF': '004', 'AL': '008', 'DZ': '012', 'AD': '020', 'AO': '024', 'AG': '028', 'AR': '032', 'AM': '051',
       'AU': '036', 'AT': '040', 'AZ': '031', 'BS': '044', 'BH': '048', 'BD': '050', 'BB': '052', 'BY': '112',
@@ -245,23 +161,10 @@ export const WorldMap = ({
       'YE': '887', 'ZM': '894', 'ZW': '716'
     };
 
-    // Reset all countries first
-    d3.select(svg).selectAll('path')
-      .attr('fill', '#ececec')
-      .attr('opacity', 1);
+    // Reset all countries
+    d3.select(svg).selectAll('path').attr('fill', '#ececec').attr('opacity', 1);
     
-    // Highlight current country (for TIMED mode)
-    if (currentCountry) {
-      const numericId = countryMap[currentCountry];
-      if (numericId) {
-        d3.select(svg).selectAll('path')
-          .filter((d: any) => d.id === numericId)
-          .attr('fill', '#fbbf24')
-          .attr('opacity', 0.8);
-      }
-    }
-    
-    // Paint all painted countries with their respective player colors
+    // Paint all painted countries
     Object.entries(paintedCountries).forEach(([code, playerName]) => {
       const numericId = countryMap[code];
       const playerColor = playerColors[playerName] || '#10b981';
@@ -273,7 +176,7 @@ export const WorldMap = ({
       }
     });
     
-    // Paint user's found countries that aren't in painted countries yet
+    // Paint user's found countries
     foundCountryCodes.forEach(code => {
       if (!paintedCountries[code]) {
         const numericId = countryMap[code];
@@ -285,53 +188,22 @@ export const WorldMap = ({
         }
       }
     });
+    
+    // Highlight current country with bright yellow
+    if (currentCountry) {
+      const numericId = countryMap[currentCountry];
+      if (numericId) {
+        d3.select(svg).selectAll('path')
+          .filter((d: any) => d.id === numericId)
+          .attr('fill', '#fbbf24')
+          .attr('opacity', 1)
+          .attr('stroke', '#f59e0b')
+          .attr('stroke-width', 2);
+      }
+    }
   }, [foundCountryCodes, currentCountry, userColor, paintedCountries, playerColors]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    setIsDragging(true);
-    setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    const touch = e.touches[0];
-    setPan({ x: touch.clientX - dragStart.x, y: touch.clientY - dragStart.y });
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
-
-  const handleZoomIn = () => {
-    setZoom(prev => Math.min(prev + 0.3, 16));
-    onZoomIn?.();
-  };
-
-  const handleZoomOut = () => {
-    setZoom(prev => Math.max(prev - 0.3, 0.8));
-    onZoomOut?.();
-  };
-
-  const handleReset = () => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-    onReset?.();
-  };
+  // No pan/zoom handlers - static map only
 
   return (
     <div className="flex-1 game-panel flex flex-col">
@@ -344,43 +216,13 @@ export const WorldMap = ({
           </h2>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Zoom controls */}
-          <div className="flex items-center gap-1 bg-muted/50 rounded-xl p-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-lg"
-              onClick={handleZoomIn}
-            >
-              <ZoomIn className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-lg"
-              onClick={handleZoomOut}
-            >
-              <ZoomOut className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-lg"
-              onClick={handleReset}
-            >
-              <RotateCcw className="w-4 h-4" />
-            </Button>
+        {/* Countries Found Counter - only show in FREE mode */}
+        {countriesFound !== undefined && (
+          <div className="gradient-ocean text-white px-4 py-2 rounded-xl glow-primary">
+            <div className="text-xs font-medium opacity-80">Countries Found</div>
+            <div className="font-display text-2xl font-bold text-center">{countriesFound}</div>
           </div>
-
-          {/* Countries Found Counter - only show in FREE mode */}
-          {countriesFound !== undefined && (
-            <div className="gradient-ocean text-white px-4 py-2 rounded-xl glow-primary">
-              <div className="text-xs font-medium opacity-80">Countries Found</div>
-              <div className="font-display text-2xl font-bold text-center">{countriesFound}</div>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Map Container */}
@@ -416,32 +258,19 @@ export const WorldMap = ({
           </div>
         )}
 
-        {/* World Map SVG */}
+        {/* World Map SVG - Static, no zoom/pan */}
         <div 
-          className="absolute inset-0 overflow-hidden cursor-move flex items-center justify-center"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          ref={containerRef}
+          className="absolute inset-0 overflow-hidden flex items-center justify-center"
         >
-          <div
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transition: isDragging ? 'none' : 'transform 0.3s ease-out',
+          <svg
+            ref={svgRef}
+            style={{ 
+              filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.1))",
+              pointerEvents: 'none',
+              userSelect: 'none',
             }}
-          >
-            <svg
-              ref={svgRef}
-              style={{ 
-                filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.1))",
-                pointerEvents: 'none',
-                userSelect: 'none'
-              }}
-            />
-          </div>
+          />
         </div>
       </div>
 

@@ -98,10 +98,13 @@ const WaitingRoom = () => {
     startGame();
   };
 
-  const handleMapModeSelect = (mode: 'TIMED' | 'FREE') => {
-    setMapMode(mode);
-    sessionStorage.setItem('mapMode', mode);
-  };
+  // Auto-select FREE mode for World Map
+  useEffect(() => {
+    if (config.gameMode === 'WORLD_MAP' && !roomUpdate?.map_mode && isOwner) {
+      setMapMode('FREE');
+      sessionStorage.setItem('mapMode', 'FREE');
+    }
+  }, [config.gameMode, roomUpdate?.map_mode, isOwner]);
 
   const handleRoundsChange = (newRounds: number) => {
     setRounds(newRounds);
@@ -154,46 +157,10 @@ const WaitingRoom = () => {
           </div>
         )}
 
-        {/* Map Mode Selection (only for World Map and owner) */}
-        {config.gameMode === 'WORLD_MAP' && !roomUpdate?.map_mode && isOwner && (
-          <div className="mb-6 space-y-3">
-            <div className="text-sm font-semibold">Select Map Mode</div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => handleMapModeSelect('TIMED')}
-                className="selection-card flex flex-col items-center gap-3 p-5"
-              >
-                <div className="text-4xl">⏱️</div>
-                <div className="text-center">
-                  <div className="font-semibold">Timed Mode</div>
-                  <div className="text-xs text-muted-foreground">15s per round</div>
-                </div>
-              </button>
-              <button
-                onClick={() => handleMapModeSelect('FREE')}
-                className="selection-card flex flex-col items-center gap-3 p-5"
-              >
-                <div className="text-4xl">🆓</div>
-                <div className="text-center">
-                  <div className="font-semibold">Free Mode</div>
-                  <div className="text-xs text-muted-foreground">No time limit</div>
-                </div>
-              </button>
-            </div>
-          </div>
-        )}
 
-        {/* Waiting for owner to select mode */}
-        {config.gameMode === 'WORLD_MAP' && !roomUpdate?.map_mode && !isOwner && (
-          <div className="mb-6 p-4 bg-muted/30 rounded-xl text-center">
-            <p className="text-sm text-muted-foreground">
-              Waiting for {roomUpdate?.owner} to select map mode...
-            </p>
-          </div>
-        )}
 
-        {/* Rounds Selection (only for Timed modes) */}
-        {((config.gameMode === 'FLAG') || (config.gameMode === 'WORLD_MAP' && roomUpdate?.map_mode === 'TIMED')) && isOwner && (
+        {/* Rounds Selection (only for Flag Quiz) */}
+        {config.gameMode === 'FLAG' && isOwner && (
           <div className="mb-6 space-y-3">
             <div className="text-sm font-semibold">Number of Rounds</div>
             <div className="grid grid-cols-4 gap-2">

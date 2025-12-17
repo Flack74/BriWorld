@@ -6,6 +6,7 @@ import (
 	"briworld/internal/game"
 	"briworld/internal/http"
 	"briworld/internal/keepalive"
+	"briworld/internal/ws"
 	"context"
 	"log"
 	"os"
@@ -17,9 +18,11 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	godotenv.Load()
 	cfg := config.Load()
 
 	gormDB, err := database.NewGorm(cfg.GetDSN())
@@ -50,6 +53,10 @@ func main() {
 	}))
 
 	http.SetupRoutes(app, gormDB, cfg)
+
+	// Start room state cleanup
+	ws.GetStateManager().StartCleanup()
+	log.Println("✓ Room state manager started")
 
 	keepalive.Start()
 

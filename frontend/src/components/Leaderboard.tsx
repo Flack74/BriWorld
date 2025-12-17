@@ -5,14 +5,16 @@ interface Player {
   name: string;
   score: number;
   color?: string;
+  avatarUrl?: string;
 }
 
 interface LeaderboardProps {
   players: Player[];
   currentPlayerId?: string;
+  showColors?: boolean;
 }
 
-export const Leaderboard = ({ players, currentPlayerId }: LeaderboardProps) => {
+export const Leaderboard = ({ players, currentPlayerId, showColors = true }: LeaderboardProps) => {
   const sortedPlayers = [...players].sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     return a.name.localeCompare(b.name);
@@ -63,8 +65,23 @@ export const Leaderboard = ({ players, currentPlayerId }: LeaderboardProps) => {
                 {getRankIcon(index)}
               </div>
 
+              {/* Player avatar */}
+              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-muted border-2 border-border">
+                {player.avatarUrl ? (
+                  <img 
+                    src={player.avatarUrl} 
+                    alt={player.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs font-bold text-muted-foreground">
+                    {player.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+
               {/* Player color indicator */}
-              {player.color && (
+              {showColors && player.color && (
                 <div
                   className="w-3 h-3 rounded-full flex-shrink-0 ring-2 ring-white shadow-sm"
                   style={{ backgroundColor: player.color }}

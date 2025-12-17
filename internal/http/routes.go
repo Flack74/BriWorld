@@ -4,6 +4,7 @@ import (
 	"briworld/internal/config"
 	"briworld/internal/database"
 	"briworld/internal/handlers"
+	"briworld/internal/middleware"
 	"briworld/internal/services"
 	"briworld/internal/ws"
 
@@ -20,6 +21,7 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config) {
 	// Static files
 	app.Static("/static", "./static")
 	app.Static("/assets", "./web-dist/assets")
+	app.Static("/uploads", "./uploads")
 	app.Static("/", "./web-dist", fiber.Static{
 		Browse: false,
 		Index:  "index.html",
@@ -44,6 +46,17 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config) {
 	auth.Post("/register", authHandler.Register)
 	auth.Post("/login", authHandler.Login)
 	auth.Post("/forgot-password", authHandler.ForgotPassword)
+
+	// Profile routes (protected)
+	profileHandler := handlers.NewProfileHandler(gormDB)
+	avatarHandler := handlers.NewAvatarHandler(gormDB)
+	
+	profile := api.Group("/user")
+	profile.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
+	profile.Get("/profile", profileHandler.GetProfile)
+	profile.Put("/profile", profileHandler.UpdateProfile)
+	profile.Post("/avatar", avatarHandler.UploadAvatar)
+	profile.Delete("/avatar", profileHandler.DeleteAvatar)
 
 	app.Use("/ws", ws.UpgradeWebSocket)
 	app.Get("/ws", websocket.New(ws.HandleWebSocket))

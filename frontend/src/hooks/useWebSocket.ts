@@ -20,7 +20,7 @@ interface WebSocketHookReturn {
   sendChatMessage: (message: string) => void;
   startGame: () => void;
   selectColor: (color: string) => void;
-  setMapMode: (mode: 'TIMED' | 'FREE') => void;
+  setMapMode: (mode: 'FREE') => void;
 }
 
 export const useWebSocket = ({
@@ -38,9 +38,16 @@ export const useWebSocket = ({
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
+    // Get or create session ID
+    let sessionId = sessionStorage.getItem('sessionId');
+    if (!sessionId) {
+      sessionId = generateSessionId();
+      sessionStorage.setItem('sessionId', sessionId);
+    }
+    
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
-    const wsUrl = `${protocol}//${host}/ws?room=${encodeURIComponent(roomCode)}&username=${encodeURIComponent(username)}&mode=${gameMode}&type=${roomType}&rounds=${rounds}`;
+    const wsUrl = `${protocol}//${host}/ws?room=${encodeURIComponent(roomCode)}&username=${encodeURIComponent(username)}&session=${encodeURIComponent(sessionId)}&mode=${gameMode}&type=${roomType}&rounds=${rounds}`;
     
     const websocket = new WebSocket(wsUrl);
     wsRef.current = websocket;
@@ -58,6 +65,13 @@ export const useWebSocket = ({
           case 'round_started':
           case 'game_started':
             const gameStatePayload = message.payload as GameState;
+            console.log('[WebSocket] round_started received:', {
+              current_country: gameStatePayload.current_country,
+              map_mode: gameStatePayload.map_mode,
+              game_mode: gameStatePayload.game_mode,
+              painted_countries: gameStatePayload.painted_countries,
+              player_colors: gameStatePayload.player_colors
+            });
             setGameState(gameStatePayload);
             break;
           case 'room_update':
@@ -98,6 +112,10 @@ export const useWebSocket = ({
               isSystem: false
             };
             setMessages(prev => [chatMsg, ...prev]);
+            break;
+          case 'session_collision':
+            // Handle collision - show dialog
+            window.dispatchEvent(new CustomEvent('session_collision', { detail: message.payload }));
             break;
         }
       } catch (error) {
@@ -150,7 +168,7 @@ export const useWebSocket = ({
     });
   };
 
-  const setMapMode = (mode: 'TIMED' | 'FREE') => {
+  const setMapMode = (mode: 'FREE') => {
     sendMessage({
       type: 'set_map_mode',
       payload: { map_play_mode: mode }
@@ -171,3 +189,10 @@ export const useWebSocket = ({
     setMapMode
   };
 };
+
+// Generate a unique session ID
+function generateSessionId(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}

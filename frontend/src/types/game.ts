@@ -7,7 +7,7 @@ export interface GameState {
   time_remaining: number;
   game_mode: 'FLAG' | 'WORLD_MAP';
   room_type: 'SINGLE' | 'PRIVATE' | 'PUBLIC';
-  map_play_mode?: 'TIMED' | 'FREE';
+  map_play_mode?: 'FREE';
   player_colors?: Record<string, string>;
   current_country?: string;
   painted_countries?: Record<string, string>;

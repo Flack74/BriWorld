@@ -1,24 +1,30 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"sync"
 	"time"
 
+	"briworld/internal/database"
 	"briworld/internal/game"
 	"briworld/internal/utils"
 )
 
 type Room struct {
-	ID          string
-	Clients     map[*Client]bool
-	Broadcast   chan []byte
-	Register    chan *Client
-	Unregister  chan *Client
-	GameState   *GameState
-	Owner       string
-	mu          sync.RWMutex
+	ID                    string
+	Clients               map[*Client]bool
+	Broadcast             chan []byte
+	Register              chan *Client
+	Unregister            chan *Client
+	GameState             *GameState
+	Owner                 string
+	mu                    sync.RWMutex
+	ctx                   context.Context
+	cancel                context.CancelFunc
+	inactiveRoundCount    int
+	isCleanedUp           bool
 }
 
 type GameState struct {
@@ -49,21 +55,26 @@ type Question struct {
 }
 
 func NewRoom(id string) *Room {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Room{
-		ID:         id,
-		Clients:    make(map[*Client]bool),
-		Broadcast:  make(chan []byte, 256),
-		Register:   make(chan *Client),
-		Unregister: make(chan *Client),
+		ID:                 id,
+		Clients:            make(map[*Client]bool),
+		Broadcast:          make(chan []byte, 256),
+		Register:           make(chan *Client),
+		Unregister:         make(chan *Client),
+		ctx:                ctx,
+		cancel:             cancel,
+		inactiveRoundCount: 0,
+		isCleanedUp:        false,
 		GameState: &GameState{
-			Status:      "waiting",
-			TotalRounds: 10,
-			Scores:      make(map[string]int),
-			GameMode:    "FLAG",
-			Answered:    make(map[string]bool),
-			RoundActive: false,
+			Status:           "waiting",
+			TotalRounds:      10,
+			Scores:           make(map[string]int),
+			GameMode:         "FLAG",
+			Answered:         make(map[string]bool),
+			RoundActive:      false,
 			PaintedCountries: make(map[string]string),
-			PlayerColors: make(map[string]string),
+			PlayerColors:     make(map[string]string),
 		},
 	}
 }
@@ -71,6 +82,10 @@ func NewRoom(id string) *Room {
 func (r *Room) Run() {
 	for {
 		select {
+		case <-r.ctx.Done():
+			log.Printf("Room %s context cancelled, stopping", r.ID)
+			return
+			
 		case client := <-r.Register:
 			r.AddClient(client)
 
@@ -94,6 +109,44 @@ func (r *Room) Run() {
 
 func (r *Room) AddClient(client *Client) {
 	r.mu.Lock()
+	
+	// Reset inactivity counter when user connects
+	r.inactiveRoundCount = 0
+	
+	// Check for duplicate session (reconnection vs collision)
+	var existingClient *Client
+	for c := range r.Clients {
+		if c.SessionID == client.SessionID && c.SessionID != "" {
+			existingClient = c
+			break
+		}
+	}
+	
+	// If duplicate session found, check if it's a reconnection or collision
+	if existingClient != nil {
+		// Check if connection is still alive
+		if existingClient.Conn != nil {
+			log.Printf("Active session collision detected: %s (session: %s)", client.Username, client.SessionID)
+			r.mu.Unlock()
+			
+			// Send collision message to new client
+			msg := Message{
+				Type: "session_collision",
+				Payload: map[string]interface{}{
+					"message": "This session is already active in this room",
+					"username": existingClient.Username,
+				},
+			}
+			data, _ := json.Marshal(msg)
+			client.Send <- data
+			return
+		} else {
+			// Old connection is dead, allow reconnection
+			log.Printf("Reconnection detected: %s (session: %s)", client.Username, client.SessionID)
+			delete(r.Clients, existingClient)
+		}
+	}
+	
 	isFirstPlayer := len(r.Clients) == 0
 	r.Clients[client] = true
 	client.Room = r
@@ -120,6 +173,9 @@ func (r *Room) AddClient(client *Client) {
 	}
 	r.mu.Unlock()
 
+	// Save room state
+	GetStateManager().SaveRoomState(r)
+
 	r.BroadcastRoomUpdate()
 	r.SendPlayerJoined(client.Username)
 }
@@ -141,6 +197,9 @@ func (r *Room) RemoveClient(client *Client) {
 	}
 	r.mu.Unlock()
 
+	// Save room state after client removal
+	GetStateManager().SaveRoomState(r)
+	
 	r.SendPlayerLeft(client.Username)
 	r.BroadcastRoomUpdate()
 }
@@ -161,20 +220,18 @@ func (r *Room) HandleMessage(client *Client, msg *Message) {
 		r.SetPlayerColor(client, msg.Payload)
 	case "restart_game":
 		r.RestartGame(client.Username)
+	case "close_room":
+		r.CloseRoom(client.Username)
 	}
 }
 
 func (r *Room) SetMapMode(payload interface{}) {
-	data, _ := json.Marshal(payload)
-	var mode struct {
-		MapPlayMode string `json:"map_play_mode"`
-	}
-	json.Unmarshal(data, &mode)
-	
+	// Always force FREE mode for WORLD_MAP
 	r.mu.Lock()
-	r.GameState.MapMode = mode.MapPlayMode
+	r.GameState.MapMode = "FREE"
 	r.mu.Unlock()
 	
+	log.Printf("Map mode set to FREE (TIMED mode disabled)")
 	r.BroadcastRoomUpdate()
 }
 
@@ -198,6 +255,7 @@ func (r *Room) StartGame(username string) {
 	r.mu.Lock()
 	// Only owner can start game
 	if r.Owner != username {
+		log.Printf("StartGame rejected: %s is not owner (owner: %s)", username, r.Owner)
 		r.mu.Unlock()
 		return
 	}
@@ -207,9 +265,18 @@ func (r *Room) StartGame(username string) {
 		minPlayers = 2
 	}
 	if r.GameState.Status != "waiting" || len(r.Clients) < minPlayers {
+		log.Printf("StartGame rejected: status=%s, players=%d, minPlayers=%d", r.GameState.Status, len(r.Clients), minPlayers)
 		r.mu.Unlock()
 		return
 	}
+	
+	// For WORLD_MAP, auto-set to FREE mode
+	if r.GameState.GameMode == "WORLD_MAP" && r.GameState.MapMode == "" {
+		r.GameState.MapMode = "FREE"
+		log.Printf("Auto-setting WORLD_MAP to FREE mode")
+	}
+	
+	log.Printf("Starting game: room=%s, mode=%s, mapMode=%s, rounds=%d", r.ID, r.GameState.GameMode, r.GameState.MapMode, r.GameState.TotalRounds)
 	r.GameState.Status = "in_progress"
 	r.GameState.CurrentRound = 1
 	r.mu.Unlock()
@@ -222,12 +289,14 @@ func (r *Room) StartRound() {
 	if r.GameState.GameMode == "WORLD_MAP" && r.GameState.MapMode == "FREE" {
 		r.mu.Lock()
 		r.GameState.Status = "in_progress"
+		r.GameState.CurrentRound = 1
 		r.mu.Unlock()
 		// Include painted countries in the broadcast
-	r.mu.RLock()
-	gameStateCopy := *r.GameState
-	r.mu.RUnlock()
-	r.BroadcastMessage("game_started", gameStateCopy)
+		r.mu.RLock()
+		gameStateCopy := *r.GameState
+		r.mu.RUnlock()
+		log.Printf("FREE mode started for room %s", r.ID)
+		r.BroadcastMessage("game_started", gameStateCopy)
 		return
 	}
 	
@@ -277,38 +346,48 @@ func (r *Room) StartRound() {
 	// For TIMED map mode, set current country to highlight
 	if r.GameState.GameMode == "WORLD_MAP" && r.GameState.MapMode == "TIMED" {
 		r.GameState.CurrentCountry = code
-		log.Printf("TIMED mode: Setting CurrentCountry to %s (%s)", code, name)
+		log.Printf("TIMED mode: Round %d - CurrentCountry set to %s (%s)", r.GameState.CurrentRound, code, name)
+	} else {
+		log.Printf("FLAG mode: Round %d - Country %s (%s)", r.GameState.CurrentRound, code, name)
 	}
 	r.mu.Unlock()
 
 	// Include painted countries in the broadcast
 	r.mu.RLock()
 	gameStateCopy := *r.GameState
-	log.Printf("Broadcasting round_started: CurrentCountry=%s, MapMode=%s", gameStateCopy.CurrentCountry, gameStateCopy.MapMode)
+	log.Printf("Broadcasting round_started to %d clients: CurrentCountry=%s, MapMode=%s, GameMode=%s", len(r.Clients), gameStateCopy.CurrentCountry, gameStateCopy.MapMode, gameStateCopy.GameMode)
 	r.mu.RUnlock()
 	r.BroadcastMessage("round_started", gameStateCopy)
 
 	// Start countdown timer for all modes except FREE map mode
 	if !(r.GameState.GameMode == "WORLD_MAP" && r.GameState.MapMode == "FREE") {
 		go func() {
+			ticker := time.NewTicker(1 * time.Second)
+			defer ticker.Stop()
+			
 			for i := 0; i < question.TimeLimit; i++ {
-				time.Sleep(1 * time.Second)
-				r.mu.RLock()
-				active := r.GameState.RoundActive
-				status := r.GameState.Status
-				r.mu.RUnlock()
-				if !active || status == "completed" {
+				select {
+				case <-ticker.C:
+					r.mu.RLock()
+					active := r.GameState.RoundActive
+					status := r.GameState.Status
+					r.mu.RUnlock()
+					if !active || status == "completed" {
+						return
+					}
+					r.mu.Lock()
+					r.GameState.TimeRemaining = question.TimeLimit - i - 1
+					r.mu.Unlock()
+					
+					// Broadcast timer update
+					r.BroadcastMessage("timer_update", map[string]interface{}{
+						"time_remaining": question.TimeLimit - i - 1,
+					})
+				case <-r.ctx.Done():
 					return
 				}
-				r.mu.Lock()
-				r.GameState.TimeRemaining = question.TimeLimit - i - 1
-				r.mu.Unlock()
-				
-				// Broadcast timer update
-				r.BroadcastMessage("timer_update", map[string]interface{}{
-					"time_remaining": question.TimeLimit - i - 1,
-				})
 			}
+			
 			r.mu.Lock()
 			if r.GameState.RoundActive && r.GameState.Status != "completed" {
 				r.GameState.RoundActive = false
@@ -449,8 +528,12 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 		
 		// Move to next round after 2 seconds
 		go func() {
-			time.Sleep(2 * time.Second)
-			r.EndRound()
+			select {
+			case <-time.After(2 * time.Second):
+				r.EndRound()
+			case <-r.ctx.Done():
+				return
+			}
 		}()
 	}
 }
@@ -460,22 +543,48 @@ func (r *Room) EndRound() {
 	correctAnswer := r.GameState.Question.CountryName
 	currentRound := r.GameState.CurrentRound
 	
+	// Check inactivity at end of each round
+	if len(r.Clients) == 0 {
+		r.inactiveRoundCount++
+		log.Printf("Room %s inactive for %d rounds", r.ID, r.inactiveRoundCount)
+		
+		if r.inactiveRoundCount >= 3 {
+			log.Printf("Room %s inactive for 3 rounds, scheduling cleanup", r.ID)
+			r.mu.Unlock()
+			go r.AutoCleanup()
+			return
+		}
+	} else {
+		r.inactiveRoundCount = 0
+	}
+	
 	// Check if this was the last round
 	if currentRound >= r.GameState.TotalRounds {
 		r.GameState.Status = "completed"
+		scores := make(map[string]int)
+		for k, v := range r.GameState.Scores {
+			scores[k] = v
+		}
 		r.mu.Unlock()
+		
+		// Update player stats
+		go r.UpdatePlayerStats(scores)
 		
 		// Broadcast round ended first, then game completed
 		r.BroadcastMessage("round_ended", map[string]interface{}{
-			"scores":         r.GameState.Scores,
+			"scores":         scores,
 			"current_round":  currentRound,
 			"correct_answer": correctAnswer,
 			"is_last_round":  true,
 		})
 		
 		// Wait 4 seconds for timeout banner to show if needed
-		time.Sleep(4 * time.Second)
-		r.BroadcastMessage("game_completed", r.GameState)
+		select {
+		case <-time.After(4 * time.Second):
+			r.BroadcastMessage("game_completed", r.GameState)
+		case <-r.ctx.Done():
+			return
+		}
 		return
 	}
 	
@@ -488,8 +597,13 @@ func (r *Room) EndRound() {
 		"current_round":  r.GameState.CurrentRound,
 		"correct_answer": correctAnswer,
 	})
-	time.Sleep(3 * time.Second)
-	r.StartRound()
+	
+	select {
+	case <-time.After(3 * time.Second):
+		r.StartRound()
+	case <-r.ctx.Done():
+		return
+	}
 }
 
 func (r *Room) BroadcastMessage(msgType string, payload interface{}) {
@@ -501,8 +615,10 @@ func (r *Room) BroadcastMessage(msgType string, payload interface{}) {
 func (r *Room) BroadcastRoomUpdate() {
 	r.mu.RLock()
 	players := make([]string, 0, len(r.Clients))
+	playerAvatars := make(map[string]string)
 	for client := range r.Clients {
 		players = append(players, client.Username)
+		playerAvatars[client.Username] = client.AvatarURL
 	}
 	r.mu.RUnlock()
 
@@ -517,6 +633,7 @@ func (r *Room) BroadcastRoomUpdate() {
 		"map_mode":       r.GameState.MapMode,
 		"total_rounds":   r.GameState.TotalRounds,
 		"player_colors":  r.GameState.PlayerColors,
+		"player_avatars": playerAvatars,
 	})
 }
 
@@ -616,4 +733,116 @@ func (r *Room) RestartGame(username string) {
 		r.BroadcastMessage("game_restarted", r.GameState)
 		r.BroadcastRoomUpdate()
 	}
+}
+
+func (r *Room) CloseRoom(username string) {
+	r.mu.Lock()
+	if r.Owner != username {
+		r.mu.Unlock()
+		return
+	}
+	if r.isCleanedUp {
+		r.mu.Unlock()
+		return
+	}
+	r.GameState.Status = "closed"
+	r.GameState.RoundActive = false
+	roomID := r.ID
+	r.mu.Unlock()
+	
+	// Notify all clients
+	r.BroadcastMessage("room_closed", map[string]interface{}{
+		"message": "Room has been closed by the owner",
+	})
+	
+	// Wait for broadcast to complete
+	time.Sleep(100 * time.Millisecond)
+	
+	// Close all client connections
+	r.mu.Lock()
+	for client := range r.Clients {
+		close(client.Send)
+		if client.Conn != nil {
+			client.Conn.Close()
+		}
+	}
+	r.Clients = make(map[*Client]bool)
+	r.isCleanedUp = true
+	r.mu.Unlock()
+	
+	// Cancel context to stop all goroutines
+	r.cancel()
+	
+	// Clean up state and remove from hub
+	GetStateManager().DeleteRoomState(roomID)
+	GlobalHub.RemoveRoom(roomID)
+	log.Printf("Room %s closed and removed by %s", roomID, username)
+}
+
+func (r *Room) UpdatePlayerStats(scores map[string]int) {
+	log.Printf("Updating player stats for room %s with scores: %v", r.ID, scores)
+	
+	// Find winner
+	maxScore := 0
+	for _, score := range scores {
+		if score > maxScore {
+			maxScore = score
+		}
+	}
+	
+	// Update stats for each player
+	for username, score := range scores {
+		isWinner := score == maxScore && maxScore > 0
+		winValue := 0
+		if isWinner {
+			winValue = 1
+		}
+		
+		log.Printf("Updating %s: score=%d, isWinner=%v, maxScore=%d", username, score, isWinner, maxScore)
+		
+		if db := database.GetDB(); db != nil {
+			if err := db.DB.Exec(`
+				UPDATE users 
+				SET total_points = total_points + ?,
+					total_games = total_games + 1,
+					total_wins = total_wins + ?,
+					win_streak = CASE WHEN ? THEN win_streak + 1 ELSE 0 END,
+					longest_win_streak = CASE WHEN ? AND win_streak + 1 > longest_win_streak THEN win_streak + 1 ELSE longest_win_streak END
+				WHERE username = ?
+			`, score, winValue, isWinner, isWinner, username).Error; err != nil {
+				log.Printf("Error updating stats for %s: %v", username, err)
+			} else {
+				log.Printf("Successfully updated stats for %s", username)
+			}
+		}
+	}
+}
+
+func (r *Room) AutoCleanup() {
+	r.mu.Lock()
+	if r.isCleanedUp {
+		r.mu.Unlock()
+		return
+	}
+	if len(r.Clients) > 0 {
+		// Users reconnected, cancel cleanup
+		r.inactiveRoundCount = 0
+		r.mu.Unlock()
+		log.Printf("Room %s cleanup cancelled - users reconnected", r.ID)
+		return
+	}
+	
+	r.GameState.Status = "closed"
+	r.GameState.RoundActive = false
+	roomID := r.ID
+	r.isCleanedUp = true
+	r.mu.Unlock()
+	
+	// Cancel context to stop all goroutines
+	r.cancel()
+	
+	// Clean up state and remove from hub
+	GetStateManager().DeleteRoomState(roomID)
+	GlobalHub.RemoveRoom(roomID)
+	log.Printf("Room %s auto-cleaned due to inactivity", roomID)
 }

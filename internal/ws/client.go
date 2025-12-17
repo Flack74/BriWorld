@@ -11,6 +11,7 @@ import (
 type Client struct {
 	ID          string
 	Username    string
+	SessionID   string
 	RoomID      string
 	Conn        *websocket.Conn
 	Send        chan []byte
@@ -18,6 +19,8 @@ type Client struct {
 	RoundsCount int
 	GameMode    string
 	RoomType    string
+	IsGuest     bool
+	AvatarURL   string
 }
 
 type Message struct {

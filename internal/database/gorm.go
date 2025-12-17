@@ -13,6 +13,8 @@ type GormDB struct {
 	DB *gorm.DB
 }
 
+var globalDB *GormDB
+
 func NewGorm(dsn string) (*GormDB, error) {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
@@ -25,9 +27,16 @@ func NewGorm(dsn string) (*GormDB, error) {
 		&models.User{},
 		&models.Room{},
 		&models.GameSession{},
+		&models.Session{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to migrate: %w", err)
 	}
 
-	return &GormDB{DB: db}, nil
+	gormDB := &GormDB{DB: db}
+	globalDB = gormDB
+	return gormDB, nil
+}
+
+func GetDB() *GormDB {
+	return globalDB
 }

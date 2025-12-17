@@ -5,6 +5,9 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { WorldMap } from "@/components/WorldMap";
 import { ChatBox } from "@/components/ChatBox";
 import { ColorPickerModal } from "@/components/ColorPickerModal";
+import { CollisionDialog } from "@/components/CollisionDialog";
+import { ReconnectionDialog } from "@/components/ReconnectionDialog";
+import { LeaveRoomDialog } from "@/components/LeaveRoomDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft } from "lucide-react";
@@ -37,6 +40,11 @@ const Game = () => {
       return null;
     }
     
+    sessionStorage.removeItem('currentRoomCode');
+    sessionStorage.removeItem('gameMode');
+    sessionStorage.removeItem('roomType');
+    sessionStorage.removeItem('rounds');
+    sessionStorage.removeItem('mapMode');
     navigate('/lobby');
     return null;
   }
@@ -48,7 +56,7 @@ const Game = () => {
 
   const [showColorModal, setShowColorModal] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>('#10b981');
-  const [mapMode, setMapMode] = useState<'TIMED' | 'FREE'>();
+  const [mapMode] = useState<'FREE'>('FREE'); // Always FREE mode
   const [guessInput, setGuessInput] = useState('');
   const [startTime, setStartTime] = useState<number>();
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
@@ -60,6 +68,15 @@ const Game = () => {
   const [showGameOver, setShowGameOver] = useState(false);
   const [gameStats, setGameStats] = useState({correct: 0, incorrect: 0});
   const [guessedCountries, setGuessedCountries] = useState<string[]>([]);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [wasReconnected, setWasReconnected] = useState(false);
+
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [playerAvatars, setPlayerAvatars] = useState<Record<string, string>>({});
+  const [isActualReconnect] = useState(() => {
+    // Check if this is a page refresh (room code existed before component mount)
+    return !config.roomCode && !!sessionStorage.getItem('currentRoomCode');
+  });
 
   const [roomCode] = useState(() => {
     const savedRoomCode = sessionStorage.getItem('currentRoomCode');
@@ -87,18 +104,38 @@ const Game = () => {
     rounds: config.rounds
   });
 
+  // Update player avatars when roomUpdate changes
+  useEffect(() => {
+    if (roomUpdate?.player_avatars) {
+      setPlayerAvatars(prev => ({ ...prev, ...roomUpdate.player_avatars }));
+    }
+  }, [roomUpdate?.player_avatars]);
+
   // Convert scores to players array
   const players = gameState?.scores ? Object.entries(gameState.scores).map(([name, score]) => ({
     id: name,
     name,
     score,
-    color: gameState?.player_colors?.[name] || (name === config.username ? selectedColor : '#10b981')
+    color: gameState?.player_colors?.[name] || (name === config.username ? selectedColor : '#10b981'),
+    avatarUrl: playerAvatars[name] || ''
   })) : roomUpdate?.players ? roomUpdate.players.map((name) => ({
     id: name,
     name,
     score: gameState?.scores?.[name] || 0,
-    color: roomUpdate.player_colors?.[name] || (name === config.username ? selectedColor : '#10b981')
+    color: roomUpdate.player_colors?.[name] || (name === config.username ? selectedColor : '#10b981'),
+    avatarUrl: playerAvatars[name] || ''
   })) : [];
+
+  // Detect reconnection (only if actual page refresh AND game was in progress)
+  useEffect(() => {
+    if (gameState && !wasReconnected && isActualReconnect && gameState.status === 'in_progress') {
+      setIsReconnecting(true);
+      setTimeout(() => {
+        setIsReconnecting(false);
+        setWasReconnected(true);
+      }, 500);
+    }
+  }, [gameState, wasReconnected, isActualReconnect]);
 
   // Handle game state updates
   useEffect(() => {
@@ -107,13 +144,39 @@ const Game = () => {
     }
   }, [gameState?.question]);
 
+  // Handle room closed or expired
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type === 'room_closed' || message.type === 'room_expired') {
+          if (ws) ws.close();
+          sessionStorage.removeItem('currentRoomCode');
+          sessionStorage.removeItem('gameMode');
+          sessionStorage.removeItem('roomType');
+          sessionStorage.removeItem('rounds');
+          sessionStorage.removeItem('mapMode');
+          navigate('/lobby');
+        }
+      } catch (error) {
+        // Ignore
+      }
+    };
+    if (ws) {
+      ws.addEventListener('message', handleMessage);
+      return () => ws.removeEventListener('message', handleMessage);
+    }
+  }, [ws, navigate]);
+
   // Handle answer feedback
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       try {
         const message = JSON.parse(event.data);
         if (message.type === 'game_restarted') {
-          navigate('/waiting', { state: { ...config, roomCode } });
+          if (config.roomType !== 'SINGLE') {
+            navigate('/waiting', { state: { ...config, roomCode } });
+          }
           return;
         }
         if (message.type === 'color_rejected') {
@@ -197,12 +260,14 @@ const Game = () => {
     setShowColorModal(false);
   };
 
-  // Auto-start for FLAG mode or show color picker for WORLD_MAP
+
+
+  // Auto-start for SINGLE FLAG mode only
   useEffect(() => {
-    if (isConnected && !gameState && config.gameMode === 'FLAG') {
+    if (isConnected && !gameState && config.gameMode === 'FLAG' && config.roomType === 'SINGLE') {
       startGame();
     }
-  }, [isConnected, config.gameMode, gameState]);
+  }, [isConnected, config.gameMode, config.roomType, gameState]);
 
   // Show color picker for WORLD_MAP when connected (only once)
   useEffect(() => {
@@ -223,37 +288,23 @@ const Game = () => {
     }
   }, [roomUpdate?.player_colors, config.username]);
 
-  // Get map mode and start game when all players have colors
+
+
+  // Auto-start game when player has color (FREE mode only)
   useEffect(() => {
     if (config.gameMode !== 'WORLD_MAP' || !roomUpdate) return;
     
-    const savedMapMode = sessionStorage.getItem('mapMode');
-    if (savedMapMode && !mapMode) {
-      setMapMode(savedMapMode as 'TIMED' | 'FREE');
-    }
-    
-    if (roomUpdate.map_mode && !mapMode) {
-      setMapMode(roomUpdate.map_mode as 'TIMED' | 'FREE');
-    }
-    
-    // Start game when: map mode is set, user has color, and game hasn't started
     const hasColor = roomUpdate.player_colors?.[config.username];
-    const currentMapMode = mapMode || roomUpdate.map_mode || savedMapMode;
     
-    if (currentMapMode && hasColor && !gameState) {
+    if (hasColor && !gameState) {
       const isOwner = config.roomType === 'SINGLE' || roomUpdate.owner === config.username;
       
       if (isOwner) {
-        // Owner starts the game
-        if (!mapMode) setMapMode(currentMapMode as 'TIMED' | 'FREE');
-        setWSMapMode(currentMapMode as 'TIMED' | 'FREE');
+        setWSMapMode('FREE');
         setTimeout(() => startGame(), 500);
-      } else {
-        // Member waits for game to start
-        if (!mapMode) setMapMode(currentMapMode as 'TIMED' | 'FREE');
       }
     }
-  }, [roomUpdate, mapMode, gameState, config.gameMode, config.roomType, config.username]);
+  }, [roomUpdate, gameState, config.gameMode, config.roomType, config.username]);
 
 
 
@@ -290,14 +341,7 @@ const Game = () => {
               variant="ghost"
               size="icon"
               className="rounded-xl"
-              onClick={() => {
-                sessionStorage.removeItem('currentRoomCode');
-                sessionStorage.removeItem('gameMode');
-                sessionStorage.removeItem('roomType');
-                sessionStorage.removeItem('rounds');
-                sessionStorage.removeItem('mapMode');
-                navigate("/lobby");
-              }}
+              onClick={() => setShowLeaveDialog(true)}
             >
               <ChevronLeft className="w-5 h-5" />
             </Button>
@@ -409,6 +453,7 @@ const Game = () => {
             <Leaderboard
               players={players}
               currentPlayerId={config.username}
+              showColors={false}
             />
           </div>
         </div>
@@ -479,6 +524,30 @@ const Game = () => {
           selectedColor={selectedColor}
           takenColors={Object.values(gameState?.player_colors || roomUpdate?.player_colors || {})}
         />
+        
+        {/* Modals */}
+        <CollisionDialog />
+        <ReconnectionDialog 
+          isReconnecting={isReconnecting} 
+          onReconnected={() => setWasReconnected(true)} 
+        />
+
+        <LeaveRoomDialog
+          open={showLeaveDialog}
+          onConfirm={() => {
+            if (ws) {
+              ws.send(JSON.stringify({ type: 'close_room' }));
+              ws.close();
+            }
+            sessionStorage.removeItem('currentRoomCode');
+            sessionStorage.removeItem('gameMode');
+            sessionStorage.removeItem('roomType');
+            sessionStorage.removeItem('rounds');
+            sessionStorage.removeItem('mapMode');
+            navigate("/lobby");
+          }}
+          onCancel={() => setShowLeaveDialog(false)}
+        />
       </div>
     );
   }
@@ -486,19 +555,7 @@ const Game = () => {
   // World Map View
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden relative">
-      {/* Countdown Timer - Fixed Top Right */}
-      {mapMode === 'TIMED' && gameState?.time_remaining !== undefined && (
-        <div className={`fixed top-2 right-2 z-50 flex items-center gap-1 px-3 py-2 rounded-full font-display text-lg font-bold transition-all duration-300 whitespace-nowrap ${
-          gameState.time_remaining <= 5 
-            ? "bg-destructive text-destructive-foreground animate-pulse" 
-            : gameState.time_remaining <= 10 
-              ? "bg-game-timer text-white" 
-              : "gradient-ocean text-white glow-primary"
-        }`}>
-          <span>⏱️</span>
-          <span>{gameState.time_remaining}</span>
-        </div>
-      )}
+
 
       {/* Header */}
       <div className="p-2 sm:p-4">
@@ -507,7 +564,7 @@ const Game = () => {
             variant="ghost"
             size="icon"
             className="rounded-xl"
-            onClick={() => navigate("/lobby")}
+            onClick={() => setShowLeaveDialog(true)}
           >
             <ChevronLeft className="w-5 h-5" />
           </Button>
@@ -515,9 +572,9 @@ const Game = () => {
             roomId={roomCode}
             mode="map"
             playerType={config.roomType}
-            round={mapMode === 'TIMED' ? { current: gameState?.current_round || 1, total: gameState?.total_rounds || config.rounds } : undefined}
+            round={undefined}
             timeLeft={undefined}
-            isFreeMode={mapMode === 'FREE'}
+            isFreeMode={true}
           />
         </div>
       </div>
@@ -525,10 +582,10 @@ const Game = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col lg:flex-row gap-2 sm:gap-4 p-2 sm:p-4 pt-0 overflow-auto">
         <WorldMap
-          countriesFound={mapMode === 'TIMED' ? undefined : gameStats.correct}
+          countriesFound={gameStats.correct}
           recentGuesses={[]}
           foundCountryCodes={guessedCountries}
-          currentCountry={mapMode === 'TIMED' ? gameState?.current_country : undefined}
+          currentCountry={undefined}
           userColor={gameState?.player_colors?.[config.username] || selectedColor}
           paintedCountries={gameState?.painted_countries || {}}
           playerColors={gameState?.player_colors || {}}
@@ -659,6 +716,27 @@ const Game = () => {
         onSelectColor={handleColorSelect}
         selectedColor={selectedColor}
         takenColors={Object.values(roomUpdate?.player_colors || {})}
+      />
+      <CollisionDialog />
+      <ReconnectionDialog 
+        isReconnecting={isReconnecting} 
+        onReconnected={() => setWasReconnected(true)} 
+      />
+      <LeaveRoomDialog
+        open={showLeaveDialog}
+        onConfirm={() => {
+          if (ws) {
+            ws.send(JSON.stringify({ type: 'close_room' }));
+            ws.close();
+          }
+          sessionStorage.removeItem('currentRoomCode');
+          sessionStorage.removeItem('gameMode');
+          sessionStorage.removeItem('roomType');
+          sessionStorage.removeItem('rounds');
+          sessionStorage.removeItem('mapMode');
+          navigate("/lobby");
+        }}
+        onCancel={() => setShowLeaveDialog(false)}
       />
     </div>
   );

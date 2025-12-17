@@ -8,6 +8,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Lobby from "./pages/Lobby";
+import Profile from "./pages/Profile";
 import WaitingRoom from "./pages/WaitingRoom";
 import Game from "./pages/Game";
 import NotFound from "./pages/NotFound";
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/lobby" element={<Lobby />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="/waiting" element={<WaitingRoom />} />
             <Route path="/game" element={<Game />} />
             <Route path="*" element={<NotFound />} />

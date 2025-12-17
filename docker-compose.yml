@@ -28,6 +28,7 @@ services:
       - DB_USER=briworld
       - DB_PASSWORD=secure_password_here
       - DB_NAME=briworld_db
+      - DB_SSL_MODE=disable
       - PORT=8080
       - ENV=development
     depends_on:

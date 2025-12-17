@@ -4,6 +4,7 @@
 
 Built with **Go**, **WebSocket**, **Neon PostgreSQL**, and **React + TypeScript** for an immersive, lag-free gaming experience.
 
+
 ## ✨ Core Features
 
 ### 🎮 Real-Time Multiplayer Architecture
@@ -29,11 +30,10 @@ Built with **Go**, **WebSocket**, **Neon PostgreSQL**, and **React + TypeScript*
 - **Success/Error/Timeout banners** for instant feedback
 
 #### 🌍 Interactive World Map Mode
-- **FREE Mode**: Unlimited time to paint any country you can name
-- **TIMED Mode**: 15-second rounds with highlighted countries and smart auto-zoom (2x-15x)
+- **Unlimited time** to paint any country you can name
 - **D3.js-powered map rendering** with 170+ clickable countries
 - **Real-time country painting** - Watch opponents claim territories live
-- **Pan & zoom controls** with smooth animations
+- **Static map view** for optimal visibility
 
 ### 🔐 Enterprise-Grade Security
 - **JWT authentication** (HS256) with secure token management
@@ -44,28 +44,26 @@ Built with **Go**, **WebSocket**, **Neon PostgreSQL**, and **React + TypeScript*
 
 ### 🎯 Intelligent Game Mechanics
 - **Fuzzy answer matching** - Accepts "Indai" → "India", "Brazl" → "Brazil" (Levenshtein distance ≤ 2)
-- **Smart auto-zoom** - Dynamic zoom levels based on country size (small islands get 15x zoom)
 - **Duplicate country prevention** - Countries can only be painted once
 - **Real-time score broadcasting** - Instant leaderboard updates for all players
 
 ### 🌓 Modern UI/UX
 - **Dark mode support** with localStorage persistence
 - **Glassmorphism design** with smooth transitions
-- **Fixed countdown timer** (top-right corner, timed modes only)
+- **Fixed countdown timer** (top-right corner, Flag Quiz mode)
 - **Color-coded success/error banners** with auto-dismiss
 - **Responsive leaderboard** with rank icons (👑 🥈 🥉)
 - **Clean 6-character room codes** (e.g., FKYYN8)
 
 ### 📱 Cross-Platform Optimization
 - **Fully responsive** - Optimized for iPhone, tablet, and desktop
-- **Touch-friendly controls** - Pan/zoom gestures for mobile
 - **Mobile-first leaderboard** - Full-width on small screens
 - **Adaptive UI elements** - Dynamic sizing based on viewport
 
 ## 🚀 Quick Start
 
 ### 🌐 Live Demo
-**[Play BriWorld Now!](https://your-render-url.onrender.com)** (Deployed on Render)
+**[Play BriWorld Now!](https://briworld.onrender.com/)** (Deployed on Render)
 
 ### Using Docker (Recommended)
 
@@ -176,14 +174,10 @@ BriWorld/
 
 ### World Map Mode:
 1. Select "World Map" in game lobby
-2. Choose your unique paint color (6 options available)
-3. Select mode:
-   - **FREE Mode**: No timer, guess any country you can name
-   - **TIMED Mode**: Choose rounds, then guess highlighted countries in 15 seconds with auto-zoom
-4. Type country names to paint them on the map
-5. Watch the map auto-zoom to highlighted countries (TIMED mode)
-6. Compete to paint the most countries!
-7. Click "Play Again" to restart or return to lobby
+2. Choose your unique paint color (8 options available)
+3. Type country names to paint them on the map
+4. Compete to paint the most countries!
+5. Click "Play Again" to restart or return to lobby
 
 ## 🔧 Configuration
 
@@ -373,10 +367,10 @@ make docker-down
 - **Authentication**: JWT + bcrypt with secure middleware
 - **Database**: GORM + Neon PostgreSQL with auto-migrations
 - **WebSocket**: Real-time multiplayer with broadcast messaging
-- **Game Logic**: Flag Quiz + World Map (FREE & TIMED modes)
+- **Game Logic**: Flag Quiz + World Map (FREE mode)
 - **Frontend**: React 18 + TypeScript + Vite
 - **UI/UX**: Dark mode + glassmorphism + responsive design
-- **Map Integration**: D3.js with smart auto-zoom (2x-15x)
+- **Map Integration**: D3.js with static map rendering
 - **Color System**: 8 unique colors with server-side validation
 - **Color Duplication Prevention**: Real-time rejection with warnings
 - **Broadcast Synchronization**: All players see same game state
@@ -384,7 +378,7 @@ make docker-down
 - **Leaderboard**: Stable sorting with color-coded players
 - **Room Management**: Clean 6-character codes with owner controls
 - **Game Statistics**: Correct/incorrect tracking with visual stats
-- **Timer UI**: Fixed top-right positioning with urgency indicators
+- **Timer UI**: Fixed top-right positioning in Flag Quiz mode
 - **Play Again**: Smart restart (instant for single, waiting room for multiplayer)
 - **Mobile Optimization**: iPhone, tablet, desktop responsive
 
@@ -460,16 +454,7 @@ const players = gameState.scores.map(([name, score]) => ({
 }));
 ```
 
-### Smart Auto-Zoom Algorithm
-```typescript
-// Dynamic zoom based on country bounding box area
-const area = bbox.width * bbox.height;
-let targetZoom = 2;
-if (area < 1000) targetZoom = 15;      // Small islands
-else if (area < 5000) targetZoom = 12; // Small countries
-else if (area < 15000) targetZoom = 8; // Medium countries
-else if (area < 50000) targetZoom = 5; // Large countries
-```
+
 
 ## 🏆 Production-Ready Features
 
