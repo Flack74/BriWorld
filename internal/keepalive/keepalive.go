@@ -13,15 +13,22 @@ func Start() {
 	}
 
 	go func() {
+		// Wait 2 minutes for app to fully start
+		log.Println("Keep-alive: waiting 2 minutes for app to be ready...")
+		time.Sleep(2 * time.Minute)
+		log.Println("Keep-alive service started (10 min interval)")
+
+		// First ping immediately
+		ping()
+
+		// Then ping every 10 minutes
 		ticker := time.NewTicker(10 * time.Minute)
 		defer ticker.Stop()
 
 		for range ticker.C {
-			go ping()
+			ping()
 		}
 	}()
-
-	log.Println("Keep-alive service started (10 min interval)")
 }
 
 func ping() {

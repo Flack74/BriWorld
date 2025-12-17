@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LogIn, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -43,10 +44,11 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen gradient-earth flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
+      <ThemeToggle />
       <div className="w-full max-w-md">
         <Button
-          variant="ghost"
+          variant="outline"
           className="mb-4"
           onClick={() => navigate("/")}
         >
@@ -54,7 +56,7 @@ const Login = () => {
           Back to Home
         </Button>
 
-        <Card>
+        <Card className="bg-card text-card-foreground">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Welcome Back</CardTitle>
             <CardDescription>Sign in to your BriWorld account</CardDescription>

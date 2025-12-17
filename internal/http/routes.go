@@ -20,6 +20,10 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config) {
 	// Static files
 	app.Static("/static", "./static")
 	app.Static("/assets", "./web-dist/assets")
+	app.Static("/", "./web-dist", fiber.Static{
+		Browse: false,
+		Index:  "index.html",
+	})
 	
 	app.Get("/api/rooms", handlers.GetPublicRooms)
 	

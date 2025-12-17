@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BriWorld - Multiplayer Geography Quiz Game</title>
     <meta name="description" content="Real-time multiplayer geography quiz game with flag recognition and world map modes" />
@@ -12,6 +13,18 @@
     <meta property="og:type" content="website" />
 
     <meta name="twitter:card" content="summary_large_image" />
+    
+    <!-- Prevent flash of unstyled content for dark mode -->
+    <script>
+      (function() {
+        const theme = localStorage.getItem('theme');
+        console.log('Initial theme:', theme);
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+          console.log('Dark mode applied');
+        }
+      })();
+    </script>
   </head>
 
   <body>
