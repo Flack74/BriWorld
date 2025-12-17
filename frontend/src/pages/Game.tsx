@@ -4,9 +4,7 @@ import { GameHeader } from "@/components/GameHeader";
 import { Leaderboard } from "@/components/Leaderboard";
 import { WorldMap } from "@/components/WorldMap";
 import { ChatBox } from "@/components/ChatBox";
-import { GameModeModal } from "@/components/GameModeModal";
 import { ColorPickerModal } from "@/components/ColorPickerModal";
-import { RoundsModal } from "@/components/RoundsModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft } from "lucide-react";
@@ -18,14 +16,37 @@ const Game = () => {
   const navigate = useNavigate();
   const config = location.state as GameConfig | null;
 
+  // Try to restore session if config is missing (page refresh)
   if (!config) {
+    const savedRoomCode = sessionStorage.getItem('currentRoomCode');
+    const savedUsername = localStorage.getItem('username');
+    const savedGameMode = sessionStorage.getItem('gameMode');
+    const savedRoomType = sessionStorage.getItem('roomType');
+    
+    if (savedRoomCode && savedUsername && savedGameMode && savedRoomType) {
+      // Restore config from session
+      const restoredConfig: GameConfig = {
+        username: savedUsername,
+        gameMode: savedGameMode as 'FLAG' | 'WORLD_MAP',
+        roomType: savedRoomType as 'SINGLE' | 'PRIVATE' | 'PUBLIC',
+        roomCode: savedRoomCode,
+        rounds: parseInt(sessionStorage.getItem('rounds') || '10')
+      };
+      // Redirect to game with restored config
+      navigate('/game', { state: restoredConfig, replace: true });
+      return null;
+    }
+    
     navigate('/lobby');
     return null;
   }
 
-  const [showModeModal, setShowModeModal] = useState(false);
+  // Save session data
+  sessionStorage.setItem('gameMode', config.gameMode);
+  sessionStorage.setItem('roomType', config.roomType);
+  sessionStorage.setItem('rounds', config.rounds?.toString() || '10');
+
   const [showColorModal, setShowColorModal] = useState(false);
-  const [showRoundsModal, setShowRoundsModal] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>('#10b981');
   const [mapMode, setMapMode] = useState<'TIMED' | 'FREE'>();
   const [guessInput, setGuessInput] = useState('');
@@ -40,7 +61,12 @@ const Game = () => {
   const [gameStats, setGameStats] = useState({correct: 0, incorrect: 0});
   const [guessedCountries, setGuessedCountries] = useState<string[]>([]);
 
-  const [roomCode] = useState(() => config.roomCode || Math.random().toString(36).substring(2, 8).toUpperCase());
+  const [roomCode] = useState(() => {
+    const savedRoomCode = sessionStorage.getItem('currentRoomCode');
+    const newCode = config.roomCode || savedRoomCode || Math.random().toString(36).substring(2, 8).toUpperCase();
+    sessionStorage.setItem('currentRoomCode', newCode);
+    return newCode;
+  });
   
   const {
     ws,
@@ -62,16 +88,16 @@ const Game = () => {
   });
 
   // Convert scores to players array
-  const players = gameState?.scores ? Object.entries(gameState.scores).map(([name, score], index) => ({
-    id: index.toString(),
+  const players = gameState?.scores ? Object.entries(gameState.scores).map(([name, score]) => ({
+    id: name,
     name,
     score,
-    color: gameState?.player_colors?.[name] || selectedColor
-  })) : roomUpdate?.players ? roomUpdate.players.map((name, index) => ({
-    id: index.toString(),
+    color: gameState?.player_colors?.[name] || (name === config.username ? selectedColor : '#10b981')
+  })) : roomUpdate?.players ? roomUpdate.players.map((name) => ({
+    id: name,
     name,
     score: gameState?.scores?.[name] || 0,
-    color: roomUpdate.player_colors?.[name] || selectedColor
+    color: roomUpdate.player_colors?.[name] || (name === config.username ? selectedColor : '#10b981')
   })) : [];
 
   // Handle game state updates
@@ -88,6 +114,10 @@ const Game = () => {
         const message = JSON.parse(event.data);
         if (message.type === 'game_restarted') {
           navigate('/waiting', { state: { ...config, roomCode } });
+          return;
+        }
+        if (message.type === 'color_rejected') {
+          setShowColorModal(true);
           return;
         }
         if (message.type === 'round_started') {
@@ -162,81 +192,70 @@ const Game = () => {
 
 
   const handleColorSelect = (color: string) => {
-    setSelectedColor(color);
     selectColor(color);
+    sessionStorage.setItem(`color_${roomCode}_${config.username}`, color);
     setShowColorModal(false);
-    
-    // Only owner selects mode for multiplayer rooms
-    const isOwner = config.roomType === 'SINGLE' || 
-                   roomUpdate?.owner === config.username || 
-                   gameState?.owner === config.username;
-    
-    if (isOwner) {
-      setShowModeModal(true);
-    }
-    // Non-owners wait for owner's mode selection
   };
 
   // Auto-start for FLAG mode or show color picker for WORLD_MAP
   useEffect(() => {
-    if (isConnected && !gameState) {
-      if (config.gameMode === 'FLAG') {
-        startGame();
-      } else if (config.gameMode === 'WORLD_MAP') {
-        setShowColorModal(true);
-      }
+    if (isConnected && !gameState && config.gameMode === 'FLAG') {
+      startGame();
     }
   }, [isConnected, config.gameMode, gameState]);
 
-  // Debug: Log gameState changes
+  // Show color picker for WORLD_MAP when connected (only once)
   useEffect(() => {
-    if (gameState) {
-      console.log('Game.tsx - gameState updated:', {
-        current_country: gameState.current_country,
-        map_mode: gameState.map_play_mode,
-        mapMode: mapMode
-      });
-    }
-  }, [gameState, mapMode]);
-
-  // Get map mode from room update for multiplayer
-  useEffect(() => {
-    if (roomUpdate?.map_mode && !mapMode) {
-      setMapMode(roomUpdate.map_mode as 'TIMED' | 'FREE');
-      // Non-owners start game when owner selects mode
-      const isOwner = config.roomType === 'SINGLE' || 
-                     roomUpdate?.owner === config.username || 
-                     gameState?.owner === config.username;
-      
-      if (!isOwner) {
-        setTimeout(() => startGame(), 500);
+    if (isConnected && config.gameMode === 'WORLD_MAP' && !showColorModal) {
+      const hasServerColor = roomUpdate?.player_colors?.[config.username];
+      if (!hasServerColor) {
+        setShowColorModal(true);
       }
     }
-  }, [roomUpdate?.map_mode, mapMode, config.roomType, config.username, roomUpdate?.owner, gameState?.owner]);
+  }, [isConnected, config.gameMode, roomUpdate?.player_colors, config.username]);
 
-  const handleModeSelect = (mode: 'TIMED' | 'FREE') => {
-    setMapMode(mode);
-    setWSMapMode(mode);
-    setShowModeModal(false);
+
+
+  // Update selected color from server confirmation
+  useEffect(() => {
+    if (roomUpdate?.player_colors?.[config.username]) {
+      setSelectedColor(roomUpdate.player_colors[config.username]);
+    }
+  }, [roomUpdate?.player_colors, config.username]);
+
+  // Get map mode and start game when all players have colors
+  useEffect(() => {
+    if (config.gameMode !== 'WORLD_MAP' || !roomUpdate) return;
     
-    if (mode === 'TIMED' && config.roomType === 'SINGLE') {
-      setShowRoundsModal(true);
-    } else {
-      setTimeout(() => startGame(), 500);
+    const savedMapMode = sessionStorage.getItem('mapMode');
+    if (savedMapMode && !mapMode) {
+      setMapMode(savedMapMode as 'TIMED' | 'FREE');
     }
-  };
+    
+    if (roomUpdate.map_mode && !mapMode) {
+      setMapMode(roomUpdate.map_mode as 'TIMED' | 'FREE');
+    }
+    
+    // Start game when: map mode is set, user has color, and game hasn't started
+    const hasColor = roomUpdate.player_colors?.[config.username];
+    const currentMapMode = mapMode || roomUpdate.map_mode || savedMapMode;
+    
+    if (currentMapMode && hasColor && !gameState) {
+      const isOwner = config.roomType === 'SINGLE' || roomUpdate.owner === config.username;
+      
+      if (isOwner) {
+        // Owner starts the game
+        if (!mapMode) setMapMode(currentMapMode as 'TIMED' | 'FREE');
+        setWSMapMode(currentMapMode as 'TIMED' | 'FREE');
+        setTimeout(() => startGame(), 500);
+      } else {
+        // Member waits for game to start
+        if (!mapMode) setMapMode(currentMapMode as 'TIMED' | 'FREE');
+      }
+    }
+  }, [roomUpdate, mapMode, gameState, config.gameMode, config.roomType, config.username]);
 
-  const handleRoundsSelect = (rounds: number) => {
-    // Send rounds to server
-    if (ws) {
-      ws.send(JSON.stringify({
-        type: 'set_rounds',
-        payload: { rounds }
-      }));
-    }
-    setShowRoundsModal(false);
-    setTimeout(() => startGame(), 500);
-  };
+
 
   const handleGuessSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -271,7 +290,14 @@ const Game = () => {
               variant="ghost"
               size="icon"
               className="rounded-xl"
-              onClick={() => navigate("/lobby")}
+              onClick={() => {
+                sessionStorage.removeItem('currentRoomCode');
+                sessionStorage.removeItem('gameMode');
+                sessionStorage.removeItem('roomType');
+                sessionStorage.removeItem('rounds');
+                sessionStorage.removeItem('mapMode');
+                navigate("/lobby");
+              }}
             >
               <ChevronLeft className="w-5 h-5" />
             </Button>
@@ -298,7 +324,6 @@ const Game = () => {
                   alt={`Flag of ${gameState.question.country_name}`}
                   className="max-w-full max-h-full object-contain rounded-lg"
                   onError={(e) => {
-                    console.error('Flag failed to load:', gameState.question?.flag_code);
                     e.currentTarget.style.display = 'none';
                   }}
                   onLoad={() => setFlagLoaded(true)}
@@ -452,7 +477,7 @@ const Game = () => {
           onClose={() => setShowColorModal(false)}
           onSelectColor={handleColorSelect}
           selectedColor={selectedColor}
-          takenColors={roomUpdate?.players?.map(p => p.color).filter(Boolean) || []}
+          takenColors={Object.values(gameState?.player_colors || roomUpdate?.player_colors || {})}
         />
       </div>
     );
@@ -633,17 +658,7 @@ const Game = () => {
         onClose={() => setShowColorModal(false)}
         onSelectColor={handleColorSelect}
         selectedColor={selectedColor}
-        takenColors={roomUpdate?.players?.map(p => p.color).filter(Boolean) || []}
-      />
-      <GameModeModal
-        open={showModeModal}
-        onClose={() => setShowModeModal(false)}
-        onSelectMode={handleModeSelect}
-      />
-      <RoundsModal
-        open={showRoundsModal}
-        onClose={() => setShowRoundsModal(false)}
-        onSelectRounds={handleRoundsSelect}
+        takenColors={Object.values(roomUpdate?.player_colors || {})}
       />
     </div>
   );

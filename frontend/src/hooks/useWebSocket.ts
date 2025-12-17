@@ -42,12 +42,10 @@ export const useWebSocket = ({
     const host = window.location.host;
     const wsUrl = `${protocol}//${host}/ws?room=${encodeURIComponent(roomCode)}&username=${encodeURIComponent(username)}&mode=${gameMode}&type=${roomType}&rounds=${rounds}`;
     
-    console.log('Connecting to WebSocket:', wsUrl);
     const websocket = new WebSocket(wsUrl);
     wsRef.current = websocket;
     
     websocket.onopen = () => {
-      console.log('WebSocket connected');
       setIsConnected(true);
       setWs(websocket);
     };
@@ -55,13 +53,11 @@ export const useWebSocket = ({
     websocket.onmessage = (event) => {
       try {
         const message: WebSocketMessage = JSON.parse(event.data);
-        console.log('Message received:', message.type, message.payload);
         
         switch (message.type) {
           case 'round_started':
           case 'game_started':
             const gameStatePayload = message.payload as GameState;
-            console.log('Game state updated, current_country:', gameStatePayload.current_country);
             setGameState(gameStatePayload);
             break;
           case 'room_update':
@@ -74,15 +70,23 @@ export const useWebSocket = ({
             // Handle in Game component
             break;
           case 'score_update':
-            setGameState(prev => prev ? { ...prev, scores: message.payload.scores } : null);
+            console.log('Score update received:', message.payload.scores);
+            setGameState(prev => {
+              if (!prev) {
+                return { scores: message.payload.scores, player_colors: {} } as GameState;
+              }
+              return { ...prev, scores: message.payload.scores };
+            });
             break;
           case 'game_completed':
             setGameState(message.payload as GameState);
             break;
           case 'country_painted':
+            console.log('Country painted:', message.payload.country_code, 'by', message.payload.player, 'colors:', message.payload.player_colors);
             setGameState(prev => prev ? { 
               ...prev, 
-              painted_countries: message.payload.painted_countries 
+              painted_countries: message.payload.painted_countries,
+              player_colors: message.payload.player_colors || prev.player_colors
             } : null);
             break;
           case 'chat_message':
@@ -102,13 +106,12 @@ export const useWebSocket = ({
     };
 
     websocket.onclose = () => {
-      console.log('WebSocket disconnected');
       setIsConnected(false);
       setWs(null);
     };
 
-    websocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
+    websocket.onerror = () => {
+      setIsConnected(false);
     };
 
     return () => {
@@ -118,10 +121,7 @@ export const useWebSocket = ({
 
   const sendMessage = (message: WebSocketMessage) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      console.log('Sending message:', message.type, message.payload);
       wsRef.current.send(JSON.stringify(message));
-    } else {
-      console.log('WebSocket not ready, message not sent:', message.type);
     }
   };
 

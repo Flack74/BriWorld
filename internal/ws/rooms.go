@@ -350,7 +350,12 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 			
 			// Mark country as painted by this user
 			r.GameState.PaintedCountries[code] = client.Username
-			r.GameState.Scores[client.Username]++
+			if r.GameState.Scores[client.Username] == 0 {
+				r.GameState.Scores[client.Username] = 1
+			} else {
+				r.GameState.Scores[client.Username]++
+			}
+			log.Printf("Player %s scored! New score: %d", client.Username, r.GameState.Scores[client.Username])
 			r.mu.Unlock()
 			
 			r.BroadcastMessage("answer_submitted", map[string]interface{}{
@@ -360,11 +365,16 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 				"country_code": code,
 			})
 			
+			r.mu.RLock()
+			playerColors := r.GameState.PlayerColors
+			r.mu.RUnlock()
+			log.Printf("Broadcasting country_painted: %s painted by %s with color %s", code, client.Username, playerColors[client.Username])
 			r.BroadcastMessage("country_painted", map[string]interface{}{
 				"country_code": code,
 				"country_name": name,
 				"player":       client.Username,
 				"painted_countries": r.GameState.PaintedCountries,
+				"player_colors": playerColors,
 			})
 			
 			r.BroadcastMessage("score_update", map[string]interface{}{
@@ -421,11 +431,15 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 		
 		// Broadcast painted country for map modes
 		if r.GameState.GameMode == "WORLD_MAP" {
+			r.mu.RLock()
+			playerColors := r.GameState.PlayerColors
+			r.mu.RUnlock()
 			r.BroadcastMessage("country_painted", map[string]interface{}{
 				"country_code": countryCode,
 				"country_name": correctAnswer,
 				"player":       client.Username,
 				"painted_countries": r.GameState.PaintedCountries,
+				"player_colors": playerColors,
 			})
 		}
 		
@@ -528,6 +542,24 @@ func (r *Room) SetPlayerColor(client *Client, payload interface{}) {
 	json.Unmarshal(data, &colorData)
 	
 	r.mu.Lock()
+	// Check if color is already taken by another player
+	for username, color := range r.GameState.PlayerColors {
+		if color == colorData.Color && username != client.Username {
+			log.Printf("Color %s already taken by %s, rejecting for %s", colorData.Color, username, client.Username)
+			// Send error message to client
+			r.mu.Unlock()
+			msg := Message{
+				Type: "color_rejected",
+				Payload: map[string]interface{}{
+					"error": "Color already taken",
+					"color": colorData.Color,
+				},
+			}
+			data, _ := json.Marshal(msg)
+			client.Send <- data
+			return
+		}
+	}
 	r.GameState.PlayerColors[client.Username] = colorData.Color
 	r.mu.Unlock()
 	

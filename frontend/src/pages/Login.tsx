@@ -28,12 +28,12 @@ const Login = () => {
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem("token", data.token);
+        localStorage.setItem("token", data.access_token);
         localStorage.setItem("username", data.user.username);
         toast({ title: "Login successful!", description: "Welcome back!" });
         navigate("/lobby");
       } else {
-        toast({ title: "Login failed", description: data.message, variant: "destructive" });
+        toast({ title: "Login failed", description: data.error || "Login failed", variant: "destructive" });
       }
     } catch (error) {
       toast({ title: "Error", description: "Network error occurred", variant: "destructive" });

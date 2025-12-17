@@ -12,14 +12,42 @@ const WaitingRoom = () => {
   const [copied, setCopied] = useState(false);
   const [rounds, setRounds] = useState(config?.rounds || 10);
 
+  // Try to restore session if config is missing (page refresh)
   if (!config) {
+    const savedRoomCode = sessionStorage.getItem('currentRoomCode');
+    const savedUsername = localStorage.getItem('username');
+    const savedGameMode = sessionStorage.getItem('gameMode');
+    const savedRoomType = sessionStorage.getItem('roomType');
+    
+    if (savedRoomCode && savedUsername && savedGameMode && savedRoomType) {
+      const restoredConfig: GameConfig = {
+        username: savedUsername,
+        gameMode: savedGameMode as 'FLAG' | 'WORLD_MAP',
+        roomType: savedRoomType as 'SINGLE' | 'PRIVATE' | 'PUBLIC',
+        roomCode: savedRoomCode,
+        rounds: parseInt(sessionStorage.getItem('rounds') || '10')
+      };
+      navigate('/waiting', { state: restoredConfig, replace: true });
+      return null;
+    }
+    
     navigate('/lobby');
     return null;
   }
 
-  const [roomCode] = useState(() => 
-    config.roomCode || Math.random().toString(36).substring(2, 8).toUpperCase()
-  );
+  // Save session data
+  sessionStorage.setItem('gameMode', config.gameMode);
+  sessionStorage.setItem('roomType', config.roomType);
+  sessionStorage.setItem('rounds', config.rounds?.toString() || '10');
+
+  const [roomCode] = useState(() => {
+    // Check localStorage for existing room code
+    const savedRoomCode = sessionStorage.getItem('currentRoomCode');
+    const newCode = config.roomCode || savedRoomCode || Math.random().toString(36).substring(2, 8).toUpperCase();
+    // Save to sessionStorage
+    sessionStorage.setItem('currentRoomCode', newCode);
+    return newCode;
+  });
 
   const {
     ws,
@@ -72,6 +100,7 @@ const WaitingRoom = () => {
 
   const handleMapModeSelect = (mode: 'TIMED' | 'FREE') => {
     setMapMode(mode);
+    sessionStorage.setItem('mapMode', mode);
   };
 
   const handleRoundsChange = (newRounds: number) => {
@@ -80,16 +109,16 @@ const WaitingRoom = () => {
   };
 
   return (
-    <div className="min-h-screen gradient-earth flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-10 right-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
         <div className="absolute bottom-10 left-20 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
       </div>
 
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
-        className="absolute top-6 left-6 gap-2"
+        className="absolute top-6 left-20 gap-2"
         onClick={() => navigate("/lobby")}
       >
         <ChevronLeft className="w-4 h-4" />
@@ -125,8 +154,8 @@ const WaitingRoom = () => {
           </div>
         )}
 
-        {/* Map Mode Selection (only for World Map) */}
-        {config.gameMode === 'WORLD_MAP' && !roomUpdate?.map_mode && (
+        {/* Map Mode Selection (only for World Map and owner) */}
+        {config.gameMode === 'WORLD_MAP' && !roomUpdate?.map_mode && isOwner && (
           <div className="mb-6 space-y-3">
             <div className="text-sm font-semibold">Select Map Mode</div>
             <div className="grid grid-cols-2 gap-3">
@@ -151,6 +180,15 @@ const WaitingRoom = () => {
                 </div>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Waiting for owner to select mode */}
+        {config.gameMode === 'WORLD_MAP' && !roomUpdate?.map_mode && !isOwner && (
+          <div className="mb-6 p-4 bg-muted/30 rounded-xl text-center">
+            <p className="text-sm text-muted-foreground">
+              Waiting for {roomUpdate?.owner} to select map mode...
+            </p>
           </div>
         )}
 

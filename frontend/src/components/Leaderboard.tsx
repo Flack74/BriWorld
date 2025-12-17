@@ -13,7 +13,10 @@ interface LeaderboardProps {
 }
 
 export const Leaderboard = ({ players, currentPlayerId }: LeaderboardProps) => {
-  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+  const sortedPlayers = [...players].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.name.localeCompare(b.name);
+  });
 
   const getRankIcon = (index: number) => {
     switch (index) {
@@ -48,7 +51,7 @@ export const Leaderboard = ({ players, currentPlayerId }: LeaderboardProps) => {
         ) : (
           sortedPlayers.map((player, index) => (
             <div
-              key={player.id}
+              key={`${player.id}-${player.score}`}
               className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ${
                 player.id === currentPlayerId
                   ? "bg-primary/10 border border-primary/30"

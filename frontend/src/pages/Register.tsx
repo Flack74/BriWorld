@@ -32,7 +32,7 @@ const Register = () => {
         toast({ title: "Registration successful!", description: "Please log in with your credentials." });
         navigate("/login");
       } else {
-        toast({ title: "Registration failed", description: data.message, variant: "destructive" });
+        toast({ title: "Registration failed", description: data.error || "Registration failed", variant: "destructive" });
       }
     } catch (error) {
       toast({ title: "Error", description: "Network error occurred", variant: "destructive" });

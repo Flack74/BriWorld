@@ -5,6 +5,7 @@ import (
 	"briworld/internal/database"
 	"briworld/internal/game"
 	"briworld/internal/http"
+	"briworld/internal/keepalive"
 	"context"
 	"log"
 	"os"
@@ -49,6 +50,8 @@ func main() {
 	}))
 
 	http.SetupRoutes(app, gormDB, cfg)
+
+	keepalive.Start()
 
 	log.Printf("🌍 BriWorld server starting on port %s", cfg.Port)
 	log.Printf("📊 Environment: %s", cfg.Env)

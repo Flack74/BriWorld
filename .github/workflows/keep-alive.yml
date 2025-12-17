@@ -1,0 +1,22 @@
+name: Keep Alive
+
+on:
+  schedule:
+    # Run every 10 minutes
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping BriWorld Service
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://briworld.onrender.com/api/health)
+          echo "Response: $response"
+          if [ "$response" = "200" ]; then
+            echo "✓ Service is alive"
+          else
+            echo "✗ Service returned $response"
+            exit 1
+          fi

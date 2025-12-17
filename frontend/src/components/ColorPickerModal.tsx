@@ -49,6 +49,13 @@ export const ColorPickerModal = ({
             <p className="text-center text-muted-foreground text-sm">
               This color will mark your conquered countries on the map
             </p>
+            {takenColors.length > 0 && (
+              <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                <p className="text-center text-yellow-600 dark:text-yellow-400 text-xs font-medium">
+                  🔒 Locked colors are already taken by other players
+                </p>
+              </div>
+            )}
           </DialogHeader>
 
           <div className="grid grid-cols-4 gap-4">

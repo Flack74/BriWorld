@@ -10,7 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Gamepad2, User, Lock, Globe, Flag, Map, Users, ChevronLeft } from "lucide-react";
+import { Gamepad2, User, Lock, Globe, Flag, Map, Users, ChevronLeft, LogOut } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { GameConfig } from "@/types/game";
 
 type GameMode = "FLAG" | "WORLD_MAP";
@@ -26,13 +27,20 @@ interface PublicRoom {
 
 const Lobby = () => {
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(() => localStorage.getItem("username") || "");
   const [gameMode, setGameMode] = useState<GameMode>("WORLD_MAP");
   const [rounds, setRounds] = useState("10");
   const [roomType, setRoomType] = useState<RoomType>("SINGLE");
   const [roomCode, setRoomCode] = useState("");
   const [publicRooms, setPublicRooms] = useState<PublicRoom[]>([]);
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
+  const isLoggedIn = !!localStorage.getItem("token");
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
+    navigate("/");
+  };
 
   useEffect(() => {
     if (roomType === 'PUBLIC') {
@@ -88,7 +96,8 @@ const Lobby = () => {
   };
 
   return (
-    <div className="min-h-screen gradient-earth flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      <ThemeToggle />
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-10 right-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
@@ -97,14 +106,27 @@ const Lobby = () => {
 
       {/* Back button */}
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
-        className="absolute top-6 left-6 gap-2"
+        className="absolute top-6 left-20 gap-2"
         onClick={() => navigate("/")}
       >
         <ChevronLeft className="w-4 h-4" />
         Back
       </Button>
+
+      {/* Logout button */}
+      {isLoggedIn && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="absolute top-6 right-6 gap-2"
+          onClick={handleLogout}
+        >
+          <LogOut className="w-4 h-4" />
+          Logout
+        </Button>
+      )}
 
       {/* Main Card */}
       <div className="relative z-10 w-full max-w-lg glass-card-strong rounded-3xl p-8 animate-scale-in">
