@@ -481,13 +481,7 @@ const players = gameState.scores.map(([name, score]) => ({
 
 MIT License - see [LICENSE](LICENSE) file for details
 
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details
-
 ---
-
-**🌍 Made with ❤️ by Flack for Briella and geography enthusiasts worldwide**
 
 ## 🔥 Why BriWorld?
 
@@ -509,4 +503,4 @@ MIT License - see [LICENSE](LICENSE) file for details
 - **Database queries**: <10ms average response time (Neon PostgreSQL)
 - **Frontend bundle**: 486KB (gzipped: 153KB)
 
-[⭐ Star this repo](https://github.com/yourusername/BriWorld) | [🐛 Report Bug](https://github.com/yourusername/BriWorld/issues) | [💡 Request Feature](https://github.com/yourusername/BriWorld/issues)
+**🌍 Made with ❤️ by Flack for Briella and geography enthusiasts worldwide**
