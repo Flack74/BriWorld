@@ -221,3 +221,8 @@
     background-position: 0% 50%;
   }
 }
+
+/* Fix emoji picker */
+.EmojiPickerReact {
+  width: 450px !important;
+}

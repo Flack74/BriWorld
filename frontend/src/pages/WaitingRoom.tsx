@@ -164,7 +164,7 @@ const WaitingRoom = () => {
           <div className="mb-6 space-y-3">
             <div className="text-sm font-semibold">Number of Rounds</div>
             <div className="grid grid-cols-4 gap-2">
-              {[5, 10, 15, 20].map((num) => (
+              {[5, 10, 15, 20, ...(localStorage.getItem('token') ? [40, 60, 100] : [])].map((num) => (
                 <button
                   key={num}
                   onClick={() => handleRoundsChange(num)}

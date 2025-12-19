@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import AudioManager from "@/lib/audioManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Gamepad2, User, Lock, Globe, Flag, Map, Users, ChevronLeft, LogOut, UserCircle } from "lucide-react";
+import { Gamepad2, User, Lock, Globe, Flag, Map, Users, ChevronLeft, LogOut, UserCircle, Settings } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GameConfig } from "@/types/game";
 
@@ -27,9 +28,31 @@ interface PublicRoom {
 
 const Lobby = () => {
   const navigate = useNavigate();
+
+  // Start background music on lobby entry
+  useEffect(() => {
+    const initAudio = () => {
+      const bgMusicEnabled = localStorage.getItem('bgMusicEnabled') !== 'false';
+      if (bgMusicEnabled) {
+        const bgTrack = localStorage.getItem('bgMusicTrack') || '/Music/briworld-background-1.mp3';
+        AudioManager.getInstance().setBackgroundMusic(bgTrack);
+      }
+      document.removeEventListener('click', initAudio);
+      document.removeEventListener('keydown', initAudio);
+    };
+    
+    document.addEventListener('click', initAudio);
+    document.addEventListener('keydown', initAudio);
+    
+    return () => {
+      document.removeEventListener('click', initAudio);
+      document.removeEventListener('keydown', initAudio);
+    };
+  }, []);
   const [username, setUsername] = useState(() => localStorage.getItem("username") || "");
   const [gameMode, setGameMode] = useState<GameMode>("WORLD_MAP");
   const [rounds, setRounds] = useState("10");
+  const [timeout, setTimeout] = useState("15");
   const [roomType, setRoomType] = useState<RoomType>("SINGLE");
   const [roomCode, setRoomCode] = useState("");
   const [publicRooms, setPublicRooms] = useState<PublicRoom[]>([]);
@@ -70,7 +93,8 @@ const Lobby = () => {
       gameMode,
       rounds: parseInt(rounds),
       roomType,
-      roomCode: roomType === 'PRIVATE' ? roomCode : undefined
+      roomCode: roomType === 'PRIVATE' ? roomCode : undefined,
+      timeout: gameMode === 'FLAG' ? parseInt(timeout) : undefined
     };
     
     // Single player goes directly to game, others to waiting room
@@ -89,7 +113,8 @@ const Lobby = () => {
       gameMode,
       rounds: parseInt(rounds),
       roomType: 'PUBLIC',
-      roomCode: code
+      roomCode: code,
+      timeout: gameMode === 'FLAG' ? parseInt(timeout) : undefined
     };
     
     navigate("/waiting", { state: config });
@@ -116,28 +141,39 @@ const Lobby = () => {
       </Button>
 
       {/* User menu */}
-      {isLoggedIn && (
-        <div className="absolute top-6 right-6 flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => navigate("/profile")}
-          >
-            <UserCircle className="w-4 h-4" />
-            Profile
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={handleLogout}
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </Button>
-        </div>
-      )}
+      <div className="absolute top-6 right-6 flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() => navigate("/settings")}
+        >
+          <Settings className="w-4 h-4" />
+          Settings
+        </Button>
+        {isLoggedIn && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => navigate("/profile")}
+            >
+              <UserCircle className="w-4 h-4" />
+              Profile
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </Button>
+          </>
+        )}
+      </div>
 
       {/* Main Card */}
       <div className="relative z-10 w-full max-w-lg glass-card-strong rounded-3xl p-8 animate-scale-in">
@@ -198,20 +234,45 @@ const Lobby = () => {
 
           {/* Number of Rounds - Only for FLAG mode */}
           {gameMode === "FLAG" && (
-            <div className="space-y-2 animate-fade-in">
-              <Label className="font-semibold">Number of Rounds</Label>
-              <Select value={rounds} onValueChange={setRounds}>
-                <SelectTrigger className="h-12 rounded-xl bg-card/50 border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5 Rounds</SelectItem>
-                  <SelectItem value="10">10 Rounds</SelectItem>
-                  <SelectItem value="15">15 Rounds</SelectItem>
-                  <SelectItem value="20">20 Rounds</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <>
+              <div className="space-y-2 animate-fade-in">
+                <Label className="font-semibold">Number of Rounds</Label>
+                <Select value={rounds} onValueChange={setRounds}>
+                  <SelectTrigger className="h-12 rounded-xl bg-card/50 border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">Quick — 5 Rounds</SelectItem>
+                    <SelectItem value="10">Standard — 10 Rounds</SelectItem>
+                    <SelectItem value="15">Extended — 15 Rounds</SelectItem>
+                    <SelectItem value="20">Long — 20 Rounds</SelectItem>
+                    {isLoggedIn && (
+                      <>
+                        <SelectItem value="40">Epic — 40 Rounds</SelectItem>
+                        <SelectItem value="60">Marathon — 60 Rounds</SelectItem>
+                        <SelectItem value="100">Endurance — 100 Rounds</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 animate-fade-in">
+                <Label className="font-semibold">Time per Round</Label>
+                <Select value={timeout} onValueChange={setTimeout}>
+                  <SelectTrigger className="h-12 rounded-xl bg-card/50 border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="15">15s — Fast</SelectItem>
+                      <SelectItem value="25">25s — Competitive</SelectItem>
+                      <SelectItem value="30">30s — Standard (Recommended)</SelectItem>
+                      <SelectItem value="40">40s — Casual</SelectItem>
+                      <SelectItem value="60">60s — Relaxed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
           )}
 
           {/* Room Type */}

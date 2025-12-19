@@ -36,8 +36,8 @@ export const ColorPickerModal = ({
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md p-0 overflow-hidden border-0 bg-transparent shadow-none">
+    <Dialog open={open} modal={true}>
+      <DialogContent className="sm:max-w-md p-0 overflow-hidden border-0 bg-transparent shadow-none" hideClose>
         <div className="glass-card-strong rounded-3xl p-8">
           <DialogHeader className="mb-6">
             <div className="flex items-center justify-center gap-3 mb-2">

@@ -11,6 +11,7 @@ export interface GameState {
   player_colors?: Record<string, string>;
   current_country?: string;
   painted_countries?: Record<string, string>;
+  deadline?: number;
 }
 
 export interface Question {
@@ -62,4 +63,5 @@ export interface GameConfig {
   rounds: number;
   roomType: 'SINGLE' | 'PRIVATE' | 'PUBLIC';
   roomCode?: string;
+  timeout?: number;
 }

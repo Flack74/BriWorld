@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { GameHeader } from "@/components/GameHeader";
-import { Leaderboard } from "@/components/Leaderboard";
 import { WorldMap } from "@/components/WorldMap";
-import { ChatBox } from "@/components/ChatBox";
+import RoomHeader from "@/components/RoomHeader";
+import GameHeader from "@/components/GameHeader";
+import LiveClock from "@/components/LiveClock";
+import Leaderboard from "@/components/Leaderboard";
+import GameChat from "@/components/GameChat";
+import CountryInput from "@/components/CountryInput";
 import { ColorPickerModal } from "@/components/ColorPickerModal";
 import { CollisionDialog } from "@/components/CollisionDialog";
 import { ReconnectionDialog } from "@/components/ReconnectionDialog";
@@ -12,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft } from "lucide-react";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import AudioManager from "@/lib/audioManager";
 import { GameConfig } from "@/types/game";
 
 const Game = () => {
@@ -70,6 +74,7 @@ const Game = () => {
   const [guessedCountries, setGuessedCountries] = useState<string[]>([]);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [wasReconnected, setWasReconnected] = useState(false);
+  const [showCongratsModal, setShowCongratsModal] = useState(false);
 
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [playerAvatars, setPlayerAvatars] = useState<Record<string, string>>({});
@@ -77,6 +82,8 @@ const Game = () => {
     // Check if this is a page refresh (room code existed before component mount)
     return !config.roomCode && !!sessionStorage.getItem('currentRoomCode');
   });
+  const [countdownPlayed, setCountdownPlayed] = useState(false);
+  const [hasGuessedThisRound, setHasGuessedThisRound] = useState(false);
 
   const [roomCode] = useState(() => {
     const savedRoomCode = sessionStorage.getItem('currentRoomCode');
@@ -101,8 +108,33 @@ const Game = () => {
     username: config.username,
     gameMode: config.gameMode,
     roomType: config.roomType,
-    rounds: config.rounds
+    rounds: config.rounds,
+    timeout: config.timeout
   });
+
+  // Initialize background music on user interaction
+  useEffect(() => {
+    const initAudio = () => {
+      const muted = localStorage.getItem('audioMuted') === 'true';
+      if (!muted) {
+        const bgTrack = localStorage.getItem('bgMusicTrack') || '/Music/briworld-background-1.mp3';
+        AudioManager.getInstance().setBackgroundMusic(bgTrack);
+      }
+      // Remove listener after first interaction
+      document.removeEventListener('click', initAudio);
+      document.removeEventListener('keydown', initAudio);
+    };
+    
+    // Wait for user interaction to start audio
+    document.addEventListener('click', initAudio);
+    document.addEventListener('keydown', initAudio);
+    
+    return () => {
+      document.removeEventListener('click', initAudio);
+      document.removeEventListener('keydown', initAudio);
+      // Don't stop music on unmount - let it continue playing
+    };
+  }, []);
 
   // Update player avatars when roomUpdate changes
   useEffect(() => {
@@ -111,20 +143,54 @@ const Game = () => {
     }
   }, [roomUpdate?.player_avatars]);
 
-  // Convert scores to players array
+  // Convert scores to players array for room-view-explorer Leaderboard
   const players = gameState?.scores ? Object.entries(gameState.scores).map(([name, score]) => ({
     id: name,
     name,
     score,
-    color: gameState?.player_colors?.[name] || (name === config.username ? selectedColor : '#10b981'),
-    avatarUrl: playerAvatars[name] || ''
-  })) : roomUpdate?.players ? roomUpdate.players.map((name) => ({
+    isYou: name === config.username,
+    isLeader: false,
+    color: (name === config.username ? 'correct' : 'opponent') as 'correct' | 'opponent',
+    avatar: name.charAt(0).toUpperCase(),
+    avatarUrl: playerAvatars[name]
+  })).sort((a, b) => b.score - a.score).map((p, i) => ({ ...p, isLeader: i === 0 })) : roomUpdate?.players ? roomUpdate.players.map((name) => ({
     id: name,
     name,
     score: gameState?.scores?.[name] || 0,
-    color: roomUpdate.player_colors?.[name] || (name === config.username ? selectedColor : '#10b981'),
-    avatarUrl: playerAvatars[name] || ''
-  })) : [];
+    isYou: name === config.username,
+    isLeader: false,
+    color: (name === config.username ? 'correct' : 'opponent') as 'correct' | 'opponent',
+    avatar: name.charAt(0).toUpperCase(),
+    avatarUrl: playerAvatars[name]
+  })).sort((a, b) => b.score - a.score).map((p, i) => ({ ...p, isLeader: i === 0 })) : [];
+
+  const [notifiedMessages, setNotifiedMessages] = useState<Set<string>>(new Set());
+
+  // Track notified messages to prevent duplicate notifications
+  
+  // Check for new @mentions and play notification
+  useEffect(() => {
+    messages.forEach(msg => {
+      if (!notifiedMessages.has(msg.id) && 
+          msg.content.includes(`@${config.username}`) && 
+          msg.sender !== config.username) {
+        AudioManager.getInstance().playNotification();
+        setNotifiedMessages(prev => new Set(prev).add(msg.id));
+      }
+    });
+  }, [messages, config.username, notifiedMessages]);
+
+  // Convert messages for GameChat with player colors and avatars
+  const chatMessages = messages.map(msg => ({
+    id: msg.id,
+    sender: msg.sender,
+    text: msg.content,
+    color: (msg.sender === config.username ? 'correct' : 'opponent') as 'correct' | 'opponent',
+    timestamp: msg.timestamp,
+    playerColor: gameState?.player_colors?.[msg.sender] || roomUpdate?.player_colors?.[msg.sender],
+    avatarUrl: playerAvatars[msg.sender],
+    reactions: msg.reactions
+  }));
 
   // Detect reconnection (only if actual page refresh AND game was in progress)
   useEffect(() => {
@@ -185,6 +251,8 @@ const Game = () => {
         }
         if (message.type === 'round_started') {
           setShowGameOver(false);
+          setCountdownPlayed(false);
+          setHasGuessedThisRound(false);
           if (config.roomType !== 'SINGLE') {
             setGameStats({correct: 0, incorrect: 0});
             setGuessedCountries([]);
@@ -196,6 +264,11 @@ const Game = () => {
             correct: answerData.is_correct,
             country: answerData.country_name
           });
+          if (answerData.is_correct && answerData.player === config.username) {
+            AudioManager.getInstance().playCorrectAnswer();
+            AudioManager.getInstance().stopCountdown();
+            setHasGuessedThisRound(true);
+          }
           if (answerData.is_correct) {
             setGameStats(prev => ({...prev, correct: prev.correct + 1}));
             // Add country code to guessed list for map painting
@@ -205,6 +278,11 @@ const Game = () => {
             }
             setShowSuccessBanner(true);
             setTimeout(() => setShowSuccessBanner(false), 3000);
+            
+            // Check if all countries found (197 total)
+            if (gameStats.correct + 1 >= 197) {
+              setTimeout(() => setShowCongratsModal(true), 3500);
+            }
           } else {
             // Count as incorrect
             setGameStats(prev => ({...prev, incorrect: prev.incorrect + 1}));
@@ -228,6 +306,7 @@ const Game = () => {
           }
           setLastAnswer(null);
         } else if (message.type === 'game_completed') {
+          AudioManager.getInstance().playGameComplete();
           setTimeout(() => setShowGameOver(true), 100);
         } else if (message.type === 'restart_game') {
           setShowGameOver(false);
@@ -251,6 +330,17 @@ const Game = () => {
       setStartTime(Date.now());
     }
   }, [flagLoaded, gameState?.question]);
+
+  // Play countdown sound at 4 seconds in FLAG mode
+  useEffect(() => {
+    if (config.gameMode === 'FLAG' && 
+        gameState?.time_remaining === 4 && 
+        !countdownPlayed && 
+        !hasGuessedThisRound) {
+      AudioManager.getInstance().playCountdown();
+      setCountdownPlayed(true);
+    }
+  }, [gameState?.time_remaining, config.gameMode, countdownPlayed, hasGuessedThisRound]);
 
 
 
@@ -292,19 +382,16 @@ const Game = () => {
 
   // Auto-start game when player has color (FREE mode only)
   useEffect(() => {
-    if (config.gameMode !== 'WORLD_MAP' || !roomUpdate) return;
+    if (config.gameMode !== 'WORLD_MAP' || !roomUpdate || gameState) return;
     
     const hasColor = roomUpdate.player_colors?.[config.username];
+    const isOwner = config.roomType === 'SINGLE' || roomUpdate.owner === config.username;
     
-    if (hasColor && !gameState) {
-      const isOwner = config.roomType === 'SINGLE' || roomUpdate.owner === config.username;
-      
-      if (isOwner) {
-        setWSMapMode('FREE');
-        setTimeout(() => startGame(), 500);
-      }
+    if (hasColor && isOwner && roomUpdate.status === 'waiting') {
+      setWSMapMode('FREE');
+      setTimeout(() => startGame(), 500);
     }
-  }, [roomUpdate, gameState, config.gameMode, config.roomType, config.username]);
+  }, [roomUpdate?.player_colors, roomUpdate?.owner, roomUpdate?.status, gameState?.status, config.gameMode, config.roomType, config.username]);
 
 
 
@@ -320,62 +407,68 @@ const Game = () => {
   // Flag Quiz View
   if (config.gameMode === 'FLAG') {
     return (
-      <div className="h-screen bg-background flex flex-col overflow-hidden relative">
-        {/* Countdown Timer - Fixed Top Right */}
-        {gameState?.time_remaining !== undefined && (
-          <div className={`fixed top-2 right-2 z-50 flex items-center gap-1 px-3 py-2 rounded-full font-display text-lg font-bold transition-all duration-300 whitespace-nowrap ${
-            gameState.time_remaining <= 5 
-              ? "bg-destructive text-destructive-foreground animate-pulse" 
-              : gameState.time_remaining <= 10 
-                ? "bg-game-timer text-white" 
-                : "gradient-ocean text-white glow-primary"
-          }`}>
-            <span>⏱️</span>
-            <span>{gameState.time_remaining}</span>
-          </div>
-        )}
-
-        <div className="p-2 sm:p-4">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-xl"
-              onClick={() => setShowLeaveDialog(true)}
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </Button>
-            <GameHeader
-              roomId={roomCode}
-              mode="flag"
-              playerType={config.roomType}
-              round={{ current: gameState?.current_round || 1, total: gameState?.total_rounds || config.rounds }}
-              timeLeft={undefined}
-            />
-          </div>
-        </div>
-
-        <div className="flex-1 flex flex-col lg:flex-row gap-2 sm:gap-4 p-2 sm:p-4 overflow-auto">
-          {/* Main Game Area */}
-          <div className="flex-1 game-panel flex flex-col items-center justify-center gap-4 lg:gap-8">
-            {/* Flag Display Area */}
-            <div className="w-48 h-32 sm:w-64 sm:h-40 bg-muted/30 rounded-2xl border-2 border-dashed border-border flex items-center justify-center">
-              {showTimeoutBanner ? (
-                <span className="text-6xl">🏳️</span>
-              ) : gameState?.question?.flag_code ? (
-                <img 
-                  src={`https://flagcdn.com/w320/${gameState.question.flag_code.toLowerCase()}.png`}
-                  alt={`Flag of ${gameState.question.country_name}`}
-                  className="max-w-full max-h-full object-contain rounded-lg"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                  onLoad={() => setFlagLoaded(true)}
-                />
-              ) : (
-                <span className="text-6xl">🏳️</span>
-              )}
+      <div className="min-h-screen bg-background p-4 lg:p-6">
+        <div className="max-w-[1600px] mx-auto h-[calc(100vh-2rem)] lg:h-[calc(100vh-3rem)] flex flex-col gap-4">
+          {/* Top row */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-xl"
+                onClick={() => setShowLeaveDialog(true)}
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+              <RoomHeader roomNumber={roomCode} isSingleRoom={config.roomType === 'SINGLE'} />
             </div>
+            <GameHeader />
+            <div className="flex items-center gap-3">
+              <div className="card-elevated px-4 py-2">
+                <div className="text-xs text-muted-foreground">Round</div>
+                <div className="text-lg font-bold text-center">{gameState?.current_round || 1} / {gameState?.total_rounds || config.rounds}</div>
+              </div>
+              <div className={`card-elevated px-5 py-3 flex items-center gap-2.5 ${
+                gameState?.time_remaining !== undefined && gameState.time_remaining <= 5 
+                  ? "bg-destructive text-destructive-foreground animate-pulse" 
+                  : gameState?.time_remaining !== undefined && gameState.time_remaining <= 10 
+                    ? "bg-game-timer text-white" 
+                    : ""
+              }`}>
+                <span>⏱️</span>
+                <span className="text-lg font-semibold tabular-nums">{gameState?.time_remaining || 0}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Main content */}
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-[300px_1fr_300px] gap-4 min-h-0">
+            {/* Leaderboard */}
+            <div className="hidden lg:block">
+              <Leaderboard players={players} messageCount={chatMessages.length} />
+            </div>
+
+            {/* Flag Quiz Area */}
+            <div className="flex flex-col gap-4 min-h-0">
+              <div className="flex-1 card-elevated flex flex-col items-center justify-center gap-6">
+                {/* Flag Display */}
+                <div className="w-64 h-40 bg-muted/30 rounded-2xl border-2 border-dashed border-border flex items-center justify-center">
+                  {showTimeoutBanner ? (
+                    <span className="text-6xl">🏳️</span>
+                  ) : gameState?.question?.flag_code ? (
+                    <img 
+                      src={`https://flagcdn.com/w320/${gameState.question.flag_code.toLowerCase()}.png`}
+                      alt={`Flag of ${gameState.question.country_name}`}
+                      className="max-w-full max-h-full object-contain rounded-lg"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                      onLoad={() => setFlagLoaded(true)}
+                    />
+                  ) : (
+                    <span className="text-6xl">🏳️</span>
+                  )}
+                </div>
 
             {/* Success Banner */}
             {showSuccessBanner && (
@@ -425,45 +518,39 @@ const Game = () => {
               </div>
             )}
 
-            {/* Answer Feedback */}
-            {gameState?.question && (
-              <div className="text-center">
-                <div className="text-lg font-semibold text-muted-foreground mb-2">
-                  What country is this?
-                </div>
+                {/* Question */}
+                {gameState?.question && (
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-muted-foreground">
+                      What country is this?
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+              
+              {/* Input */}
+              <CountryInput onSubmit={(guess) => {
+                if (startTime) {
+                  const responseTime = Date.now() - startTime;
+                  sendAnswer(guess, responseTime);
+                }
+              }} />
+            </div>
 
-            {/* Guess Input */}
-            <form onSubmit={handleGuessSubmit} className="w-full max-w-md flex gap-2 sm:gap-3 px-2 sm:px-0">
-              <Input
-                value={guessInput}
-                onChange={(e) => setGuessInput(e.target.value)}
-                placeholder="Type country name..."
-                className="h-12 sm:h-14 rounded-xl bg-card/50 border-border text-base sm:text-lg"
-              />
-              <Button type="submit" variant="game" size="lg">
-                Submit
-              </Button>
-            </form>
+            {/* Chat */}
+            <div className="hidden lg:block">
+              <GameChat messages={chatMessages} onSendMessage={sendChatMessage} />
+            </div>
           </div>
 
-          {/* Leaderboard */}
-          <div className="w-full lg:w-auto">
-            <Leaderboard
-              players={players}
-              currentPlayerId={config.username}
-              showColors={false}
-            />
+          {/* Mobile: show leaderboard and chat below */}
+          <div className="lg:hidden grid grid-cols-2 gap-4 h-72">
+            <Leaderboard players={players} messageCount={chatMessages.length} />
+            <GameChat messages={chatMessages} onSendMessage={sendChatMessage} />
           </div>
         </div>
 
-        {/* Chat */}
-        {!showGameOver && (
-          <div className="p-2 sm:p-4">
-            <ChatBox messages={messages} onSendMessage={sendChatMessage} />
-          </div>
-        )}
+
 
         {/* Game Over Banner */}
         {showGameOver && (
@@ -554,11 +641,9 @@ const Game = () => {
 
   // World Map View
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden relative">
-
-
-      {/* Header */}
-      <div className="p-2 sm:p-4">
+    <div className="min-h-screen bg-background p-4 lg:p-6">
+      <div className="max-w-[1600px] mx-auto h-[calc(100vh-2rem)] lg:h-[calc(100vh-3rem)] flex flex-col gap-4">
+        {/* Top row */}
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -568,38 +653,51 @@ const Game = () => {
           >
             <ChevronLeft className="w-5 h-5" />
           </Button>
-          <GameHeader
-            roomId={roomCode}
-            mode="map"
-            playerType={config.roomType}
-            round={undefined}
-            timeLeft={undefined}
-            isFreeMode={true}
-          />
+          <RoomHeader roomNumber={roomCode} isSingleRoom={config.roomType === 'SINGLE'} />
+          <GameHeader />
+          <div className="ml-auto gradient-ocean text-white px-4 py-2 rounded-xl glow-primary">
+            <div className="text-xs font-medium opacity-80">Countries Found</div>
+            <div className="font-display text-2xl font-bold text-center">{gameStats.correct} / 197</div>
+          </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:flex-row gap-2 sm:gap-4 p-2 sm:p-4 pt-0 overflow-auto">
-        <WorldMap
-          countriesFound={gameStats.correct}
-          recentGuesses={[]}
-          foundCountryCodes={guessedCountries}
-          currentCountry={undefined}
-          userColor={gameState?.player_colors?.[config.username] || selectedColor}
-          paintedCountries={gameState?.painted_countries || {}}
-          playerColors={gameState?.player_colors || {}}
-          onSubmitGuess={(guess) => {
-            const responseTime = startTime ? Date.now() - startTime : 0;
-            sendAnswer(guess, responseTime);
-            setStartTime(Date.now());
-          }}
-        />
-        <div className="w-full lg:w-auto">
-          <Leaderboard
-            players={players}
-            currentPlayerId={config.username}
-          />
+        {/* Main content */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[300px_1fr_300px] gap-4 min-h-0">
+          {/* Leaderboard */}
+          <div className="hidden lg:block">
+            <Leaderboard players={players} messageCount={chatMessages.length} />
+          </div>
+
+          {/* Map and input */}
+          <div className="flex flex-col gap-4 min-h-0">
+            <div className="flex-1 min-h-0 card-elevated overflow-hidden p-4">
+              <WorldMap
+                countriesFound={gameStats.correct}
+                recentGuesses={[]}
+                foundCountryCodes={guessedCountries}
+                currentCountry={undefined}
+                userColor={gameState?.player_colors?.[config.username] || selectedColor}
+                paintedCountries={gameState?.painted_countries || {}}
+                playerColors={gameState?.player_colors || {}}
+              />
+            </div>
+            <CountryInput onSubmit={(guess) => {
+              const responseTime = startTime ? Date.now() - startTime : 0;
+              sendAnswer(guess, responseTime);
+              setStartTime(Date.now());
+            }} />
+          </div>
+
+          {/* Chat */}
+          <div className="hidden lg:block">
+            <GameChat messages={chatMessages} onSendMessage={sendChatMessage} />
+          </div>
+        </div>
+
+        {/* Mobile: show leaderboard and chat below */}
+        <div className="lg:hidden grid grid-cols-2 gap-4 h-72">
+          <Leaderboard players={players} messageCount={chatMessages.length} />
+          <GameChat messages={chatMessages} onSendMessage={sendChatMessage} />
         </div>
       </div>
 
@@ -651,12 +749,7 @@ const Game = () => {
         </div>
       )}
 
-      {/* Chat */}
-      {!showGameOver && (
-        <div className="p-2 sm:p-4 pt-0">
-          <ChatBox messages={messages} onSendMessage={sendChatMessage} />
-        </div>
-      )}
+
 
       {/* Game Over Banner */}
       {showGameOver && (
@@ -692,6 +785,47 @@ const Game = () => {
                     }
                   }}
                   className="bg-white text-purple-600 hover:bg-gray-100 text-lg px-8 py-6 rounded-xl font-bold h-auto"
+                  size="lg"
+                >
+                  Play Again 🔄
+                </Button>
+                <Button 
+                  onClick={() => navigate('/lobby')} 
+                  className="bg-white/20 text-white hover:bg-white/30 text-lg px-8 py-6 rounded-xl font-bold h-auto"
+                  size="lg"
+                >
+                  Back to Lobby 🏠
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Congrats Modal */}
+      {showCongratsModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center animate-in fade-in duration-500">
+          <div className="bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 text-white p-10 rounded-3xl shadow-2xl border-4 border-white/20 max-w-2xl w-full mx-4 animate-in zoom-in duration-700">
+            <div className="text-center space-y-6">
+              <div className="text-6xl animate-bounce">🎉</div>
+              <div className="text-4xl font-bold">Congratulations!</div>
+              <div className="text-xl opacity-90">You found all 197 countries!</div>
+              
+              <div className="bg-white/10 backdrop-blur rounded-2xl p-6 my-6">
+                <div className="text-6xl mb-4">🌍</div>
+                <div className="text-3xl font-bold">Perfect Score!</div>
+                <div className="text-lg opacity-80 mt-2">Geography Master</div>
+              </div>
+
+              <div className="flex gap-3 justify-center">
+                <Button 
+                  onClick={() => {
+                    setShowCongratsModal(false);
+                    if (ws) {
+                      ws.send(JSON.stringify({ type: 'restart_game' }));
+                    }
+                  }}
+                  className="bg-white text-orange-600 hover:bg-gray-100 text-lg px-8 py-6 rounded-xl font-bold h-auto"
                   size="lg"
                 >
                   Play Again 🔄

@@ -11,6 +11,7 @@ import Lobby from "./pages/Lobby";
 import Profile from "./pages/Profile";
 import WaitingRoom from "./pages/WaitingRoom";
 import Game from "./pages/Game";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
             <Route path="/waiting" element={<WaitingRoom />} />
             <Route path="/game" element={<Game />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

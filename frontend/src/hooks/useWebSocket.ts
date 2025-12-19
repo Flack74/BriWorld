@@ -7,6 +7,7 @@ interface UseWebSocketProps {
   gameMode: 'FLAG' | 'WORLD_MAP';
   roomType: 'SINGLE' | 'PRIVATE' | 'PUBLIC';
   rounds?: number;
+  timeout?: number;
 }
 
 interface WebSocketHookReturn {
@@ -28,7 +29,8 @@ export const useWebSocket = ({
   username,
   gameMode,
   roomType,
-  rounds = 10
+  rounds = 10,
+  timeout = 15
 }: UseWebSocketProps): WebSocketHookReturn => {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -47,7 +49,8 @@ export const useWebSocket = ({
     
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
-    const wsUrl = `${protocol}//${host}/ws?room=${encodeURIComponent(roomCode)}&username=${encodeURIComponent(username)}&session=${encodeURIComponent(sessionId)}&mode=${gameMode}&type=${roomType}&rounds=${rounds}`;
+    const token = localStorage.getItem('token') || '';
+    const wsUrl = `${protocol}//${host}/ws?room=${encodeURIComponent(roomCode)}&username=${encodeURIComponent(username)}&session=${encodeURIComponent(sessionId)}&mode=${gameMode}&type=${roomType}&rounds=${rounds}&timeout=${timeout}&token=${encodeURIComponent(token)}`;
     
     const websocket = new WebSocket(wsUrl);
     wsRef.current = websocket;
@@ -70,7 +73,8 @@ export const useWebSocket = ({
               map_mode: gameStatePayload.map_mode,
               game_mode: gameStatePayload.game_mode,
               painted_countries: gameStatePayload.painted_countries,
-              player_colors: gameStatePayload.player_colors
+              player_colors: gameStatePayload.player_colors,
+              deadline: gameStatePayload.deadline
             });
             setGameState(gameStatePayload);
             break;
@@ -78,7 +82,15 @@ export const useWebSocket = ({
             setRoomUpdate(message.payload as RoomUpdate);
             break;
           case 'timer_update':
-            setGameState(prev => prev ? { ...prev, time_remaining: message.payload.time_remaining } : null);
+            // Only update timer for FLAG mode
+            setGameState(prev => {
+              if (!prev || prev.game_mode !== 'FLAG') return prev;
+              return { 
+                ...prev, 
+                time_remaining: message.payload.time_remaining,
+                deadline: message.payload.deadline || prev.deadline
+              };
+            });
             break;
           case 'answer_submitted':
             // Handle in Game component
@@ -104,14 +116,48 @@ export const useWebSocket = ({
             } : null);
             break;
           case 'chat_message':
+            const msgTimestamp = message.payload.timestamp ? new Date(message.payload.timestamp).getTime() : Date.now();
             const chatMsg: ChatMessage = {
-              id: Date.now().toString(),
+              id: msgTimestamp.toString(),
               sender: message.payload.player_name,
               content: message.payload.message,
-              timestamp: new Date(message.payload.timestamp || Date.now()),
+              timestamp: new Date(msgTimestamp),
               isSystem: false
             };
             setMessages(prev => [chatMsg, ...prev]);
+            break;
+          case 'message_reaction':
+            console.log('[WebSocket] message_reaction received:', message.payload);
+            setMessages(prev => {
+              console.log('[WebSocket] Current messages:', prev.map(m => ({ id: m.id, sender: m.sender, content: m.content })));
+              const updated = prev.map(msg => {
+                if (msg.id === message.payload.message_id) {
+                  console.log('[WebSocket] Found matching message:', msg.id);
+                  const reactions = { ...msg.reactions } || {};
+                  const emoji = message.payload.emoji;
+                  const username = message.payload.username;
+                  const users = reactions[emoji] || [];
+                  
+                  // Toggle reaction - remove if already exists, add if not
+                  const userIndex = users.indexOf(username);
+                  if (userIndex > -1) {
+                    users.splice(userIndex, 1);
+                    if (users.length === 0) {
+                      delete reactions[emoji];
+                    } else {
+                      reactions[emoji] = users;
+                    }
+                  } else {
+                    reactions[emoji] = [...users, username];
+                  }
+                  
+                  return { ...msg, reactions };
+                }
+                return msg;
+              });
+              console.log('[WebSocket] Updated messages:', updated.map(m => ({ id: m.id, reactions: m.reactions })));
+              return updated;
+            });
             break;
           case 'session_collision':
             // Handle collision - show dialog

@@ -1,4 +1,4 @@
-import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
 import * as d3 from 'd3';
@@ -37,6 +37,10 @@ export const WorldMap = ({
   onReset,
 }: WorldMapProps) => {
   const [showGuesses, setShowGuesses] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -44,16 +48,24 @@ export const WorldMap = ({
 
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg) return;
+    if (!svg) {
+      console.log('WorldMap: SVG ref not ready');
+      return;
+    }
 
+    console.log('WorldMap: Loading topology data...');
     // Load world topology
     fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-      .then(res => res.json())
+      .then(res => {
+        console.log('WorldMap: Topology fetch successful');
+        return res.json();
+      })
       .then(topology => {
+        console.log('WorldMap: Topology parsed, rendering map...');
         const countries = feature(topology, topology.objects.countries);
         
         const width = 960;
-        const height = 500;
+        const height = 700;
         
         const projection = d3.geoMercator()
           .scale(150)
@@ -82,6 +94,11 @@ export const WorldMap = ({
           .attr('fill', '#ececec')
           .attr('stroke', '#333')
           .attr('stroke-width', 0.5);
+        
+        console.log('WorldMap: Map rendered successfully with', countries.features.length, 'countries');
+      })
+      .catch(err => {
+        console.error('WorldMap: Error loading topology:', err);
       });
   }, []);
 
@@ -116,7 +133,7 @@ export const WorldMap = ({
     'RS': [21, 44], 'SS': [30, 7], 'ST': [7, 1], 'SR': [-56, 4], 'SK': [19, 48],
     'SI': [15, 46], 'SE': [15, 62], 'SZ': [31, -26], 'SY': [38, 35], 'TD': [19, 15],
     'TG': [1, 8], 'TH': [101, 15], 'TJ': [71, 39], 'TM': [60, 40], 'TL': [126, -9],
-    'TN': [9, 34], 'TR': [35, 39], 'TT': [-61, 11], 'TZ': [35, -6], 'UG': [32, 1],
+    'TN': [9, 34], 'TR': [35, 39], 'TT': [-61, 11], 'TW': [121, 24], 'TZ': [35, -6], 'UG': [32, 1],
     'UA': [32, 49], 'UY': [-56, -33], 'US': [-95, 38], 'UZ': [64, 41], 'VE': [-66, 8],
     'VN': [106, 16], 'VU': [167, -16], 'YE': [48, 15], 'ZA': [25, -29], 'ZM': [28, -15],
     'ZW': [30, -19], 'AE': [54, 24], 'BH': [50, 26], 'BN': [115, 4], 'CV': [-24, 16],
@@ -127,11 +144,13 @@ export const WorldMap = ({
     'WS': [-172, -13], 'AD': [1, 42], 'AG': [-61, 17], 'BB': [-59, 13], 'VA': [12, 41]
   };
 
-  // No zoom/pan logic - just static map with highlighting
-
+  // Update painted countries effect
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg) return;
+    if (!svg) {
+      console.log('WorldMap: SVG ref not ready for painting');
+      return;
+    }
 
     const countryMap: any = {
       'AF': '004', 'AL': '008', 'DZ': '012', 'AD': '020', 'AO': '024', 'AG': '028', 'AR': '032', 'AM': '051',
@@ -156,13 +175,20 @@ export const WorldMap = ({
       'RS': '688', 'SC': '690', 'SL': '694', 'SG': '702', 'SK': '703', 'SI': '705', 'SB': '090', 'SO': '706',
       'ZA': '710', 'SS': '728', 'ES': '724', 'LK': '144', 'SD': '729', 'SR': '740', 'SZ': '748', 'SE': '752',
       'CH': '756', 'SY': '760', 'TJ': '762', 'TZ': '834', 'TH': '764', 'TL': '626', 'TG': '768', 'TO': '776',
-      'TT': '780', 'TN': '788', 'TR': '792', 'TM': '795', 'TV': '798', 'UG': '800', 'UA': '804', 'AE': '784',
+      'TT': '780', 'TN': '788', 'TR': '792', 'TM': '795', 'TW': '158', 'TV': '798', 'UG': '800', 'UA': '804', 'AE': '784',
       'GB': '826', 'US': '840', 'UY': '858', 'UZ': '860', 'VU': '548', 'VA': '336', 'VE': '862', 'VN': '704',
       'YE': '887', 'ZM': '894', 'ZW': '716'
     };
 
+    const paths = d3.select(svg).selectAll('path');
+    if (paths.empty()) {
+      console.log('WorldMap: No paths found yet, map not loaded');
+      return;
+    }
+    
+    console.log('WorldMap: Updating painted countries...');
     // Reset all countries
-    d3.select(svg).selectAll('path').attr('fill', '#ececec').attr('opacity', 1);
+    paths.attr('fill', '#ececec').attr('opacity', 1);
     
     // Paint all painted countries
     Object.entries(paintedCountries).forEach(([code, playerName]) => {
@@ -206,24 +232,9 @@ export const WorldMap = ({
   // No pan/zoom handlers - static map only
 
   return (
-    <div className="flex-1 game-panel flex flex-col">
-      {/* Map Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">🌍</span>
-          <h2 className="font-display text-lg font-semibold text-foreground">
-            Guess any country and paint the map!
-          </h2>
-        </div>
+    <div className="h-full w-full flex flex-col">
 
-        {/* Countries Found Counter - only show in FREE mode */}
-        {countriesFound !== undefined && (
-          <div className="gradient-ocean text-white px-4 py-2 rounded-xl glow-primary">
-            <div className="text-xs font-medium opacity-80">Countries Found</div>
-            <div className="font-display text-2xl font-bold text-center">{countriesFound}</div>
-          </div>
-        )}
-      </div>
+      {/* Countries Found Counter - moved to top bar */}
 
       {/* Map Container */}
       <div className="relative flex-1 bg-game-ocean/10 rounded-2xl overflow-hidden border border-border/50">
@@ -258,48 +269,56 @@ export const WorldMap = ({
           </div>
         )}
 
-        {/* World Map SVG - Static, no zoom/pan */}
+        {/* Zoom Controls */}
+        <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+          <button
+            onClick={() => setZoom(prev => Math.min(prev + 0.2, 3))}
+            className="glass-card-strong p-2 rounded-xl hover:bg-card/100 transition-all"
+            title="Zoom In"
+          >
+            <ZoomIn className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => setZoom(prev => Math.max(prev - 0.2, 0.5))}
+            className="glass-card-strong p-2 rounded-xl hover:bg-card/100 transition-all"
+            title="Zoom Out"
+          >
+            <ZoomOut className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* World Map SVG - Interactive with zoom/pan */}
         <div 
           ref={containerRef}
-          className="absolute inset-0 overflow-hidden flex items-center justify-center"
+          className="absolute inset-0 overflow-hidden flex items-center justify-center bg-game-ocean/5 cursor-grab active:cursor-grabbing"
+          onMouseDown={(e) => {
+            setIsDragging(true);
+            setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+          }}
+          onMouseMove={(e) => {
+            if (isDragging) {
+              setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+            }
+          }}
+          onMouseUp={() => setIsDragging(false)}
+          onMouseLeave={() => setIsDragging(false)}
         >
           <svg
             ref={svgRef}
             style={{ 
               filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.1))",
-              pointerEvents: 'none',
               userSelect: 'none',
+              maxWidth: '100%',
+              maxHeight: '100%',
+              display: 'block',
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transition: isDragging ? 'none' : 'transform 0.1s ease-out'
             }}
           />
         </div>
       </div>
 
-      {/* Input Area */}
-      <div className="mt-4">
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          const input = e.currentTarget.elements.namedItem('country') as HTMLInputElement;
-          if (input.value.trim()) {
-            onSubmitGuess?.(input.value.trim());
-            input.value = '';
-          }
-        }} className="relative">
-          <input
-            name="country"
-            type="text"
-            placeholder="Type any country name..."
-            className="w-full h-14 px-6 pr-32 rounded-2xl border-2 border-border bg-card/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium"
-          />
-          <Button
-            type="submit"
-            variant="game"
-            size="lg"
-            className="absolute right-2 top-1/2 -translate-y-1/2"
-          >
-            Submit
-          </Button>
-        </form>
-      </div>
+      {/* Input Area - Removed, will be added in Game.tsx */}
     </div>
   );
 };
