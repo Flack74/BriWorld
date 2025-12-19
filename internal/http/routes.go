@@ -22,6 +22,7 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config) {
 	app.Static("/static", "./static")
 	app.Static("/assets", "./web-dist/assets")
 	app.Static("/uploads", "./uploads")
+	app.Static("/Music", "./Music")
 	app.Static("/", "./web-dist", fiber.Static{
 		Browse: false,
 		Index:  "index.html",

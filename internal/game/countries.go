@@ -38,6 +38,16 @@ func GetAllCountries() CountryData {
 	return countries
 }
 
+func GetTotalCountries() int {
+	count := 0
+	for code := range countries {
+		if !IsCountryExcluded(code) {
+			count++
+		}
+	}
+	return count
+}
+
 func FindCountryByName(name string) (code, countryName string) {
 	// Convert to lowercase for comparison
 	lowerName := ""

@@ -11,6 +11,7 @@ import { ColorPickerModal } from "@/components/ColorPickerModal";
 import { CollisionDialog } from "@/components/CollisionDialog";
 import { ReconnectionDialog } from "@/components/ReconnectionDialog";
 import { LeaveRoomDialog } from "@/components/LeaveRoomDialog";
+import MuteButton from "@/components/MuteButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft } from "lucide-react";
@@ -75,6 +76,7 @@ const Game = () => {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [wasReconnected, setWasReconnected] = useState(false);
   const [showCongratsModal, setShowCongratsModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'leaderboard' | 'chat' | 'none'>('none');
 
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [playerAvatars, setPlayerAvatars] = useState<Record<string, string>>({});
@@ -115,8 +117,10 @@ const Game = () => {
   // Initialize background music on user interaction
   useEffect(() => {
     const initAudio = () => {
-      const muted = localStorage.getItem('audioMuted') === 'true';
-      if (!muted) {
+      const bgMusicEnabled = localStorage.getItem('bgMusicEnabled') !== 'false';
+      const audioMuted = localStorage.getItem('audioMuted') === 'true';
+      
+      if (bgMusicEnabled && !audioMuted) {
         const bgTrack = localStorage.getItem('bgMusicTrack') || '/Music/briworld-background-1.mp3';
         AudioManager.getInstance().setBackgroundMusic(bgTrack);
       }
@@ -407,147 +411,133 @@ const Game = () => {
   // Flag Quiz View
   if (config.gameMode === 'FLAG') {
     return (
-      <div className="min-h-screen bg-background p-4 lg:p-6">
-        <div className="max-w-[1600px] mx-auto h-[calc(100vh-2rem)] lg:h-[calc(100vh-3rem)] flex flex-col gap-4">
-          {/* Top row */}
-          <div className="flex items-center justify-between gap-4">
+      <div className="min-h-screen bg-background lg:p-4 p-0">
+        <div className="max-w-[1600px] mx-auto h-screen flex flex-col">
+          {/* Header - Streamlined */}
+          <div className="flex items-center justify-between lg:p-4 p-2 bg-card/50 backdrop-blur border-b border-border/30">
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-xl"
-                onClick={() => setShowLeaveDialog(true)}
-              >
-                <ChevronLeft className="w-5 h-5" />
+              <Button variant="ghost" size="icon" className="lg:h-10 lg:w-10 h-8 w-8" onClick={() => setShowLeaveDialog(true)}>
+                <ChevronLeft className="lg:w-5 lg:h-5 w-4 h-4" />
               </Button>
-              <RoomHeader roomNumber={roomCode} isSingleRoom={config.roomType === 'SINGLE'} />
+              <div className="font-bold lg:text-lg text-base">{roomCode}</div>
             </div>
-            <GameHeader />
-            <div className="flex items-center gap-3">
-              <div className="card-elevated px-4 py-2">
-                <div className="text-xs text-muted-foreground">Round</div>
-                <div className="text-lg font-bold text-center">{gameState?.current_round || 1} / {gameState?.total_rounds || config.rounds}</div>
+            <div className="flex items-center gap-2">
+              <div className="bg-primary/10 px-3 py-1 rounded-full">
+                <span className="lg:text-sm text-xs font-medium">{gameState?.current_round || 1}/{gameState?.total_rounds || config.rounds}</span>
               </div>
-              <div className={`card-elevated px-5 py-3 flex items-center gap-2.5 ${
+              <div className={`px-3 py-1 rounded-full font-bold lg:text-lg text-base ${
                 gameState?.time_remaining !== undefined && gameState.time_remaining <= 5 
-                  ? "bg-destructive text-destructive-foreground animate-pulse" 
-                  : gameState?.time_remaining !== undefined && gameState.time_remaining <= 10 
-                    ? "bg-game-timer text-white" 
-                    : ""
+                  ? "bg-red-500 text-white animate-pulse" 
+                  : "bg-orange-500 text-white"
               }`}>
-                <span>⏱️</span>
-                <span className="text-lg font-semibold tabular-nums">{gameState?.time_remaining || 0}</span>
+                {gameState?.time_remaining || 0}s
               </div>
+              <MuteButton />
             </div>
           </div>
 
-          {/* Main content */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-[300px_1fr_300px] gap-4 min-h-0">
-            {/* Leaderboard */}
-            <div className="hidden lg:block">
+          {/* Desktop 3-column layout */}
+          <div className="hidden lg:flex flex-1 gap-4 p-4 min-h-0">
+            <div className="w-80">
               <Leaderboard players={players} messageCount={chatMessages.length} />
             </div>
-
-            {/* Flag Quiz Area */}
-            <div className="flex flex-col gap-4 min-h-0">
-              <div className="flex-1 card-elevated flex flex-col items-center justify-center gap-6">
-                {/* Flag Display */}
-                <div className="w-64 h-40 bg-muted/30 rounded-2xl border-2 border-dashed border-border flex items-center justify-center">
-                  {showTimeoutBanner ? (
-                    <span className="text-6xl">🏳️</span>
-                  ) : gameState?.question?.flag_code ? (
+            <div className="flex-1 flex flex-col gap-4">
+              <div className="flex-1 card-elevated flex flex-col items-center justify-center p-6">
+                <div className="w-80 h-52 bg-muted/20 rounded-2xl border-2 border-dashed border-border flex items-center justify-center mb-6">
+                  {gameState?.question?.flag_code ? (
                     <img 
                       src={`https://flagcdn.com/w320/${gameState.question.flag_code.toLowerCase()}.png`}
-                      alt={`Flag of ${gameState.question.country_name}`}
-                      className="max-w-full max-h-full object-contain rounded-lg"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
+                      alt="Flag"
+                      className="max-w-full max-h-full object-contain rounded-xl"
                       onLoad={() => setFlagLoaded(true)}
                     />
                   ) : (
                     <span className="text-6xl">🏳️</span>
                   )}
                 </div>
-
-            {/* Success Banner */}
-            {showSuccessBanner && (
-              <div className="fixed top-12 left-1/2 transform -translate-x-1/2 z-50 w-[95%] max-w-sm">
-                <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-3 py-2 rounded-lg shadow-2xl border-2 border-green-300">
-                  <div className="flex items-center gap-2 justify-center">
-                    <span className="text-xl">🎉</span>
-                    <div className="text-center">
-                      <div className="text-base font-bold">Correct!</div>
-                      <div className="text-sm truncate">{lastAnswer?.country}</div>
-                    </div>
-                    <span className="text-xl">✅</span>
-                  </div>
-                </div>
+                <h2 className="text-xl font-semibold mb-4">What country is this?</h2>
               </div>
-            )}
-
-            {/* Error Banner */}
-            {showErrorBanner && (
-              <div className="fixed top-12 left-1/2 transform -translate-x-1/2 z-50 w-[95%] max-w-sm">
-                <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white px-3 py-2 rounded-lg shadow-2xl border-2 border-red-300">
-                  <div className="flex items-center gap-2 justify-center">
-                    <span className="text-xl">❌</span>
-                    <div className="text-center">
-                      <div className="text-base font-bold">Wrong!</div>
-                      <div className="text-sm truncate">It was {lastAnswer?.country}</div>
-                    </div>
-                    <span className="text-xl">😢</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Timeout Banner */}
-            {showTimeoutBanner && (
-              <div className="fixed top-12 left-1/2 transform -translate-x-1/2 z-50 w-[95%] max-w-sm">
-                <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white px-3 py-2 rounded-lg shadow-2xl border-2 border-orange-300">
-                  <div className="flex items-center gap-2 justify-center">
-                    <span className="text-xl">⏰</span>
-                    <div className="text-center">
-                      <div className="text-base font-bold">Time's Up!</div>
-                      <div className="text-sm truncate">{timeoutCountry}</div>
-                    </div>
-                    <span className="text-xl">⌛</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-                {/* Question */}
-                {gameState?.question && (
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-muted-foreground">
-                      What country is this?
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Input */}
               <CountryInput onSubmit={(guess) => {
                 if (startTime) {
-                  const responseTime = Date.now() - startTime;
-                  sendAnswer(guess, responseTime);
+                  sendAnswer(guess, Date.now() - startTime);
                 }
               }} />
             </div>
-
-            {/* Chat */}
-            <div className="hidden lg:block">
+            <div className="w-80">
               <GameChat messages={chatMessages} onSendMessage={sendChatMessage} />
             </div>
           </div>
 
-          {/* Mobile: show leaderboard and chat below */}
-          <div className="lg:hidden grid grid-cols-2 gap-4 h-72">
-            <Leaderboard players={players} messageCount={chatMessages.length} />
-            <GameChat messages={chatMessages} onSendMessage={sendChatMessage} />
+          {/* Mobile single-column layout */}
+          <div className="lg:hidden flex-1 flex flex-col">
+            {/* Game area */}
+            <div className="flex-1 flex flex-col items-center justify-center p-4">
+              <div className="w-64 h-40 bg-muted/20 rounded-xl border border-dashed border-border flex items-center justify-center mb-4">
+                {gameState?.question?.flag_code ? (
+                  <img 
+                    src={`https://flagcdn.com/w320/${gameState.question.flag_code.toLowerCase()}.png`}
+                    alt="Flag"
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                    onLoad={() => setFlagLoaded(true)}
+                  />
+                ) : (
+                  <span className="text-5xl">🏳️</span>
+                )}
+              </div>
+              <h2 className="text-lg font-semibold mb-4">What country is this?</h2>
+              <div className="w-full max-w-sm">
+                <CountryInput onSubmit={(guess) => {
+                  if (startTime) {
+                    sendAnswer(guess, Date.now() - startTime);
+                  }
+                }} />
+              </div>
+            </div>
+            
+            {/* Bottom tabs */}
+            <div className="h-12 flex border-t border-border/30">
+              <button 
+                className={`flex-1 flex items-center justify-center text-sm font-medium ${
+                  activeTab === 'leaderboard' ? 'bg-primary text-primary-foreground' : 'bg-muted/30'
+                }`}
+                onClick={() => setActiveTab(activeTab === 'leaderboard' ? 'none' : 'leaderboard')}
+              >
+                🏆 Leaderboard
+              </button>
+              <button 
+                className={`flex-1 flex items-center justify-center text-sm font-medium ${
+                  activeTab === 'chat' ? 'bg-primary text-primary-foreground' : 'bg-muted/30'
+                }`}
+                onClick={() => setActiveTab(activeTab === 'chat' ? 'none' : 'chat')}
+              >
+                💬 Chat {chatMessages.length > 0 && `(${chatMessages.length})`}
+              </button>
+            </div>
           </div>
+          
+          {/* Mobile overlays */}
+          {activeTab === 'leaderboard' && (
+            <div className="fixed inset-0 bg-background z-50 flex flex-col lg:hidden">
+              <div className="flex items-center justify-between p-4 border-b border-border/30">
+                <h2 className="text-lg font-bold">Leaderboard</h2>
+                <Button variant="ghost" onClick={() => setActiveTab('none')}>Close</Button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <Leaderboard players={players} messageCount={chatMessages.length} />
+              </div>
+            </div>
+          )}
+          {activeTab === 'chat' && (
+            <div className="fixed inset-0 bg-background z-50 flex flex-col lg:hidden">
+              <div className="flex items-center justify-between p-4 border-b border-border/30">
+                <h2 className="text-lg font-bold">Chat</h2>
+                <Button variant="ghost" onClick={() => setActiveTab('none')}>Close</Button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <GameChat messages={chatMessages} onSendMessage={sendChatMessage} />
+              </div>
+            </div>
+          )}
         </div>
 
 
@@ -570,7 +560,7 @@ const Game = () => {
                   <div className="bg-white/10 backdrop-blur rounded-2xl p-4 animate-in slide-in-from-right duration-500">
                     <div className="text-5xl mb-2">❌</div>
                     <div className="text-3xl font-bold">{gameStats.incorrect}</div>
-                    <div className="text-sm opacity-80 mt-1">Incorrect</div>
+                    <div className="text-sm opacity-80 mt-1">Missed</div>
                   </div>
                 </div>
 
@@ -641,36 +631,29 @@ const Game = () => {
 
   // World Map View
   return (
-    <div className="min-h-screen bg-background p-4 lg:p-6">
-      <div className="max-w-[1600px] mx-auto h-[calc(100vh-2rem)] lg:h-[calc(100vh-3rem)] flex flex-col gap-4">
-        {/* Top row */}
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-xl"
-            onClick={() => setShowLeaveDialog(true)}
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </Button>
-          <RoomHeader roomNumber={roomCode} isSingleRoom={config.roomType === 'SINGLE'} />
-          <GameHeader />
-          <div className="ml-auto gradient-ocean text-white px-4 py-2 rounded-xl glow-primary">
-            <div className="text-xs font-medium opacity-80">Countries Found</div>
-            <div className="font-display text-2xl font-bold text-center">{gameStats.correct} / 197</div>
+    <div className="min-h-screen bg-background lg:p-4 p-0">
+      <div className="max-w-[1600px] mx-auto h-screen flex flex-col">
+        {/* Header - Streamlined */}
+        <div className="flex items-center justify-between lg:p-4 p-2 bg-card/50 backdrop-blur border-b border-border/30">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="lg:h-10 lg:w-10 h-8 w-8" onClick={() => setShowLeaveDialog(true)}>
+              <ChevronLeft className="lg:w-5 lg:h-5 w-4 h-4" />
+            </Button>
+            <div className="font-bold lg:text-lg text-base">{roomCode}</div>
           </div>
+          <div className="bg-gradient-to-r from-blue-500 to-green-500 text-white px-4 py-2 rounded-full font-bold">
+            {gameStats.correct}/197 Countries
+          </div>
+          <MuteButton />
         </div>
 
-        {/* Main content */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[300px_1fr_300px] gap-4 min-h-0">
-          {/* Leaderboard */}
-          <div className="hidden lg:block">
+        {/* Desktop 3-column layout */}
+        <div className="hidden lg:flex flex-1 gap-4 p-4 min-h-0">
+          <div className="w-80">
             <Leaderboard players={players} messageCount={chatMessages.length} />
           </div>
-
-          {/* Map and input */}
-          <div className="flex flex-col gap-4 min-h-0">
-            <div className="flex-1 min-h-0 card-elevated overflow-hidden p-4">
+          <div className="flex-1 flex flex-col gap-4">
+            <div className="flex-1 card-elevated overflow-hidden">
               <WorldMap
                 countriesFound={gameStats.correct}
                 recentGuesses={[]}
@@ -687,31 +670,78 @@ const Game = () => {
               setStartTime(Date.now());
             }} />
           </div>
-
-          {/* Chat */}
-          <div className="hidden lg:block">
+          <div className="w-80">
             <GameChat messages={chatMessages} onSendMessage={sendChatMessage} />
           </div>
         </div>
 
-        {/* Mobile: show leaderboard and chat below */}
-        <div className="lg:hidden grid grid-cols-2 gap-4 h-72">
-          <Leaderboard players={players} messageCount={chatMessages.length} />
-          <GameChat messages={chatMessages} onSendMessage={sendChatMessage} />
+        {/* Mobile layout */}
+        <div className="lg:hidden flex-1 flex flex-col">
+          {/* Map area - 60% of screen */}
+          <div className="flex-[3] relative overflow-hidden">
+            <WorldMap
+              countriesFound={gameStats.correct}
+              recentGuesses={[]}
+              foundCountryCodes={guessedCountries}
+              currentCountry={undefined}
+              userColor={gameState?.player_colors?.[config.username] || selectedColor}
+              paintedCountries={gameState?.painted_countries || {}}
+              playerColors={gameState?.player_colors || {}}
+            />
+            {/* Floating input */}
+            <div className="absolute bottom-4 left-4 right-4">
+              <div className="bg-card/90 backdrop-blur rounded-xl border border-border/50 shadow-xl">
+                <CountryInput onSubmit={(guess) => {
+                  const responseTime = startTime ? Date.now() - startTime : 0;
+                  sendAnswer(guess, responseTime);
+                  setStartTime(Date.now());
+                }} />
+              </div>
+            </div>
+          </div>
+          
+          {/* Bottom tabs - 40% of screen */}
+          <div className="flex-[2] flex flex-col border-t border-border/30">
+            <div className="h-12 flex">
+              <button 
+                className={`flex-1 flex items-center justify-center text-sm font-medium ${
+                  activeTab === 'leaderboard' ? 'bg-primary text-primary-foreground' : 'bg-muted/30'
+                }`}
+                onClick={() => setActiveTab(activeTab === 'leaderboard' ? 'chat' : 'leaderboard')}
+              >
+                🏆 Leaderboard
+              </button>
+              <button 
+                className={`flex-1 flex items-center justify-center text-sm font-medium ${
+                  activeTab === 'chat' ? 'bg-primary text-primary-foreground' : 'bg-muted/30'
+                }`}
+                onClick={() => setActiveTab(activeTab === 'chat' ? 'leaderboard' : 'chat')}
+              >
+                💬 Chat {chatMessages.length > 0 && `(${chatMessages.length})`}
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              {activeTab === 'leaderboard' ? (
+                <Leaderboard players={players} messageCount={chatMessages.length} />
+              ) : (
+                <GameChat messages={chatMessages} onSendMessage={sendChatMessage} />
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Success Banner */}
       {showSuccessBanner && (
-        <div className="fixed top-12 left-1/2 transform -translate-x-1/2 z-50 w-[95%] max-w-sm">
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-3 py-2 rounded-lg shadow-2xl border-2 border-green-300">
-            <div className="flex items-center gap-2 justify-center">
-              <span className="text-xl">🎉</span>
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[85%] max-w-xs">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-2 py-1 rounded-lg shadow-lg border border-green-300">
+            <div className="flex items-center gap-1 justify-center">
+              <span className="text-sm">🎉</span>
               <div className="text-center">
-                <div className="text-base font-bold">Correct!</div>
-                <div className="text-sm truncate">{lastAnswer?.country}</div>
+                <div className="text-xs font-bold">Correct!</div>
+                <div className="text-xs truncate">{lastAnswer?.country}</div>
               </div>
-              <span className="text-xl">✅</span>
+              <span className="text-sm">✅</span>
             </div>
           </div>
         </div>
@@ -719,15 +749,15 @@ const Game = () => {
 
       {/* Error Banner */}
       {showErrorBanner && (
-        <div className="fixed top-12 left-1/2 transform -translate-x-1/2 z-50 w-[95%] max-w-sm">
-          <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white px-3 py-2 rounded-lg shadow-2xl border-2 border-red-300">
-            <div className="flex items-center gap-2 justify-center">
-              <span className="text-xl">❌</span>
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[85%] max-w-xs">
+          <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white px-2 py-1 rounded-lg shadow-lg border border-red-300">
+            <div className="flex items-center gap-1 justify-center">
+              <span className="text-sm">❌</span>
               <div className="text-center">
-                <div className="text-base font-bold">Wrong!</div>
-                <div className="text-sm truncate">It was {lastAnswer?.country}</div>
+                <div className="text-xs font-bold">Wrong!</div>
+                <div className="text-xs truncate">It was {lastAnswer?.country}</div>
               </div>
-              <span className="text-xl">😢</span>
+              <span className="text-sm">😢</span>
             </div>
           </div>
         </div>
@@ -735,15 +765,15 @@ const Game = () => {
 
       {/* Timeout Banner */}
       {showTimeoutBanner && (
-        <div className="fixed top-12 left-1/2 transform -translate-x-1/2 z-50 w-[95%] max-w-sm">
-          <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white px-3 py-2 rounded-lg shadow-2xl border-2 border-orange-300">
-            <div className="flex items-center gap-2 justify-center">
-              <span className="text-xl">⏰</span>
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[85%] max-w-xs">
+          <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white px-2 py-1 rounded-lg shadow-lg border border-orange-300">
+            <div className="flex items-center gap-1 justify-center">
+              <span className="text-sm">⏰</span>
               <div className="text-center">
-                <div className="text-base font-bold">Time's Up!</div>
-                <div className="text-sm truncate">{timeoutCountry}</div>
+                <div className="text-xs font-bold">Time's Up!</div>
+                <div className="text-xs truncate">{timeoutCountry}</div>
               </div>
-              <span className="text-xl">⌛</span>
+              <span className="text-sm">⌛</span>
             </div>
           </div>
         </div>
@@ -769,7 +799,7 @@ const Game = () => {
                 <div className="bg-white/10 backdrop-blur rounded-2xl p-4 animate-in slide-in-from-right duration-500">
                   <div className="text-5xl mb-2">❌</div>
                   <div className="text-3xl font-bold">{gameStats.incorrect}</div>
-                  <div className="text-sm opacity-80 mt-1">Incorrect</div>
+                  <div className="text-sm opacity-80 mt-1">Missed</div>
                 </div>
               </div>
 

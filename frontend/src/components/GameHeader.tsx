@@ -7,7 +7,7 @@ const GameHeader = () => {
       <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center">
         <Globe className="w-5 h-5 text-primary-foreground" />
       </div>
-      <span className="font-bold text-foreground text-base flex-1">
+      <span className="font-bold text-foreground text-base text-left">
         Guess any country and paint the map!
       </span>
       <Sparkles className="w-4 h-4 text-primary animate-pulse-soft" />

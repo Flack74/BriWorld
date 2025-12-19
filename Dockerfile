@@ -49,6 +49,8 @@ RUN chmod +x build-frontend.sh && ./build-frontend.sh
 RUN ls -la && \
     ls -la static/ && \
     ls -la web-dist/ && \
+    ls -la Music/ && \
+    ls -la uploads/ && \
     ls -la cmd/server/
 
 # Build optimized production binary
@@ -91,6 +93,8 @@ WORKDIR /app
 COPY --from=builder /app/briworld ./
 COPY --from=builder --chown=appuser:appgroup /app/static ./static/
 COPY --from=builder --chown=appuser:appgroup /app/web-dist ./web-dist/
+COPY --from=builder --chown=appuser:appgroup /app/Music ./Music/
+COPY --from=builder --chown=appuser:appgroup /app/uploads ./uploads/
 
 # Copy health check script
 COPY --chown=appuser:appgroup healthcheck.sh ./
@@ -100,6 +104,8 @@ RUN chmod +x ./briworld ./healthcheck.sh
 RUN ls -la && \
     ls -la static/ && \
     ls -la web-dist/ && \
+    ls -la Music/ && \
+    ls -la uploads/ && \
     echo "Files verification complete"
 
 # Set proper ownership

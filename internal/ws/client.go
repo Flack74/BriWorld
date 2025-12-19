@@ -9,18 +9,19 @@ import (
 )
 
 type Client struct {
-	ID          string
-	Username    string
-	SessionID   string
-	RoomID      string
-	Conn        *websocket.Conn
-	Send        chan []byte
-	Room        *Room
-	RoundsCount int
-	GameMode    string
-	RoomType    string
-	IsGuest     bool
-	AvatarURL   string
+	ID             string
+	Username       string
+	SessionID      string
+	RoomID         string
+	Conn           *websocket.Conn
+	Send           chan []byte
+	Room           *Room
+	RoundsCount    int
+	GameMode       string
+	RoomType       string
+	IsGuest        bool
+	AvatarURL      string
+	TimeoutSeconds int
 }
 
 type Message struct {
@@ -30,7 +31,12 @@ type Message struct {
 
 func (c *Client) ReadPump() {
 	defer func() {
-		c.Room.Unregister <- c
+		if r := recover(); r != nil {
+			log.Printf("Panic in ReadPump for client %s: %v", c.Username, r)
+		}
+		if c.Room != nil {
+			c.Room.Unregister <- c
+		}
 		c.Conn.Close()
 	}()
 
@@ -46,7 +52,11 @@ func (c *Client) ReadPump() {
 			continue
 		}
 
-		c.Room.HandleMessage(c, &msg)
+		if c.Room != nil {
+			c.Room.HandleMessage(c, &msg)
+		} else {
+			log.Printf("Client %s has no room assigned, ignoring message %s", c.Username, msg.Type)
+		}
 	}
 }
 

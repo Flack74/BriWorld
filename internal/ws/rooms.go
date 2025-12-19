@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
 	"briworld/internal/database"
 	"briworld/internal/game"
+	redisClient "briworld/internal/redis"
 	"briworld/internal/utils"
 )
 
@@ -113,6 +115,13 @@ func (r *Room) AddClient(client *Client) {
 	// Reset inactivity counter when user connects
 	r.inactiveRoundCount = 0
 	
+	// Add to Redis if available
+	if redisClient.Client != nil {
+		ctx := context.Background()
+		redisClient.AddPlayer(ctx, r.ID, client.Username)
+		redisClient.UpdateRoomActivity(ctx, r.ID)
+	}
+	
 	// Check for duplicate session (reconnection vs collision)
 	var existingClient *Client
 	for c := range r.Clients {
@@ -127,19 +136,12 @@ func (r *Room) AddClient(client *Client) {
 		// Check if connection is still alive
 		if existingClient.Conn != nil {
 			log.Printf("Active session collision detected: %s (session: %s)", client.Username, client.SessionID)
-			r.mu.Unlock()
 			
-			// Send collision message to new client
-			msg := Message{
-				Type: "session_collision",
-				Payload: map[string]interface{}{
-					"message": "This session is already active in this room",
-					"username": existingClient.Username,
-				},
-			}
-			data, _ := json.Marshal(msg)
-			client.Send <- data
-			return
+			// Close the existing connection and replace with new one
+			log.Printf("Replacing existing connection for %s", client.Username)
+			existingClient.Conn.Close()
+			delete(r.Clients, existingClient)
+			// Continue with adding the new client
 		} else {
 			// Old connection is dead, allow reconnection
 			log.Printf("Reconnection detected: %s (session: %s)", client.Username, client.SessionID)
@@ -150,6 +152,7 @@ func (r *Room) AddClient(client *Client) {
 	isFirstPlayer := len(r.Clients) == 0
 	r.Clients[client] = true
 	client.Room = r
+	log.Printf("Client %s added to room %s, room assigned: %v", client.Username, r.ID, client.Room != nil)
 	r.GameState.Scores[client.Username] = 0
 	if client.RoundsCount > 0 {
 		r.GameState.TotalRounds = client.RoundsCount
@@ -175,6 +178,14 @@ func (r *Room) AddClient(client *Client) {
 
 	// Save room state
 	GetStateManager().SaveRoomState(r)
+	
+	// Sync scores to Redis
+	if redisClient.Client != nil {
+		ctx := context.Background()
+		for username, score := range r.GameState.Scores {
+			redisClient.SetScore(ctx, r.ID, username, score)
+		}
+	}
 
 	r.BroadcastRoomUpdate()
 	r.SendPlayerJoined(client.Username)
@@ -185,6 +196,12 @@ func (r *Room) RemoveClient(client *Client) {
 	if _, ok := r.Clients[client]; ok {
 		delete(r.Clients, client)
 		close(client.Send)
+		
+		// Remove from Redis
+		if redisClient.Client != nil {
+			ctx := context.Background()
+			redisClient.RemovePlayer(ctx, r.ID, client.Username)
+		}
 		
 		// Transfer ownership if owner leaves
 		if r.Owner == client.Username && len(r.Clients) > 0 {
@@ -205,6 +222,10 @@ func (r *Room) RemoveClient(client *Client) {
 }
 
 func (r *Room) HandleMessage(client *Client, msg *Message) {
+	if r == nil {
+		log.Printf("HandleMessage called on nil room for client %s", client.Username)
+		return
+	}
 	switch msg.Type {
 	case "start_game":
 		r.StartGame(client.Username)
@@ -231,7 +252,7 @@ func (r *Room) SetMapMode(payload interface{}) {
 	r.GameState.MapMode = "FREE"
 	r.mu.Unlock()
 	
-	log.Printf("Map mode set to FREE (TIMED mode disabled)")
+	// Silent - no log needed
 	r.BroadcastRoomUpdate()
 }
 
@@ -252,6 +273,10 @@ func (r *Room) SetRounds(payload interface{}) {
 }
 
 func (r *Room) StartGame(username string) {
+	if r == nil {
+		log.Printf("StartGame called on nil room")
+		return
+	}
 	r.mu.Lock()
 	// Only owner can start game
 	if r.Owner != username {
@@ -326,12 +351,23 @@ func (r *Room) StartRound() {
 		questionType = "MAP_GUESS"
 	}
 	
+	// Get timeout from first client or default to 15
+	timeLimit := 15
+	r.mu.RLock()
+	for client := range r.Clients {
+		if client.TimeoutSeconds > 0 {
+			timeLimit = client.TimeoutSeconds
+			break
+		}
+	}
+	r.mu.RUnlock()
+	
 	question := &Question{
 		Type:        questionType,
 		FlagCode:    code,
 		CountryName: name,
 		CountryCode: code,
-		TimeLimit:   15,
+		TimeLimit:   timeLimit,
 	}
 
 	r.mu.Lock()
@@ -352,20 +388,52 @@ func (r *Room) StartRound() {
 	}
 	r.mu.Unlock()
 
-	// Include painted countries in the broadcast
+	// Include painted countries and deadline in the broadcast
 	r.mu.RLock()
 	gameStateCopy := *r.GameState
 	log.Printf("Broadcasting round_started to %d clients: CurrentCountry=%s, MapMode=%s, GameMode=%s", len(r.Clients), gameStateCopy.CurrentCountry, gameStateCopy.MapMode, gameStateCopy.GameMode)
 	r.mu.RUnlock()
-	r.BroadcastMessage("round_started", gameStateCopy)
+	
+	// Get deadline from Redis if available
+	var deadline int64
+	if redisClient.Client != nil {
+		ctx := context.Background()
+		if dl, err := redisClient.GetTimerDeadline(ctx, r.ID); err == nil {
+			deadline = dl
+		}
+	}
+	
+	r.BroadcastMessage("round_started", map[string]interface{}{
+		"status":           gameStateCopy.Status,
+		"current_round":    gameStateCopy.CurrentRound,
+		"total_rounds":     gameStateCopy.TotalRounds,
+		"question":         gameStateCopy.Question,
+		"scores":           gameStateCopy.Scores,
+		"time_remaining":   gameStateCopy.TimeRemaining,
+		"game_mode":        gameStateCopy.GameMode,
+		"room_type":        gameStateCopy.RoomType,
+		"map_mode":         gameStateCopy.MapMode,
+		"owner":            gameStateCopy.Owner,
+		"painted_countries": gameStateCopy.PaintedCountries,
+		"current_country":  gameStateCopy.CurrentCountry,
+		"player_colors":    gameStateCopy.PlayerColors,
+		"deadline":         deadline,
+	})
 
-	// Start countdown timer for all modes except FREE map mode
-	if !(r.GameState.GameMode == "WORLD_MAP" && r.GameState.MapMode == "FREE") {
+	// Start countdown timer ONLY for FLAG mode (no timer for WORLD_MAP)
+	if r.GameState.GameMode == "FLAG" {
+		// Store deadline in Redis
+		deadline := time.Now().Add(time.Duration(question.TimeLimit) * time.Second).Unix()
+		if redisClient.Client != nil {
+			ctx := context.Background()
+			redisClient.SetTimerDeadline(ctx, r.ID, r.GameState.CurrentRound, deadline)
+		}
+		
 		go func() {
 			ticker := time.NewTicker(1 * time.Second)
 			defer ticker.Stop()
 			
-			for i := 0; i < question.TimeLimit; i++ {
+			for {
 				select {
 				case <-ticker.C:
 					r.mu.RLock()
@@ -375,26 +443,44 @@ func (r *Room) StartRound() {
 					if !active || status == "completed" {
 						return
 					}
+					
+					// Calculate remaining from deadline
+					var remaining int64
+					if redisClient.Client != nil {
+						ctx := context.Background()
+						if dl, err := redisClient.GetTimerDeadline(ctx, r.ID); err == nil {
+							remaining = dl - time.Now().Unix()
+						} else {
+							remaining = deadline - time.Now().Unix()
+						}
+					} else {
+						remaining = deadline - time.Now().Unix()
+					}
+					
+					if remaining <= 0 {
+						r.mu.Lock()
+						if r.GameState.RoundActive {
+							r.GameState.RoundActive = false
+							r.mu.Unlock()
+							r.EndRound()
+						} else {
+							r.mu.Unlock()
+						}
+						return
+					}
+					
+					// Update and broadcast
 					r.mu.Lock()
-					r.GameState.TimeRemaining = question.TimeLimit - i - 1
+					r.GameState.TimeRemaining = int(remaining)
 					r.mu.Unlock()
 					
-					// Broadcast timer update
 					r.BroadcastMessage("timer_update", map[string]interface{}{
-						"time_remaining": question.TimeLimit - i - 1,
+						"time_remaining": int(remaining),
+						"deadline":       deadline,
 					})
 				case <-r.ctx.Done():
 					return
 				}
-			}
-			
-			r.mu.Lock()
-			if r.GameState.RoundActive && r.GameState.Status != "completed" {
-				r.GameState.RoundActive = false
-				r.mu.Unlock()
-				r.EndRound()
-			} else {
-				r.mu.Unlock()
 			}
 		}()
 	}
@@ -414,11 +500,24 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 	if r.GameState.GameMode == "WORLD_MAP" && r.GameState.MapMode == "FREE" {
 		code, name := game.FindCountryByName(answer.Answer)
 		if code != "" {
+			// Try Redis atomic paint
+			if redisClient.Client != nil {
+				ctx := context.Background()
+				if err := redisClient.PaintCountry(ctx, r.ID, code, client.Username); err != nil {
+					// Already painted
+					r.BroadcastMessage("answer_submitted", map[string]interface{}{
+						"player":       client.Username,
+						"is_correct":   false,
+						"country_name": name,
+					})
+					return
+				}
+			}
+			
 			r.mu.Lock()
-			// Check if country already painted
-			if _, exists := r.GameState.PaintedCountries[code]; exists {
+			// Check if country already painted (in-memory fallback)
+			if _, exists := r.GameState.PaintedCountries[code]; exists && redisClient.Client == nil {
 				r.mu.Unlock()
-				// Country already guessed
 				r.BroadcastMessage("answer_submitted", map[string]interface{}{
 					"player":       client.Username,
 					"is_correct":   false,
@@ -427,13 +526,20 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 				return
 			}
 			
-			// Mark country as painted by this user
+			// Mark country as painted
 			r.GameState.PaintedCountries[code] = client.Username
 			if r.GameState.Scores[client.Username] == 0 {
 				r.GameState.Scores[client.Username] = 1
 			} else {
 				r.GameState.Scores[client.Username]++
 			}
+			
+			// Update Redis score
+			if redisClient.Client != nil {
+				ctx := context.Background()
+				redisClient.SetScore(ctx, r.ID, client.Username, r.GameState.Scores[client.Username])
+			}
+			
 			log.Printf("Player %s scored! New score: %d", client.Username, r.GameState.Scores[client.Username])
 			r.mu.Unlock()
 			
@@ -468,6 +574,18 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 	if !r.GameState.RoundActive {
 		r.mu.Unlock()
 		return
+	}
+	
+	// Validate against Redis deadline
+	if redisClient.Client != nil {
+		ctx := context.Background()
+		if deadline, err := redisClient.GetTimerDeadline(ctx, r.ID); err == nil {
+			if time.Now().Unix() > deadline {
+				r.mu.Unlock()
+				log.Printf("Answer rejected: time expired (deadline: %d, now: %d)", deadline, time.Now().Unix())
+				return
+			}
+		}
 	}
 	
 	// Check if already answered correctly
@@ -658,13 +776,11 @@ func (r *Room) SetPlayerColor(client *Client, payload interface{}) {
 	}
 	json.Unmarshal(data, &colorData)
 	
-	r.mu.Lock()
-	// Check if color is already taken by another player
-	for username, color := range r.GameState.PlayerColors {
-		if color == colorData.Color && username != client.Username {
-			log.Printf("Color %s already taken by %s, rejecting for %s", colorData.Color, username, client.Username)
-			// Send error message to client
-			r.mu.Unlock()
+	// Try Redis first for atomic color selection
+	if redisClient.Client != nil {
+		ctx := context.Background()
+		if err := redisClient.SetPlayerColor(ctx, r.ID, client.Username, colorData.Color); err != nil {
+			log.Printf("Redis color rejection: %v", err)
 			msg := Message{
 				Type: "color_rejected",
 				Payload: map[string]interface{}{
@@ -676,9 +792,32 @@ func (r *Room) SetPlayerColor(client *Client, payload interface{}) {
 			client.Send <- data
 			return
 		}
+		// Sync to in-memory
+		r.mu.Lock()
+		r.GameState.PlayerColors[client.Username] = colorData.Color
+		r.mu.Unlock()
+	} else {
+		// Fallback to in-memory
+		r.mu.Lock()
+		for username, color := range r.GameState.PlayerColors {
+			if color == colorData.Color && username != client.Username {
+				log.Printf("Color %s already taken by %s, rejecting for %s", colorData.Color, username, client.Username)
+				r.mu.Unlock()
+				msg := Message{
+					Type: "color_rejected",
+					Payload: map[string]interface{}{
+						"error": "Color already taken",
+						"color": colorData.Color,
+					},
+				}
+				data, _ := json.Marshal(msg)
+				client.Send <- data
+				return
+			}
+		}
+		r.GameState.PlayerColors[client.Username] = colorData.Color
+		r.mu.Unlock()
 	}
-	r.GameState.PlayerColors[client.Username] = colorData.Color
-	r.mu.Unlock()
 	
 	r.BroadcastRoomUpdate()
 }
@@ -690,10 +829,31 @@ func (r *Room) BroadcastChatMessage(username string, payload interface{}) {
 	}
 	json.Unmarshal(data, &chat)
 
+	// Check if this is a reaction (format: REACTION:messageId:emoji)
+	if len(chat.Message) > 9 && chat.Message[:9] == "REACTION:" {
+		// Parse reaction: REACTION:messageId:emoji
+		parts := strings.Split(chat.Message, ":")
+		if len(parts) == 3 {
+			messageId := parts[1]
+			emoji := parts[2]
+			
+			// Broadcast reaction to all clients
+			r.BroadcastMessage("message_reaction", map[string]interface{}{
+				"message_id": messageId,
+				"emoji":      emoji,
+				"username":   username,
+			})
+			
+			log.Printf("Reaction in room %s - %s reacted %s to message %s", r.ID, username, emoji, messageId)
+		}
+		return
+	}
+
+	timestamp := time.Now().UnixMilli()
 	r.BroadcastMessage("chat_message", map[string]interface{}{
 		"player_name": username,
 		"message":     chat.Message,
-		"timestamp":   time.Now().Format(time.RFC3339),
+		"timestamp":   timestamp,
 	})
 	
 	log.Printf("Chat in room %s - %s: %s", r.ID, username, chat.Message)
@@ -736,6 +896,10 @@ func (r *Room) RestartGame(username string) {
 }
 
 func (r *Room) CloseRoom(username string) {
+	if r == nil {
+		log.Printf("CloseRoom called on nil room")
+		return
+	}
 	r.mu.Lock()
 	if r.Owner != username {
 		r.mu.Unlock()

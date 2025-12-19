@@ -68,14 +68,6 @@ export const useWebSocket = ({
           case 'round_started':
           case 'game_started':
             const gameStatePayload = message.payload as GameState;
-            console.log('[WebSocket] round_started received:', {
-              current_country: gameStatePayload.current_country,
-              map_mode: gameStatePayload.map_mode,
-              game_mode: gameStatePayload.game_mode,
-              painted_countries: gameStatePayload.painted_countries,
-              player_colors: gameStatePayload.player_colors,
-              deadline: gameStatePayload.deadline
-            });
             setGameState(gameStatePayload);
             break;
           case 'room_update':
@@ -96,7 +88,6 @@ export const useWebSocket = ({
             // Handle in Game component
             break;
           case 'score_update':
-            console.log('Score update received:', message.payload.scores);
             setGameState(prev => {
               if (!prev) {
                 return { scores: message.payload.scores, player_colors: {} } as GameState;
@@ -108,7 +99,6 @@ export const useWebSocket = ({
             setGameState(message.payload as GameState);
             break;
           case 'country_painted':
-            console.log('Country painted:', message.payload.country_code, 'by', message.payload.player, 'colors:', message.payload.player_colors);
             setGameState(prev => prev ? { 
               ...prev, 
               painted_countries: message.payload.painted_countries,
@@ -127,12 +117,9 @@ export const useWebSocket = ({
             setMessages(prev => [chatMsg, ...prev]);
             break;
           case 'message_reaction':
-            console.log('[WebSocket] message_reaction received:', message.payload);
             setMessages(prev => {
-              console.log('[WebSocket] Current messages:', prev.map(m => ({ id: m.id, sender: m.sender, content: m.content })));
               const updated = prev.map(msg => {
                 if (msg.id === message.payload.message_id) {
-                  console.log('[WebSocket] Found matching message:', msg.id);
                   const reactions = { ...msg.reactions } || {};
                   const emoji = message.payload.emoji;
                   const username = message.payload.username;
@@ -155,7 +142,6 @@ export const useWebSocket = ({
                 }
                 return msg;
               });
-              console.log('[WebSocket] Updated messages:', updated.map(m => ({ id: m.id, reactions: m.reactions })));
               return updated;
             });
             break;

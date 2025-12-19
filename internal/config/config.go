@@ -11,6 +11,7 @@ type Config struct {
 	JWT   JWTConfig
 	Game  GameConfig
 	SMTP  SMTPConfig
+	Redis RedisConfig
 	Port  string
 	Env   string
 }
@@ -42,6 +43,13 @@ type SMTPConfig struct {
 	Username string
 	Password string
 	From     string
+}
+
+type RedisConfig struct {
+	Addr     string
+	Password string
+	DB       int
+	TLS      bool
 }
 
 func Load() *Config {
@@ -76,6 +84,12 @@ func Load() *Config {
 			Username: getEnv("SMTP_USERNAME", ""),
 			Password: getEnv("SMTP_PASSWORD", ""),
 			From:     getEnv("SMTP_FROM", "noreply@briworld.com"),
+		},
+		Redis: RedisConfig{
+			Addr:     fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", "localhost"), getEnv("REDIS_PORT", "6379")),
+			Password: getEnv("REDIS_PASSWORD", ""),
+			DB:       getEnvInt("REDIS_DB", 0),
+			TLS:      getEnv("REDIS_TLS", "false") == "true",
 		},
 		Port: getEnv("PORT", "8085"),
 		Env:  env,

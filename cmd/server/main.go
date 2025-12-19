@@ -6,6 +6,7 @@ import (
 	"briworld/internal/game"
 	"briworld/internal/http"
 	"briworld/internal/keepalive"
+	"briworld/internal/redis"
 	"briworld/internal/ws"
 	"context"
 	"log"
@@ -31,6 +32,13 @@ func main() {
 	}
 	log.Println("✓ GORM connected and migrated")
 
+	if err := redis.InitRedis(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB, cfg.Redis.TLS); err != nil {
+		log.Printf("⚠️  Redis unavailable: %v (continuing without Redis)", err)
+	} else {
+		log.Println("✅ Redis connected")
+		defer redis.Close()
+	}
+
 	if err := game.LoadCountries("static/world.json"); err != nil {
 		log.Fatalf("Failed to load countries: %v", err)
 	}
@@ -54,7 +62,7 @@ func main() {
 
 	http.SetupRoutes(app, gormDB, cfg)
 
-	// Start room state cleanup
+	// Start room state cleanup (legacy in-memory fallback)
 	ws.GetStateManager().StartCleanup()
 	log.Println("✓ Room state manager started")
 

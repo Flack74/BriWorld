@@ -14,13 +14,7 @@ const MuteButton = () => {
   const toggleMute = () => {
     const newMuted = !isMuted;
     setIsMuted(newMuted);
-    localStorage.setItem('audioMuted', newMuted.toString());
-    
-    if (newMuted) {
-      AudioManager.getInstance().pauseBackgroundMusic();
-    } else {
-      AudioManager.getInstance().resumeBackgroundMusic();
-    }
+    AudioManager.getInstance().setGlobalMute(newMuted);
   };
 
   return (
@@ -28,10 +22,10 @@ const MuteButton = () => {
       variant="outline"
       size="icon"
       onClick={toggleMute}
-      className="rounded-xl"
-      title={isMuted ? 'Unmute' : 'Mute'}
+      className="rounded-lg sm:rounded-xl h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10"
+      title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
     >
-      {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+      {isMuted ? <VolumeX className="w-3 h-3 sm:w-4 sm:h-4" /> : <Volume2 className="w-3 h-3 sm:w-4 sm:h-4" />}
     </Button>
   );
 };

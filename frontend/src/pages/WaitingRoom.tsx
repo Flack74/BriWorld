@@ -72,7 +72,6 @@ const WaitingRoom = () => {
       try {
         const message = JSON.parse(event.data);
         if (message.type === 'round_started' || message.type === 'game_started') {
-          console.log('Game started, navigating...');
           navigate('/game', { state: { ...config, roomCode } });
         }
       } catch (error) {
@@ -93,7 +92,6 @@ const WaitingRoom = () => {
   };
 
   const handleStartGame = () => {
-    console.log('Starting game...', { gameMode: config.gameMode, rounds });
     sendMessage({ type: 'set_rounds', payload: { rounds } });
     startGame();
   };
@@ -112,46 +110,46 @@ const WaitingRoom = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-2 sm:p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-10 right-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-10 left-20 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
+        <div className="absolute top-10 right-10 sm:right-20 w-32 h-32 sm:w-64 sm:h-64 bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-10 left-10 sm:left-20 w-40 h-40 sm:w-80 sm:h-80 bg-accent/10 rounded-full blur-3xl" />
       </div>
 
       <Button
         variant="outline"
         size="sm"
-        className="absolute top-6 left-20 gap-2"
+        className="absolute top-2 left-2 sm:top-4 sm:left-4 lg:top-6 lg:left-20 gap-1 sm:gap-2 text-xs sm:text-sm h-8 w-8 sm:h-auto sm:w-auto"
         onClick={() => navigate("/lobby")}
       >
-        <ChevronLeft className="w-4 h-4" />
-        Back
+        <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
+        <span className="hidden sm:inline">Back</span>
       </Button>
 
-      <div className="relative z-10 w-full max-w-2xl glass-card-strong rounded-3xl p-8 animate-scale-in">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <Users className="w-8 h-8 text-primary" />
-            <h1 className="font-display text-3xl font-bold">Waiting Room</h1>
+      <div className="relative z-10 w-full max-w-2xl glass-card-strong rounded-xl sm:rounded-2xl lg:rounded-3xl p-3 sm:p-4 lg:p-8 animate-scale-in mx-2 sm:mx-4">
+        <div className="text-center mb-4 sm:mb-6 lg:mb-8">
+          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2">
+            <Users className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-primary" />
+            <h1 className="font-display text-xl sm:text-2xl lg:text-3xl font-bold">Waiting Room</h1>
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm sm:text-base">
             {config.gameMode === 'FLAG' ? '🚩 Flag Quiz' : '🗺️ World Map'} • {config.roomType} Room
           </p>
         </div>
 
         {/* Room Code */}
         {config.roomType !== 'SINGLE' && (
-          <div className="mb-6 p-4 bg-muted/30 rounded-xl">
-            <div className="text-sm text-muted-foreground mb-2">Room Code</div>
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-muted/30 rounded-lg sm:rounded-xl">
+            <div className="text-xs sm:text-sm text-muted-foreground mb-2">Room Code</div>
             <div className="flex items-center gap-2">
-              <div className="flex-1 font-mono text-2xl font-bold">{roomCode}</div>
+              <div className="flex-1 font-mono text-lg sm:text-xl lg:text-2xl font-bold">{roomCode}</div>
               <Button
                 variant="outline"
                 size="icon"
                 onClick={handleCopyCode}
-                className="rounded-xl"
+                className="rounded-lg sm:rounded-xl h-8 w-8 sm:h-10 sm:w-10"
               >
-                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copied ? <Check className="w-3 h-3 sm:w-4 sm:h-4" /> : <Copy className="w-3 h-3 sm:w-4 sm:h-4" />}
               </Button>
             </div>
           </div>
@@ -192,8 +190,8 @@ const WaitingRoom = () => {
                 key={index}
                 className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl"
               >
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-bold">
-                  {player[0].toUpperCase()}
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary">
+                  {player.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 font-medium">{player}</div>
                 {player === roomUpdate?.owner && (
@@ -227,7 +225,7 @@ const WaitingRoom = () => {
             <Button
               variant="game"
               size="lg"
-              className="w-full"
+              className="w-full h-10 sm:h-12 text-sm sm:text-base"
               onClick={handleStartGame}
               disabled={
                 !isConnected || 

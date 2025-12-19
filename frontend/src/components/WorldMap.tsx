@@ -41,6 +41,8 @@ export const WorldMap = ({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [isTouching, setIsTouching] = useState(false);
+  const [touchStart, setTouchStart] = useState({ x: 0, y: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -49,19 +51,15 @@ export const WorldMap = ({
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) {
-      console.log('WorldMap: SVG ref not ready');
       return;
     }
 
-    console.log('WorldMap: Loading topology data...');
     // Load world topology
     fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
       .then(res => {
-        console.log('WorldMap: Topology fetch successful');
         return res.json();
       })
       .then(topology => {
-        console.log('WorldMap: Topology parsed, rendering map...');
         const countries = feature(topology, topology.objects.countries);
         
         const width = 960;
@@ -95,10 +93,8 @@ export const WorldMap = ({
           .attr('stroke', '#333')
           .attr('stroke-width', 0.5);
         
-        console.log('WorldMap: Map rendered successfully with', countries.features.length, 'countries');
       })
       .catch(err => {
-        console.error('WorldMap: Error loading topology:', err);
       });
   }, []);
 
@@ -148,7 +144,6 @@ export const WorldMap = ({
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) {
-      console.log('WorldMap: SVG ref not ready for painting');
       return;
     }
 
@@ -182,11 +177,8 @@ export const WorldMap = ({
 
     const paths = d3.select(svg).selectAll('path');
     if (paths.empty()) {
-      console.log('WorldMap: No paths found yet, map not loaded');
       return;
     }
-    
-    console.log('WorldMap: Updating painted countries...');
     // Reset all countries
     paths.attr('fill', '#ececec').attr('opacity', 1);
     
@@ -290,7 +282,7 @@ export const WorldMap = ({
         {/* World Map SVG - Interactive with zoom/pan */}
         <div 
           ref={containerRef}
-          className="absolute inset-0 overflow-hidden flex items-center justify-center bg-game-ocean/5 cursor-grab active:cursor-grabbing"
+          className="absolute inset-0 overflow-hidden flex items-center justify-center bg-game-ocean/5 cursor-grab active:cursor-grabbing touch-none"
           onMouseDown={(e) => {
             setIsDragging(true);
             setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
@@ -302,6 +294,20 @@ export const WorldMap = ({
           }}
           onMouseUp={() => setIsDragging(false)}
           onMouseLeave={() => setIsDragging(false)}
+          onTouchStart={(e) => {
+            const touch = e.touches[0];
+            setIsTouching(true);
+            setTouchStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+          }}
+          onTouchMove={(e) => {
+            if (isTouching && e.touches[0]) {
+              const touch = e.touches[0];
+              setPan({ x: touch.clientX - touchStart.x, y: touch.clientY - touchStart.y });
+            }
+          }}
+          onTouchEnd={() => {
+            setIsTouching(false);
+          }}
         >
           <svg
             ref={svgRef}
@@ -312,7 +318,8 @@ export const WorldMap = ({
               maxHeight: '100%',
               display: 'block',
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+              transition: (isDragging || isTouching) ? 'none' : 'transform 0.1s ease-out',
+              touchAction: 'pan-x pan-y'
             }}
           />
         </div>

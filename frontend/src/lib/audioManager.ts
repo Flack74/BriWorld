@@ -25,6 +25,9 @@ class AudioManager {
   }
 
   setBackgroundMusic(track: string) {
+    const globalMuted = localStorage.getItem('audioMuted') === 'true';
+    if (globalMuted) return;
+    
     // If already playing the same track, don't restart
     if (this.backgroundMusic && this.backgroundMusic.src.endsWith(track)) {
       return;
@@ -36,14 +39,13 @@ class AudioManager {
     }
     
     const volume = parseFloat(localStorage.getItem('bgMusicVolume') || '0.3');
-    const muted = localStorage.getItem('audioMuted') === 'true';
+    const bgMusicEnabled = localStorage.getItem('bgMusicEnabled') !== 'false';
     
-    if (!muted && track) {
+    if (bgMusicEnabled && track) {
       this.backgroundMusic = new Audio(track);
       this.backgroundMusic.loop = true;
       this.backgroundMusic.volume = volume;
       this.backgroundMusic.play().catch((err) => {
-        console.log('Background music play failed:', err);
       });
     }
   }
@@ -52,15 +54,15 @@ class AudioManager {
     if (this.isNotificationPlaying || !this.notificationSound) return;
     
     const enabled = localStorage.getItem('notificationEnabled') !== 'false';
+    const globalMuted = localStorage.getItem('audioMuted') === 'true';
     const volume = parseFloat(localStorage.getItem('sfxVolume') || '0.5');
     
-    if (!enabled) return;
+    if (!enabled || globalMuted) return;
     
     this.isNotificationPlaying = true;
     this.notificationSound.volume = volume;
     this.notificationSound.currentTime = 0;
     this.notificationSound.play().catch((err) => {
-      console.log('Notification sound play failed:', err);
       this.isNotificationPlaying = false;
     });
     
@@ -73,15 +75,15 @@ class AudioManager {
     if (this.isCorrectAnswerPlaying || !this.correctAnswerSound) return;
     
     const enabled = localStorage.getItem('correctAnswerEnabled') !== 'false';
+    const globalMuted = localStorage.getItem('audioMuted') === 'true';
     const volume = parseFloat(localStorage.getItem('sfxVolume') || '0.5');
     
-    if (!enabled) return;
+    if (!enabled || globalMuted) return;
     
     this.isCorrectAnswerPlaying = true;
     this.correctAnswerSound.volume = volume;
     this.correctAnswerSound.currentTime = 0;
     this.correctAnswerSound.play().catch((err) => {
-      console.log('Correct answer sound play failed:', err);
       this.isCorrectAnswerPlaying = false;
     });
     
@@ -99,7 +101,6 @@ class AudioManager {
   resumeBackgroundMusic() {
     if (this.backgroundMusic) {
       this.backgroundMusic.play().catch((err) => {
-        console.log('Background music resume failed:', err);
       });
     }
   }
@@ -129,15 +130,15 @@ class AudioManager {
     if (this.isGameCompletePlaying || !this.gameCompleteSound) return;
     
     const enabled = localStorage.getItem('gameCompleteEnabled') !== 'false';
+    const globalMuted = localStorage.getItem('audioMuted') === 'true';
     const volume = parseFloat(localStorage.getItem('sfxVolume') || '0.5');
     
-    if (!enabled) return;
+    if (!enabled || globalMuted) return;
     
     this.isGameCompletePlaying = true;
     this.gameCompleteSound.volume = volume;
     this.gameCompleteSound.currentTime = 0;
     this.gameCompleteSound.play().catch((err) => {
-      console.log('Game complete sound play failed:', err);
       this.isGameCompletePlaying = false;
     });
     
@@ -149,13 +150,15 @@ class AudioManager {
   playCountdown() {
     if (this.isCountdownPlaying || !this.countdownSound) return;
     
+    const globalMuted = localStorage.getItem('audioMuted') === 'true';
     const volume = parseFloat(localStorage.getItem('sfxVolume') || '0.5');
+    
+    if (globalMuted) return;
     
     this.isCountdownPlaying = true;
     this.countdownSound.volume = volume;
     this.countdownSound.currentTime = 0;
     this.countdownSound.play().catch((err) => {
-      console.log('Countdown sound play failed:', err);
       this.isCountdownPlaying = false;
     });
     
@@ -170,6 +173,24 @@ class AudioManager {
       this.countdownSound.currentTime = 0;
       this.isCountdownPlaying = false;
     }
+  }
+
+  setGlobalMute(muted: boolean) {
+    localStorage.setItem('audioMuted', muted.toString());
+    if (muted) {
+      this.stopBackgroundMusic();
+    } else {
+      // Restart background music if it was enabled
+      const bgMusicEnabled = localStorage.getItem('bgMusicEnabled') !== 'false';
+      if (bgMusicEnabled) {
+        const bgTrack = localStorage.getItem('bgMusicTrack') || '/Music/briworld-background-1.mp3';
+        this.setBackgroundMusic(bgTrack);
+      }
+    }
+  }
+
+  isGlobalMuted(): boolean {
+    return localStorage.getItem('audioMuted') === 'true';
   }
 }
 

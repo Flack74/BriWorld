@@ -10,7 +10,7 @@ export const ThemeToggle = () => {
       variant="outline"
       size="icon"
       onClick={toggleTheme}
-      className="fixed top-6 left-6 z-50 rounded-full w-10 h-10"
+      className="fixed top-6 left-2 sm:left-6 z-50 rounded-full w-8 h-8 sm:w-10 sm:h-10"
     >
       {theme === 'light' ? (
         <Moon className="w-5 h-5" />

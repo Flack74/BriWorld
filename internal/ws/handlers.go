@@ -25,6 +25,11 @@ func HandleWebSocket(c *websocket.Conn) {
 	gameMode := c.Query("mode")
 	roomType := c.Query("type")
 	rounds := c.Query("rounds")
+	timeout := c.Query("timeout")
+	token := c.Query("token")
+	
+	// Check if user is authenticated
+	isAuthenticated := token != ""
 
 	if roomCode == "" || username == "" {
 		log.Println("Missing room or username")
@@ -48,7 +53,20 @@ func HandleWebSocket(c *websocket.Conn) {
 	roundsCount := 10
 	if rounds != "" {
 		if r, err := strconv.Atoi(rounds); err == nil && r > 0 {
-			roundsCount = r
+			// Enforce 20 rounds limit for guest users
+			if !isAuthenticated && r > 20 {
+				roundsCount = 20
+				log.Printf("Guest user attempted %d rounds, capped to 20", r)
+			} else {
+				roundsCount = r
+			}
+		}
+	}
+
+	timeoutSeconds := 15
+	if timeout != "" {
+		if t, err := strconv.Atoi(timeout); err == nil && t >= 10 && t <= 60 {
+			timeoutSeconds = t
 		}
 	}
 
@@ -107,19 +125,23 @@ func HandleWebSocket(c *websocket.Conn) {
 	}
 
 	client := &Client{
-		ID:          uuid.New().String(),
-		Username:    username,
-		SessionID:   sessionID,
-		RoomID:      roomCode,
-		Conn:        c,
-		Send:        make(chan []byte, 256),
-		RoundsCount: roundsCount,
-		GameMode:    gameMode,
-		RoomType:    roomType,
-		IsGuest:     sessionID != "",
-		AvatarURL:   avatarURL,
+		ID:             uuid.New().String(),
+		Username:       username,
+		SessionID:      sessionID,
+		RoomID:         roomCode,
+		Conn:           c,
+		Send:           make(chan []byte, 256),
+		RoundsCount:    roundsCount,
+		GameMode:       gameMode,
+		RoomType:       roomType,
+		IsGuest:        sessionID != "",
+		AvatarURL:      avatarURL,
+		TimeoutSeconds: timeoutSeconds,
 	}
 
+	// Set room reference immediately to avoid race condition
+	client.Room = room
+	
 	room.Register <- client
 
 	go client.WritePump()

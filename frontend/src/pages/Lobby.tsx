@@ -33,7 +33,8 @@ const Lobby = () => {
   useEffect(() => {
     const initAudio = () => {
       const bgMusicEnabled = localStorage.getItem('bgMusicEnabled') !== 'false';
-      if (bgMusicEnabled) {
+      const audioMuted = localStorage.getItem('audioMuted') === 'true';
+      if (bgMusicEnabled && !audioMuted) {
         const bgTrack = localStorage.getItem('bgMusicTrack') || '/Music/briworld-background-1.mp3';
         AudioManager.getInstance().setBackgroundMusic(bgTrack);
       }
@@ -121,72 +122,72 @@ const Lobby = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-background flex items-center justify-center p-2 sm:p-4 relative overflow-hidden">
       <ThemeToggle />
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-10 right-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-10 left-20 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
+        <div className="absolute top-10 right-10 sm:right-20 w-32 h-32 sm:w-64 sm:h-64 bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-10 left-10 sm:left-20 w-40 h-40 sm:w-80 sm:h-80 bg-accent/10 rounded-full blur-3xl" />
       </div>
 
       {/* Back button */}
       <Button
         variant="outline"
         size="sm"
-        className="absolute top-6 left-20 gap-2"
+        className="absolute top-6 left-12 sm:left-16 gap-1 sm:gap-2 text-xs sm:text-sm h-8 w-8 sm:h-10 sm:w-auto z-50"
         onClick={() => navigate("/")}
       >
-        <ChevronLeft className="w-4 h-4" />
-        Back
+        <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
+        <span className="hidden sm:inline">Back</span>
       </Button>
 
       {/* User menu */}
-      <div className="absolute top-6 right-6 flex gap-2">
+      <div className="absolute top-6 right-2 sm:top-4 sm:right-4 lg:top-6 lg:right-6 flex flex-row gap-1 sm:gap-2 z-50 sm:z-auto">
         <Button
           variant="outline"
           size="sm"
-          className="gap-2"
+          className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 h-8 w-8 sm:h-10 sm:w-auto"
           onClick={() => navigate("/settings")}
         >
-          <Settings className="w-4 h-4" />
-          Settings
+          <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
+          <span className="hidden sm:inline">Settings</span>
         </Button>
         {isLoggedIn && (
           <>
             <Button
               variant="outline"
               size="sm"
-              className="gap-2"
+              className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 h-10 hidden md:flex"
               onClick={() => navigate("/profile")}
             >
-              <UserCircle className="w-4 h-4" />
-              Profile
+              <UserCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Profile</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="gap-2"
+              className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 h-8 w-8 sm:h-10 sm:w-auto"
               onClick={handleLogout}
             >
-              <LogOut className="w-4 h-4" />
-              Logout
+              <LogOut className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Logout</span>
             </Button>
           </>
         )}
       </div>
 
       {/* Main Card */}
-      <div className="relative z-10 w-full max-w-lg glass-card-strong rounded-3xl p-8 animate-scale-in">
+      <div className="relative z-10 w-full max-w-lg glass-card-strong rounded-xl sm:rounded-2xl lg:rounded-3xl p-3 sm:p-4 lg:p-8 animate-scale-in mx-2 sm:mx-4">
         {/* Header */}
-        <div className="flex items-center justify-center gap-3 mb-2">
-          <Gamepad2 className="w-8 h-8 text-primary" />
-          <h1 className="font-display text-3xl font-bold text-foreground">Game Lobby</h1>
+        <div className="flex items-center justify-center gap-1 sm:gap-2 lg:gap-3 mb-2">
+          <Gamepad2 className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-primary" />
+          <h1 className="font-display text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Game Lobby</h1>
         </div>
-        <p className="text-center text-muted-foreground mb-8">
+        <p className="text-center text-muted-foreground mb-3 sm:mb-4 lg:mb-8 text-xs sm:text-sm lg:text-base">
           Choose your game mode and room type
         </p>
 
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-4 lg:space-y-6">
           {/* Username - Only show if not logged in */}
           {!isLoggedIn && (
             <div className="space-y-2">
@@ -371,7 +372,7 @@ const Lobby = () => {
           <Button
             variant="game"
             size="lg"
-            className="w-full mt-4"
+            className="w-full mt-3 sm:mt-4 h-10 sm:h-12 text-sm sm:text-base"
             onClick={handleStartGame}
             disabled={!username.trim()}
           >
