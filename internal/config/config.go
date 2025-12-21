@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -86,7 +87,7 @@ func Load() *Config {
 			From:     getEnv("SMTP_FROM", "noreply@briworld.com"),
 		},
 		Redis: RedisConfig{
-			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
+			Addr:     getRedisAddr(),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvInt("REDIS_DB", 0),
 			TLS:      getEnv("REDIS_TLS", "false") == "true",
@@ -115,4 +116,13 @@ func getEnvInt(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+func getRedisAddr() string {
+	if addr := os.Getenv("REDIS_ADDR"); addr != "" {
+		return strings.TrimSpace(addr)
+	}
+	host := strings.TrimSpace(getEnv("REDIS_HOST", "localhost"))
+	port := strings.TrimSpace(getEnv("REDIS_PORT", "6379"))
+	return fmt.Sprintf("%s:%s", host, port)
 }
