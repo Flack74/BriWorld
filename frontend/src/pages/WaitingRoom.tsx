@@ -66,6 +66,9 @@ const WaitingRoom = () => {
 
   const isOwner = roomUpdate?.owner === config.username;
   const players = roomUpdate?.players || [];
+  
+  // Use server's authoritative game mode
+  const actualGameMode = roomUpdate?.game_mode || config.gameMode;
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -133,7 +136,7 @@ const WaitingRoom = () => {
             <h1 className="font-display text-xl sm:text-2xl lg:text-3xl font-bold">Waiting Room</h1>
           </div>
           <p className="text-muted-foreground text-sm sm:text-base">
-            {config.gameMode === 'FLAG' ? '🚩 Flag Quiz' : '🗺️ World Map'} • {config.roomType} Room
+            {actualGameMode === 'FLAG' ? '🚩 Flag Quiz' : '🗺️ World Map'} • {config.roomType} Room
           </p>
         </div>
 
@@ -158,7 +161,7 @@ const WaitingRoom = () => {
 
 
         {/* Rounds Selection (only for Flag Quiz) */}
-        {config.gameMode === 'FLAG' && isOwner && (
+        {actualGameMode === 'FLAG' && isOwner && (
           <div className="mb-6 space-y-3">
             <div className="text-sm font-semibold">Number of Rounds</div>
             <div className="grid grid-cols-4 gap-2">
@@ -185,25 +188,36 @@ const WaitingRoom = () => {
             Players ({players.length}/6)
           </div>
           <div className="space-y-2">
-            {players.map((player, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl"
-              >
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary">
-                  {player.charAt(0).toUpperCase()}
+            {players.map((player, index) => {
+              const avatarUrl = roomUpdate?.player_avatars?.[player];
+              return (
+                <div
+                  key={index}
+                  className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl"
+                >
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={player}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary">
+                      {player.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 font-medium">{player}</div>
+                  {player === roomUpdate?.owner && (
+                    <Crown className="w-5 h-5 text-yellow-500" />
+                  )}
+                  {player === config.username && (
+                    <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full">
+                      You
+                    </span>
+                  )}
                 </div>
-                <div className="flex-1 font-medium">{player}</div>
-                {player === roomUpdate?.owner && (
-                  <Crown className="w-5 h-5 text-yellow-500" />
-                )}
-                {player === config.username && (
-                  <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full">
-                    You
-                  </span>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -230,7 +244,7 @@ const WaitingRoom = () => {
               disabled={
                 !isConnected || 
                 ((config.roomType === 'PUBLIC' || config.roomType === 'PRIVATE') && players.length < 2) ||
-                (config.gameMode === 'WORLD_MAP' && !roomUpdate?.map_mode)
+                (actualGameMode === 'WORLD_MAP' && !roomUpdate?.map_mode)
               }
             >
               Start Game

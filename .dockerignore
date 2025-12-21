@@ -36,3 +36,4 @@ testdata/
 # Keep all source code, static assets, and templates
 # Keep .env files for configuration
 # Keep Makefile for build processes
+

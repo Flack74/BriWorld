@@ -157,13 +157,14 @@ func (r *Room) AddClient(client *Client) {
 	if client.RoundsCount > 0 {
 		r.GameState.TotalRounds = client.RoundsCount
 	}
-	if client.GameMode != "" {
-		r.GameState.GameMode = client.GameMode
-	}
-	if client.RoomType != "" {
-		r.GameState.RoomType = client.RoomType
-	}
+	// Only set game mode if it's the first player (room creator)
 	if isFirstPlayer {
+		if client.GameMode != "" {
+			r.GameState.GameMode = client.GameMode
+		}
+		if client.RoomType != "" {
+			r.GameState.RoomType = client.RoomType
+		}
 		r.Owner = client.Username
 		r.GameState.Owner = client.Username
 	}

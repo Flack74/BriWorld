@@ -23,7 +23,7 @@ const Leaderboard = ({ players, messageCount, showPlayerColors = false }: Leader
     <div className="card-elevated h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div className="p-2 sm:p-3 lg:p-5 flex items-center gap-1 sm:gap-2 lg:gap-3 border-b border-border/50">
-        <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-11 lg:h-11 rounded-lg sm:rounded-xl gradient-warning flex items-center justify-center shadow-glow-warning animate-float">
+        <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-11 lg:h-11 rounded-lg sm:rounded-xl gradient-warning flex items-center justify-center shadow-glow-warning lg:animate-none animate-float">
           <Trophy className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-warning-foreground" />
         </div>
         <div>

@@ -34,6 +34,7 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   isSystem?: boolean;
+  reactions?: Record<string, string[]>;
 }
 
 export interface WebSocketMessage {
@@ -47,6 +48,9 @@ export interface RoomUpdate {
   status: string;
   current_round: number;
   player_colors?: Record<string, string>;
+  player_avatars?: Record<string, string>;
+  owner?: string;
+  game_mode?: 'FLAG' | 'WORLD_MAP';
 }
 
 export interface AnswerSubmitted {

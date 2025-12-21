@@ -115,6 +115,14 @@ export const useWebSocket = ({
               isSystem: false
             };
             setMessages(prev => [chatMsg, ...prev]);
+            
+            // Check if current user is mentioned
+            const mentionPattern = new RegExp(`@${username}\b`, 'i');
+            if (mentionPattern.test(message.payload.message) && message.payload.player_name !== username) {
+              const audio = new Audio('/sounds/notification.mp3');
+              audio.volume = 0.5;
+              audio.play().catch(() => {});
+            }
             break;
           case 'message_reaction':
             setMessages(prev => {
@@ -148,6 +156,11 @@ export const useWebSocket = ({
           case 'session_collision':
             // Handle collision - show dialog
             window.dispatchEvent(new CustomEvent('session_collision', { detail: message.payload }));
+            break;
+          case 'game_mode_mismatch':
+            // Handle game mode mismatch
+            alert(`${message.payload.message}\n\nPlease go back and select ${message.payload.room_mode} mode.`);
+            window.location.href = '/lobby';
             break;
         }
       } catch (error) {

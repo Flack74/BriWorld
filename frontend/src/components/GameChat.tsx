@@ -207,22 +207,22 @@ const GameChat = ({ messages, onSendMessage }: GameChatProps) => {
       </div>
 
       {/* Input - Fixed at bottom on mobile, normal on desktop */}
-      <form onSubmit={handleSubmit} className="lg:relative lg:p-2 lg:border-t lg:border-border/50 lg:bg-muted/30 fixed bottom-0 left-0 right-0 p-3 bg-card/95 backdrop-blur border-t border-border/50 z-50 lg:z-auto safe-area-inset-bottom">
+      <form onSubmit={handleSubmit} className="lg:relative lg:p-2 lg:border-t lg:border-border/50 lg:bg-muted/30 fixed bottom-0 left-0 right-0 p-3 bg-card/95 backdrop-blur border-t border-border/50 z-[100] lg:z-auto safe-area-inset-bottom">
         <div className="flex gap-0.5 sm:gap-1 lg:gap-2 items-center">
           <div className="relative flex-1">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={isChatMuted ? "Chat muted..." : "Message..."}
-              className="pr-4 sm:pr-6 lg:pr-8 bg-card border-border/50 focus-visible:ring-primary/50 text-[9px] sm:text-xs lg:text-sm h-5 sm:h-6 lg:h-8"
+              className="pr-8 sm:pr-10 lg:pr-12 bg-card border-border/50 focus-visible:ring-primary/50 text-[9px] sm:text-xs lg:text-sm h-5 sm:h-6 lg:h-8"
               disabled={isChatMuted}
             />
             <button 
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="absolute right-1 sm:right-2 lg:right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors hidden lg:block"
+              className="absolute right-1 sm:right-2 lg:right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
             >
-              <Smile className="w-2 h-2 sm:w-3 sm:h-3 lg:w-4 lg:h-4" />
+              <Smile className="w-3 h-3 sm:w-4 sm:h-4 lg:w-4 lg:h-4" />
             </button>
             {showEmojiPicker && (
               <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999]">

@@ -30,3 +30,6 @@ Thumbs.db
 documentation
 
 .render.yaml
+
+
+docker-compose.yml

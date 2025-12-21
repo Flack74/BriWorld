@@ -2,6 +2,7 @@ package ws
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -72,6 +73,33 @@ func HandleWebSocket(c *websocket.Conn) {
 
 	// Check if room exists (O(1) lookup)
 	existingRoom := GlobalHub.GetRoom(roomCode)
+	
+	// Validate game mode if room already exists
+	if existingRoom != nil {
+		existingRoom.mu.RLock()
+		existingMode := existingRoom.GameState.GameMode
+		existingRoom.mu.RUnlock()
+		
+		if existingMode != "" && existingMode != gameMode {
+			log.Printf("Game mode mismatch: room %s is %s but user tried to join with %s", roomCode, existingMode, gameMode)
+			msg := map[string]interface{}{
+				"type": "game_mode_mismatch",
+				"payload": map[string]interface{}{
+					"message": fmt.Sprintf("Room %s is for %s mode, but you selected %s mode. Please go back and select %s mode.", roomCode, existingMode, gameMode, existingMode),
+					"room_mode": existingMode,
+					"your_mode": gameMode,
+					"room_code": roomCode,
+				},
+			}
+			if data, err := json.Marshal(msg); err == nil {
+				c.WriteMessage(websocket.TextMessage, data)
+			}
+			time.Sleep(100 * time.Millisecond)
+			c.Close()
+			return
+		}
+	}
+	
 	room := GlobalHub.GetOrCreateRoom(roomCode)
 	
 	if room == nil {
@@ -113,6 +141,24 @@ func HandleWebSocket(c *websocket.Conn) {
 	room.mu.Lock()
 	if room.GameState.GameMode == "" {
 		room.GameState.GameMode = gameMode
+	} else if room.GameState.GameMode != gameMode {
+		// Double-check: game mode was set by another user after our first check
+		room.mu.Unlock()
+		log.Printf("Game mode mismatch (race condition): room is %s but user tried to join with %s", room.GameState.GameMode, gameMode)
+		msg := map[string]interface{}{
+			"type": "game_mode_mismatch",
+			"payload": map[string]interface{}{
+				"message": fmt.Sprintf("This room is for %s mode, but you selected %s mode", room.GameState.GameMode, gameMode),
+				"room_mode": room.GameState.GameMode,
+				"your_mode": gameMode,
+			},
+		}
+		if data, err := json.Marshal(msg); err == nil {
+			c.WriteMessage(websocket.TextMessage, data)
+		}
+		time.Sleep(100 * time.Millisecond)
+		c.Close()
+		return
 	}
 	if room.GameState.RoomType == "" {
 		room.GameState.RoomType = roomType

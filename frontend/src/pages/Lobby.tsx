@@ -89,6 +89,13 @@ const Lobby = () => {
   const handleStartGame = () => {
     if (!username.trim()) return;
     
+    // Clear old room code when creating a new room (not joining)
+    if (roomType === 'PRIVATE' && !roomCode) {
+      sessionStorage.removeItem('currentRoomCode');
+    } else if (roomType === 'SINGLE' || roomType === 'PUBLIC') {
+      sessionStorage.removeItem('currentRoomCode');
+    }
+    
     const config: GameConfig = {
       username: username.trim(),
       gameMode,

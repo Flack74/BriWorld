@@ -119,6 +119,24 @@ const Game = () => {
     timeout: config.timeout
   });
 
+  // Use server's game mode as source of truth
+  const actualGameMode = gameState?.game_mode || roomUpdate?.game_mode || config.gameMode;
+  
+  // Debug: Log room state for troubleshooting
+  useEffect(() => {
+    if (roomUpdate) {
+      console.log('[ROOM DEBUG]', {
+        roomCode,
+        username: config.username,
+        serverGameMode: roomUpdate.game_mode,
+        localGameMode: config.gameMode,
+        actualGameMode,
+        players: roomUpdate.players,
+        owner: roomUpdate.owner
+      });
+    }
+  }, [roomUpdate, roomCode, config.username, config.gameMode, actualGameMode]);
+
   // Initialize background music on user interaction
   useEffect(() => {
     const initAudio = () => {
@@ -287,14 +305,14 @@ const Game = () => {
             if (countryCode) {
               setGuessedCountries(prev => [...prev, countryCode]);
             }
-            setShowSuccessBanner(true);
-            setTimeout(() => setShowSuccessBanner(false), 3000);
-            
-            // Show notification for other players' correct answers
-            if (answerData.player !== config.username) {
+            // Show different banners for self vs others
+            if (answerData.player === config.username) {
+              setShowSuccessBanner(true);
+              setTimeout(() => setShowSuccessBanner(false), 3000);
+            } else {
+              // Show notification for other players' correct answers
               toast({
-                title: `${answerData.player} guessed correctly! 🎉`,
-                description: answerData.country_name,
+                title: `${answerData.player} guessed ${answerData.country_name}! 🎉`,
                 duration: 2000,
               });
             }
@@ -437,8 +455,32 @@ const Game = () => {
     }
   };
 
+  // Show loading until we get server's game mode confirmation
+  if (!gameState && !roomUpdate) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Connecting to room...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Wait for server to confirm game mode before rendering
+  if (!gameState?.game_mode && !roomUpdate?.game_mode) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Waiting for room mode...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Flag Quiz View
-  if (config.gameMode === 'FLAG') {
+  if (actualGameMode === 'FLAG') {
     return (
       <div className="min-h-screen bg-background lg:p-4 p-0">
         <div className="max-w-[1600px] mx-auto h-screen flex flex-col">
