@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { WorldMap } from "@/components/WorldMap";
 import RoomHeader from "@/components/RoomHeader";
@@ -14,6 +14,7 @@ import { LeaveRoomDialog } from "@/components/LeaveRoomDialog";
 import MuteButton from "@/components/MuteButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft } from "lucide-react";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import AudioManager from "@/lib/audioManager";
@@ -22,6 +23,7 @@ import { GameConfig } from "@/types/game";
 const Game = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const config = location.state as GameConfig | null;
 
   // Try to restore session if config is missing (page refresh)
@@ -67,6 +69,7 @@ const Game = () => {
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const [showErrorBanner, setShowErrorBanner] = useState(false);
   const [showTimeoutBanner, setShowTimeoutBanner] = useState(false);
+  const [showAlreadyGuessedBanner, setShowAlreadyGuessedBanner] = useState(false);
   const [lastAnswer, setLastAnswer] = useState<{correct: boolean, country: string} | null>(null);
   const [timeoutCountry, setTimeoutCountry] = useState<string>('');
   const [flagLoaded, setFlagLoaded] = useState(false);
@@ -86,6 +89,8 @@ const Game = () => {
   });
   const [countdownPlayed, setCountdownPlayed] = useState(false);
   const [hasGuessedThisRound, setHasGuessedThisRound] = useState(false);
+  const autoStartedRef = useRef(false);
+  const colorSelectedRef = useRef(false);
 
   const [roomCode] = useState(() => {
     const savedRoomCode = sessionStorage.getItem('currentRoomCode');
@@ -156,7 +161,8 @@ const Game = () => {
     isLeader: false,
     color: (name === config.username ? 'correct' : 'opponent') as 'correct' | 'opponent',
     avatar: name.charAt(0).toUpperCase(),
-    avatarUrl: playerAvatars[name]
+    avatarUrl: playerAvatars[name],
+    playerColor: gameState?.player_colors?.[name] || roomUpdate?.player_colors?.[name]
   })).sort((a, b) => b.score - a.score).map((p, i) => ({ ...p, isLeader: i === 0 })) : roomUpdate?.players ? roomUpdate.players.map((name) => ({
     id: name,
     name,
@@ -165,7 +171,8 @@ const Game = () => {
     isLeader: false,
     color: (name === config.username ? 'correct' : 'opponent') as 'correct' | 'opponent',
     avatar: name.charAt(0).toUpperCase(),
-    avatarUrl: playerAvatars[name]
+    avatarUrl: playerAvatars[name],
+    playerColor: gameState?.player_colors?.[name] || roomUpdate?.player_colors?.[name]
   })).sort((a, b) => b.score - a.score).map((p, i) => ({ ...p, isLeader: i === 0 })) : [];
 
   const [notifiedMessages, setNotifiedMessages] = useState<Set<string>>(new Set());
@@ -283,15 +290,30 @@ const Game = () => {
             setShowSuccessBanner(true);
             setTimeout(() => setShowSuccessBanner(false), 3000);
             
+            // Show notification for other players' correct answers
+            if (answerData.player !== config.username) {
+              toast({
+                title: `${answerData.player} guessed correctly! 🎉`,
+                description: answerData.country_name,
+                duration: 2000,
+              });
+            }
+            
             // Check if all countries found (197 total)
             if (gameStats.correct + 1 >= 197) {
               setTimeout(() => setShowCongratsModal(true), 3500);
             }
           } else {
-            // Count as incorrect
-            setGameStats(prev => ({...prev, incorrect: prev.incorrect + 1}));
-            setShowErrorBanner(true);
-            setTimeout(() => setShowErrorBanner(false), 3000);
+            // Check if it's "already guessed" error
+            if (answerData.error && answerData.error.includes('already')) {
+              setShowAlreadyGuessedBanner(true);
+              setTimeout(() => setShowAlreadyGuessedBanner(false), 3000);
+            } else {
+              // Count as incorrect
+              setGameStats(prev => ({...prev, incorrect: prev.incorrect + 1}));
+              setShowErrorBanner(true);
+              setTimeout(() => setShowErrorBanner(false), 3000);
+            }
           }
         } else if (message.type === 'round_started') {
           setStartTime(Date.now());
@@ -349,6 +371,7 @@ const Game = () => {
 
 
   const handleColorSelect = (color: string) => {
+    colorSelectedRef.current = true;
     selectColor(color);
     sessionStorage.setItem(`color_${roomCode}_${config.username}`, color);
     setShowColorModal(false);
@@ -358,17 +381,23 @@ const Game = () => {
 
   // Auto-start for SINGLE FLAG mode only
   useEffect(() => {
-    if (isConnected && !gameState && config.gameMode === 'FLAG' && config.roomType === 'SINGLE') {
+    const status = gameState?.status || roomUpdate?.status;
+    console.log('Auto-start check:', { isConnected, status, mode: config.gameMode, type: config.roomType, autoStarted: autoStartedRef.current });
+    if (isConnected && status === 'waiting' && config.gameMode === 'FLAG' && config.roomType === 'SINGLE' && !autoStartedRef.current) {
+      console.log('Auto-starting game...');
+      autoStartedRef.current = true;
       startGame();
     }
-  }, [isConnected, config.gameMode, config.roomType, gameState]);
+  }, [isConnected, config.gameMode, config.roomType, gameState?.status, roomUpdate?.status]);
 
   // Show color picker for WORLD_MAP when connected (only once)
   useEffect(() => {
-    if (isConnected && config.gameMode === 'WORLD_MAP' && !showColorModal) {
+    if (isConnected && config.gameMode === 'WORLD_MAP' && !showColorModal && !colorSelectedRef.current) {
       const hasServerColor = roomUpdate?.player_colors?.[config.username];
       if (!hasServerColor) {
         setShowColorModal(true);
+      } else {
+        colorSelectedRef.current = true;
       }
     }
   }, [isConnected, config.gameMode, roomUpdate?.player_colors, config.username]);
@@ -386,12 +415,12 @@ const Game = () => {
 
   // Auto-start game when player has color (FREE mode only)
   useEffect(() => {
-    if (config.gameMode !== 'WORLD_MAP' || !roomUpdate || gameState) return;
+    if (config.gameMode !== 'WORLD_MAP' || !roomUpdate) return;
     
     const hasColor = roomUpdate.player_colors?.[config.username];
     const isOwner = config.roomType === 'SINGLE' || roomUpdate.owner === config.username;
     
-    if (hasColor && isOwner && roomUpdate.status === 'waiting') {
+    if (hasColor && isOwner && roomUpdate.status === 'waiting' && !gameState) {
       setWSMapMode('FREE');
       setTimeout(() => startGame(), 500);
     }
@@ -469,78 +498,179 @@ const Game = () => {
           </div>
 
           {/* Mobile single-column layout */}
-          <div className="lg:hidden flex-1 flex flex-col">
-            {/* Game area */}
-            <div className="flex-1 flex flex-col items-center justify-center p-4">
-              <div className="w-64 h-40 bg-muted/20 rounded-xl border border-dashed border-border flex items-center justify-center mb-4">
+          <div className="lg:hidden flex-1 flex flex-col overflow-hidden">
+            {/* Flag and Input - Compact */}
+            <div className="flex-shrink-0 p-3 space-y-2">
+              <div className="w-full max-w-[200px] h-28 mx-auto bg-muted/20 rounded-lg border border-dashed border-border flex items-center justify-center">
                 {gameState?.question?.flag_code ? (
                   <img 
                     src={`https://flagcdn.com/w320/${gameState.question.flag_code.toLowerCase()}.png`}
                     alt="Flag"
-                    className="max-w-full max-h-full object-contain rounded-lg"
+                    className="max-w-full max-h-full object-contain rounded"
                     onLoad={() => setFlagLoaded(true)}
                   />
                 ) : (
-                  <span className="text-5xl">🏳️</span>
+                  <span className="text-4xl">🏳️</span>
                 )}
               </div>
-              <h2 className="text-lg font-semibold mb-4">What country is this?</h2>
-              <div className="w-full max-w-sm">
-                <CountryInput onSubmit={(guess) => {
-                  if (startTime) {
-                    sendAnswer(guess, Date.now() - startTime);
-                  }
-                }} />
+              <h2 className="text-sm font-semibold text-center">What country is this?</h2>
+              <CountryInput onSubmit={(guess) => {
+                if (startTime) {
+                  sendAnswer(guess, Date.now() - startTime);
+                }
+              }} />
+            </div>
+            
+            {/* Leaderboard - Takes remaining space */}
+            <div className="flex-1 px-3 pb-2 min-h-0">
+              <div className="bg-card/50 backdrop-blur rounded-lg border border-border/30 p-2 h-full flex flex-col">
+                <h3 className="text-xs font-bold mb-2 flex items-center gap-1 flex-shrink-0">
+                  <span>🏆</span> Leaderboard
+                </h3>
+                <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0">
+                  {players.map((player, idx) => (
+                    <div key={player.id} className="flex items-center justify-between text-xs py-1.5 px-2 rounded bg-muted/30">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className="flex-shrink-0">{idx === 0 ? '👑' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`}</span>
+                        <span className={`truncate ${player.isYou ? 'font-bold' : ''}`}>{player.name}</span>
+                      </div>
+                      <span className="font-bold flex-shrink-0 ml-2">{player.score}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
             
-            {/* Bottom tabs */}
-            <div className="h-12 flex border-t border-border/30">
-              <button 
-                className={`flex-1 flex items-center justify-center text-sm font-medium ${
-                  activeTab === 'leaderboard' ? 'bg-primary text-primary-foreground' : 'bg-muted/30'
-                }`}
-                onClick={() => setActiveTab(activeTab === 'leaderboard' ? 'none' : 'leaderboard')}
-              >
-                🏆 Leaderboard
-              </button>
-              <button 
-                className={`flex-1 flex items-center justify-center text-sm font-medium ${
-                  activeTab === 'chat' ? 'bg-primary text-primary-foreground' : 'bg-muted/30'
-                }`}
-                onClick={() => setActiveTab(activeTab === 'chat' ? 'none' : 'chat')}
-              >
-                💬 Chat {chatMessages.length > 0 && `(${chatMessages.length})`}
-              </button>
+            {/* Chat - Fixed at bottom with send button */}
+            <div className="flex-shrink-0 px-3 pb-3 h-44">
+              <div className="bg-card/50 backdrop-blur rounded-lg border border-border/30 p-2 h-full flex flex-col">
+                <h3 className="text-xs font-bold mb-1 flex items-center gap-1 flex-shrink-0">
+                  <span>💬</span> Chat {chatMessages.length > 0 && `(${chatMessages.length})`}
+                </h3>
+                <div className="flex-1 overflow-y-auto space-y-1 min-h-0 mb-1">
+                  {chatMessages.slice(-10).map((msg) => (
+                    <div key={msg.id} className="text-xs p-1.5 rounded bg-muted/20 break-words">
+                      <span className="font-semibold">{msg.sender}:</span>
+                      <span className="ml-1">{msg.text}</span>
+                    </div>
+                  ))}
+                  {chatMessages.length === 0 && (
+                    <div className="text-xs text-muted-foreground text-center py-2">No messages yet</div>
+                  )}
+                </div>
+                <div className="flex-shrink-0 flex gap-1">
+                  <input
+                    type="text"
+                    placeholder="Type a message..."
+                    className="flex-1 text-xs px-2 py-1.5 rounded border border-border/30 bg-background"
+                    id="chat-input-mobile"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                        sendChatMessage(e.currentTarget.value.trim());
+                        e.currentTarget.value = '';
+                      }
+                    }}
+                  />
+                  <button
+                    className="flex-shrink-0 px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs font-medium"
+                    onClick={() => {
+                      const input = document.getElementById('chat-input-mobile') as HTMLInputElement;
+                      if (input && input.value.trim()) {
+                        sendChatMessage(input.value.trim());
+                        input.value = '';
+                      }
+                    }}
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-          
-          {/* Mobile overlays */}
-          {activeTab === 'leaderboard' && (
-            <div className="fixed inset-0 bg-background z-50 flex flex-col lg:hidden">
-              <div className="flex items-center justify-between p-4 border-b border-border/30">
-                <h2 className="text-lg font-bold">Leaderboard</h2>
-                <Button variant="ghost" onClick={() => setActiveTab('none')}>Close</Button>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <Leaderboard players={players} messageCount={chatMessages.length} />
-              </div>
-            </div>
-          )}
-          {activeTab === 'chat' && (
-            <div className="fixed inset-0 bg-background z-50 flex flex-col lg:hidden">
-              <div className="flex items-center justify-between p-4 border-b border-border/30">
-                <h2 className="text-lg font-bold">Chat</h2>
-                <Button variant="ghost" onClick={() => setActiveTab('none')}>Close</Button>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <GameChat messages={chatMessages} onSendMessage={sendChatMessage} />
-              </div>
-            </div>
-          )}
         </div>
 
+        {/* Success Banner - Modern */}
+        {showSuccessBanner && (
+          <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 w-[90%] max-w-sm animate-in slide-in-from-top-5 duration-500">
+            <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500 text-white px-6 py-4 rounded-2xl shadow-2xl border-2 border-emerald-300/50">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+              <div className="relative flex items-center gap-4 justify-center">
+                <div className="text-3xl animate-bounce">🎉</div>
+                <div className="text-center flex-1">
+                  <div className="text-xl font-black tracking-tight">Correct!</div>
+                  <div className="text-sm font-medium truncate mt-0.5 opacity-90">{lastAnswer?.country}</div>
+                </div>
+                <div className="text-3xl animate-spin-slow">✨</div>
+              </div>
+            </div>
+          </div>
+        )}
 
+        {/* Error Banner - Modern */}
+        {showErrorBanner && (
+          <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 w-[90%] max-w-sm animate-in slide-in-from-top-5 duration-500">
+            <div className="relative overflow-hidden bg-gradient-to-br from-red-500 via-rose-500 to-pink-500 text-white px-6 py-4 rounded-2xl shadow-2xl border-2 border-red-300/50">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+              <div className="relative flex items-center gap-4 justify-center">
+                <div className="text-3xl animate-shake">❌</div>
+                <div className="text-center flex-1">
+                  <div className="text-xl font-black tracking-tight">Wrong!</div>
+                  <div className="text-sm font-medium truncate mt-0.5 opacity-90">It was {lastAnswer?.country}</div>
+                </div>
+                <div className="text-3xl animate-pulse">😢</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Timeout Banner - Modern */}
+        {showTimeoutBanner && (
+          <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 w-[90%] max-w-sm animate-in slide-in-from-top-5 duration-500">
+            <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 text-white px-6 py-4 rounded-2xl shadow-2xl border-2 border-orange-300/50">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+              <div className="relative flex items-center gap-4 justify-center">
+                <div className="text-3xl animate-bounce">⏰</div>
+                <div className="text-center flex-1">
+                  <div className="text-xl font-black tracking-tight">Time's Up!</div>
+                  <div className="text-sm font-medium truncate mt-0.5 opacity-90">{timeoutCountry}</div>
+                </div>
+                <div className="text-3xl animate-pulse">⌛</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Already Guessed Banner - Modern */}
+        {showAlreadyGuessedBanner && (
+          <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 w-[90%] max-w-sm animate-in slide-in-from-top-5 duration-500">
+            <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 text-white px-6 py-4 rounded-2xl shadow-2xl border-2 border-blue-300/50">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+              <div className="relative flex items-center gap-4 justify-center">
+                <div className="text-3xl animate-bounce">🔄</div>
+                <div className="text-center flex-1">
+                  <div className="text-xl font-black tracking-tight">Already Guessed!</div>
+                  <div className="text-sm font-medium truncate mt-0.5 opacity-90">{lastAnswer?.country}</div>
+                </div>
+                <div className="text-3xl animate-pulse">✅</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Loading Spinner */}
+        {!gameState?.question && isConnected && (
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 flex items-center justify-center">
+            <div className="bg-card/90 backdrop-blur p-8 rounded-2xl shadow-2xl">
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative w-16 h-16">
+                  <div className="absolute inset-0 border-4 border-primary/30 rounded-full"></div>
+                  <div className="absolute inset-0 border-4 border-transparent border-t-primary rounded-full animate-spin"></div>
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">Loading next round...</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Game Over Banner */}
         {showGameOver && (
@@ -650,7 +780,7 @@ const Game = () => {
         {/* Desktop 3-column layout */}
         <div className="hidden lg:flex flex-1 gap-4 p-4 min-h-0">
           <div className="w-80">
-            <Leaderboard players={players} messageCount={chatMessages.length} />
+            <Leaderboard players={players} messageCount={chatMessages.length} showPlayerColors={true} />
           </div>
           <div className="flex-1 flex flex-col gap-4">
             <div className="flex-1 card-elevated overflow-hidden">
@@ -665,9 +795,7 @@ const Game = () => {
               />
             </div>
             <CountryInput onSubmit={(guess) => {
-              const responseTime = startTime ? Date.now() - startTime : 0;
-              sendAnswer(guess, responseTime);
-              setStartTime(Date.now());
+              sendAnswer(guess, 0);
             }} />
           </div>
           <div className="w-80">
@@ -676,9 +804,9 @@ const Game = () => {
         </div>
 
         {/* Mobile layout */}
-        <div className="lg:hidden flex-1 flex flex-col">
-          {/* Map area - 60% of screen */}
-          <div className="flex-[3] relative overflow-hidden">
+        <div className="lg:hidden flex-1 flex flex-col overflow-hidden">
+          {/* Map area with floating input */}
+          <div className="flex-shrink-0 h-64 relative">
             <WorldMap
               countriesFound={gameStats.correct}
               recentGuesses={[]}
@@ -689,91 +817,173 @@ const Game = () => {
               playerColors={gameState?.player_colors || {}}
             />
             {/* Floating input */}
-            <div className="absolute bottom-4 left-4 right-4">
-              <div className="bg-card/90 backdrop-blur rounded-xl border border-border/50 shadow-xl">
+            <div className="absolute bottom-2 left-2 right-2">
+              <div className="bg-card/90 backdrop-blur rounded-lg border border-border/50 shadow-xl">
                 <CountryInput onSubmit={(guess) => {
-                  const responseTime = startTime ? Date.now() - startTime : 0;
-                  sendAnswer(guess, responseTime);
-                  setStartTime(Date.now());
+                  sendAnswer(guess, 0);
                 }} />
               </div>
             </div>
           </div>
           
-          {/* Bottom tabs - 40% of screen */}
-          <div className="flex-[2] flex flex-col border-t border-border/30">
-            <div className="h-12 flex">
-              <button 
-                className={`flex-1 flex items-center justify-center text-sm font-medium ${
-                  activeTab === 'leaderboard' ? 'bg-primary text-primary-foreground' : 'bg-muted/30'
-                }`}
-                onClick={() => setActiveTab(activeTab === 'leaderboard' ? 'chat' : 'leaderboard')}
-              >
-                🏆 Leaderboard
-              </button>
-              <button 
-                className={`flex-1 flex items-center justify-center text-sm font-medium ${
-                  activeTab === 'chat' ? 'bg-primary text-primary-foreground' : 'bg-muted/30'
-                }`}
-                onClick={() => setActiveTab(activeTab === 'chat' ? 'leaderboard' : 'chat')}
-              >
-                💬 Chat {chatMessages.length > 0 && `(${chatMessages.length})`}
-              </button>
+          {/* Leaderboard - Takes remaining space */}
+          <div className="flex-1 px-3 pb-2 min-h-0">
+            <div className="bg-card/50 backdrop-blur rounded-lg border border-border/30 p-2 h-full flex flex-col">
+              <h3 className="text-xs font-bold mb-2 flex items-center gap-1 flex-shrink-0">
+                <span>🏆</span> Leaderboard
+              </h3>
+              <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0">
+                {players.map((player, idx) => (
+                  <div key={player.id} className="flex items-center justify-between text-xs py-1.5 px-2 rounded bg-muted/30">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="flex-shrink-0">{idx === 0 ? '👑' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`}</span>
+                      {/* Avatar with color badge */}
+                      {player.avatarUrl ? (
+                        <div className="relative flex-shrink-0">
+                          <img
+                            src={player.avatarUrl}
+                            alt={player.name}
+                            className="w-6 h-6 rounded-full object-cover"
+                          />
+                          {(gameState?.player_colors?.[player.name] || roomUpdate?.player_colors?.[player.name]) && (
+                            <div
+                              className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-card"
+                              style={{ backgroundColor: gameState?.player_colors?.[player.name] || roomUpdate?.player_colors?.[player.name] }}
+                            />
+                          )}
+                        </div>
+                      ) : (gameState?.player_colors?.[player.name] || roomUpdate?.player_colors?.[player.name]) ? (
+                        <div
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
+                          style={{ backgroundColor: gameState?.player_colors?.[player.name] || roomUpdate?.player_colors?.[player.name] }}
+                        >
+                          {player.name.charAt(0).toUpperCase()}
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                          {player.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span className={`truncate ${player.isYou ? 'font-bold' : ''}`}>{player.name}</span>
+                    </div>
+                    <span className="font-bold flex-shrink-0 ml-2">{player.score}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="flex-1 overflow-hidden">
-              {activeTab === 'leaderboard' ? (
-                <Leaderboard players={players} messageCount={chatMessages.length} />
-              ) : (
-                <GameChat messages={chatMessages} onSendMessage={sendChatMessage} />
-              )}
+          </div>
+          
+          {/* Chat - Fixed at bottom with send button */}
+          <div className="flex-shrink-0 px-3 pb-3 h-44">
+            <div className="bg-card/50 backdrop-blur rounded-lg border border-border/30 p-2 h-full flex flex-col">
+              <h3 className="text-xs font-bold mb-1 flex items-center gap-1 flex-shrink-0">
+                <span>💬</span> Chat {chatMessages.length > 0 && `(${chatMessages.length})`}
+              </h3>
+              <div className="flex-1 overflow-y-auto space-y-1 min-h-0 mb-1">
+                {chatMessages.slice(-10).map((msg) => (
+                  <div key={msg.id} className="text-xs p-1.5 rounded bg-muted/20 break-words">
+                    <span className="font-semibold">{msg.sender}:</span>
+                    <span className="ml-1">{msg.text}</span>
+                  </div>
+                ))}
+                {chatMessages.length === 0 && (
+                  <div className="text-xs text-muted-foreground text-center py-2">No messages yet</div>
+                )}
+              </div>
+              <div className="flex-shrink-0 flex gap-1">
+                <input
+                  type="text"
+                  placeholder="Type a message..."
+                  className="flex-1 text-xs px-2 py-1.5 rounded border border-border/30 bg-background"
+                  id="chat-input-mobile-map"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                      sendChatMessage(e.currentTarget.value.trim());
+                      e.currentTarget.value = '';
+                    }
+                  }}
+                />
+                <button
+                  className="flex-shrink-0 px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs font-medium"
+                  onClick={() => {
+                    const input = document.getElementById('chat-input-mobile-map') as HTMLInputElement;
+                    if (input && input.value.trim()) {
+                      sendChatMessage(input.value.trim());
+                      input.value = '';
+                    }
+                  }}
+                >
+                  Send
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Success Banner */}
+      {/* Success Banner - Modern */}
       {showSuccessBanner && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[85%] max-w-xs">
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-2 py-1 rounded-lg shadow-lg border border-green-300">
-            <div className="flex items-center gap-1 justify-center">
-              <span className="text-sm">🎉</span>
-              <div className="text-center">
-                <div className="text-xs font-bold">Correct!</div>
-                <div className="text-xs truncate">{lastAnswer?.country}</div>
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[85%] max-w-xs animate-in slide-in-from-top-5 duration-500">
+          <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500 text-white px-4 py-2 rounded-xl shadow-2xl border border-emerald-300/50">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+            <div className="relative flex items-center gap-2 justify-center">
+              <span className="text-lg animate-bounce">🎉</span>
+              <div className="text-center flex-1">
+                <div className="text-sm font-black">Correct!</div>
+                <div className="text-xs truncate opacity-90">{lastAnswer?.country}</div>
               </div>
-              <span className="text-sm">✅</span>
+              <span className="text-lg animate-spin-slow">✨</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Error Banner */}
+      {/* Error Banner - Modern */}
       {showErrorBanner && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[85%] max-w-xs">
-          <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white px-2 py-1 rounded-lg shadow-lg border border-red-300">
-            <div className="flex items-center gap-1 justify-center">
-              <span className="text-sm">❌</span>
-              <div className="text-center">
-                <div className="text-xs font-bold">Wrong!</div>
-                <div className="text-xs truncate">It was {lastAnswer?.country}</div>
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[85%] max-w-xs animate-in slide-in-from-top-5 duration-500">
+          <div className="relative overflow-hidden bg-gradient-to-br from-red-500 via-rose-500 to-pink-500 text-white px-4 py-2 rounded-xl shadow-2xl border border-red-300/50">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+            <div className="relative flex items-center gap-2 justify-center">
+              <span className="text-lg animate-shake">❌</span>
+              <div className="text-center flex-1">
+                <div className="text-sm font-black">Wrong!</div>
+                <div className="text-xs truncate opacity-90">It was {lastAnswer?.country}</div>
               </div>
-              <span className="text-sm">😢</span>
+              <span className="text-lg animate-pulse">😢</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Timeout Banner */}
+      {/* Timeout Banner - Modern */}
       {showTimeoutBanner && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[85%] max-w-xs">
-          <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white px-2 py-1 rounded-lg shadow-lg border border-orange-300">
-            <div className="flex items-center gap-1 justify-center">
-              <span className="text-sm">⏰</span>
-              <div className="text-center">
-                <div className="text-xs font-bold">Time's Up!</div>
-                <div className="text-xs truncate">{timeoutCountry}</div>
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[85%] max-w-xs animate-in slide-in-from-top-5 duration-500">
+          <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 text-white px-4 py-2 rounded-xl shadow-2xl border border-orange-300/50">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+            <div className="relative flex items-center gap-2 justify-center">
+              <span className="text-lg animate-bounce">⏰</span>
+              <div className="text-center flex-1">
+                <div className="text-sm font-black">Time's Up!</div>
+                <div className="text-xs truncate opacity-90">{timeoutCountry}</div>
               </div>
-              <span className="text-sm">⌛</span>
+              <span className="text-lg animate-pulse">⌛</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Already Guessed Banner - Modern */}
+      {showAlreadyGuessedBanner && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[85%] max-w-xs animate-in slide-in-from-top-5 duration-500">
+          <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 text-white px-4 py-2 rounded-xl shadow-2xl border border-blue-300/50">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+            <div className="relative flex items-center gap-2 justify-center">
+              <span className="text-lg animate-bounce">🔄</span>
+              <div className="text-center flex-1">
+                <div className="text-sm font-black">Already Guessed!</div>
+                <div className="text-xs truncate opacity-90">{lastAnswer?.country}</div>
+              </div>
+              <span className="text-lg animate-pulse">✅</span>
             </div>
           </div>
         </div>

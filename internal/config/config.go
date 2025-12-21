@@ -86,7 +86,7 @@ func Load() *Config {
 			From:     getEnv("SMTP_FROM", "noreply@briworld.com"),
 		},
 		Redis: RedisConfig{
-			Addr:     fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", "localhost"), getEnv("REDIS_PORT", "6379")),
+			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvInt("REDIS_DB", 0),
 			TLS:      getEnv("REDIS_TLS", "false") == "true",

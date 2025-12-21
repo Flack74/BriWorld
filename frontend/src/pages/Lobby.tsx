@@ -142,35 +142,32 @@ const Lobby = () => {
       </Button>
 
       {/* User menu */}
-      <div className="absolute top-6 right-2 sm:top-4 sm:right-4 lg:top-6 lg:right-6 flex flex-row gap-1 sm:gap-2 z-50 sm:z-auto">
+      <div className="absolute top-6 right-2 sm:top-4 sm:right-4 lg:top-6 lg:right-6 flex items-center gap-1 sm:gap-2 z-50 sm:z-auto">
         <Button
           variant="outline"
-          size="sm"
-          className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 h-8 w-8 sm:h-10 sm:w-auto"
+          size="icon"
+          className="h-8 w-8 sm:h-10 sm:w-10"
           onClick={() => navigate("/settings")}
         >
-          <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
-          <span className="hidden sm:inline">Settings</span>
+          <Settings className="w-4 h-4" />
         </Button>
         {isLoggedIn && (
           <>
             <Button
               variant="outline"
-              size="sm"
-              className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 h-10 hidden md:flex"
+              size="icon"
+              className="h-8 w-8 sm:h-10 sm:w-10 hidden md:flex"
               onClick={() => navigate("/profile")}
             >
-              <UserCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Profile</span>
+              <UserCircle className="w-4 h-4" />
             </Button>
             <Button
               variant="outline"
-              size="sm"
-              className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 h-8 w-8 sm:h-10 sm:w-auto"
+              size="icon"
+              className="h-8 w-8 sm:h-10 sm:w-10"
               onClick={handleLogout}
             >
-              <LogOut className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Logout</span>
+              <LogOut className="w-4 h-4" />
             </Button>
           </>
         )}

@@ -26,28 +26,29 @@ services:
       dockerfile: Dockerfile
       target: development
     container_name: briworld_app
-    ports:
-      - "8080:8080"
+    network_mode: "host"
     volumes:
       - .:/app
       - /app/tmp
     environment:
-      - DB_HOST=postgres
+      - DB_HOST=ep-blue-recipe-a47x24aq-pooler.us-east-1.aws.neon.tech
       - DB_PORT=5432
-      - DB_USER=briworld
-      - DB_PASSWORD=secure_password_here
-      - DB_NAME=briworld_db
-      - DB_SSL_MODE=disable
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=
+      - DB_USER=neondb_owner
+      - DB_PASSWORD=npg_6ZWzojXQwG0R
+      - DB_NAME=neondb
+      - DB_SSL_MODE=require
+      - REDIS_ADDR=allowing-kid-35323.upstash.io:6379
+      - REDIS_PASSWORD=AYn7AAIncDE3ZjhjZGIzMTNmY2Q0MzA4ODZjY2IxZDFmYTFjYmYyY3AxMzUzMjM
       - REDIS_DB=0
-      - REDIS_TLS=false
+      - REDIS_TLS=true
       - PORT=8080
-      - ENV=development
-    depends_on:
-      - postgres
-      - redis
+      - ENV=production
+      - JWT_SECRET=d8f7c9e4a2b641c8b9f1e3a5c6d0f2a7
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USERNAME=flack74621@gmail.com
+      - SMTP_PASSWORD=ejyowhaxyzbkltkj
+      - SMTP_FROM=flack74621@gmail.com
     command: sh -c "sleep 5 && air -c .air.toml"
 
 volumes:

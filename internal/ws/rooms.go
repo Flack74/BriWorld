@@ -509,6 +509,7 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 						"player":       client.Username,
 						"is_correct":   false,
 						"country_name": name,
+						"error":        "Country already guessed",
 					})
 					return
 				}
@@ -522,6 +523,7 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 					"player":       client.Username,
 					"is_correct":   false,
 					"country_name": name,
+					"error":        "Country already guessed",
 				})
 				return
 			}
@@ -780,17 +782,21 @@ func (r *Room) SetPlayerColor(client *Client, payload interface{}) {
 	if redisClient.Client != nil {
 		ctx := context.Background()
 		if err := redisClient.SetPlayerColor(ctx, r.ID, client.Username, colorData.Color); err != nil {
-			log.Printf("Redis color rejection: %v", err)
-			msg := Message{
-				Type: "color_rejected",
-				Payload: map[string]interface{}{
-					"error": "Color already taken",
-					"color": colorData.Color,
-				},
+			// Check if it's a connection error or actual duplicate
+			if err.Error() == "color already taken" {
+				log.Printf("Color already taken")
+				msg := Message{
+					Type: "color_rejected",
+					Payload: map[string]interface{}{
+						"error": "Color already taken",
+						"color": colorData.Color,
+					},
+				}
+				data, _ := json.Marshal(msg)
+				client.Send <- data
+				return
 			}
-			data, _ := json.Marshal(msg)
-			client.Send <- data
-			return
+			// Connection error - fall through to in-memory
 		}
 		// Sync to in-memory
 		r.mu.Lock()
@@ -801,7 +807,7 @@ func (r *Room) SetPlayerColor(client *Client, payload interface{}) {
 		r.mu.Lock()
 		for username, color := range r.GameState.PlayerColors {
 			if color == colorData.Color && username != client.Username {
-				log.Printf("Color %s already taken by %s, rejecting for %s", colorData.Color, username, client.Username)
+				log.Printf("Color %s already taken by %s", colorData.Color, username)
 				r.mu.Unlock()
 				msg := Message{
 					Type: "color_rejected",

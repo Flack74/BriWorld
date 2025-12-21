@@ -37,11 +37,7 @@ func GetPlayerColors(ctx context.Context, roomCode string) (map[string]string, e
 // AddPlayer adds a player to the room
 func AddPlayer(ctx context.Context, roomCode, username string) error {
 	key := fmt.Sprintf("room:%s:players", roomCode)
-	pipe := Client.TxPipeline()
-	pipe.SAdd(ctx, key, username)
-	pipe.Expire(ctx, key, roomTTL)
-	_, err := pipe.Exec(ctx)
-	return err
+	return Client.SAdd(ctx, key, username).Err()
 }
 
 // RemovePlayer removes a player from the room
@@ -65,11 +61,7 @@ func GetPlayerCount(ctx context.Context, roomCode string) (int64, error) {
 // SetScore updates a player's score
 func SetScore(ctx context.Context, roomCode, username string, score int) error {
 	key := fmt.Sprintf("room:%s:scores", roomCode)
-	pipe := Client.TxPipeline()
-	pipe.HSet(ctx, key, username, score)
-	pipe.Expire(ctx, key, roomTTL)
-	_, err := pipe.Exec(ctx)
-	return err
+	return Client.HSet(ctx, key, username, score).Err()
 }
 
 // GetScores retrieves all scores
@@ -136,7 +128,7 @@ func GetRoomMeta(ctx context.Context, roomCode string) (map[string]string, error
 	return Client.HGetAll(ctx, key).Result()
 }
 
-// UpdateRoomActivity refreshes TTL on all room keys
+// UpdateRoomActivity refreshes TTL on all room keys (batch operation)
 func UpdateRoomActivity(ctx context.Context, roomCode string) {
 	keys := []string{
 		fmt.Sprintf("room:%s:meta", roomCode),
@@ -145,11 +137,14 @@ func UpdateRoomActivity(ctx context.Context, roomCode string) {
 		fmt.Sprintf("room:%s:scores", roomCode),
 		fmt.Sprintf("room:%s:painted", roomCode),
 		fmt.Sprintf("room:%s:state", roomCode),
+		fmt.Sprintf("room:%s:timer", roomCode),
 	}
 	
+	pipe := Client.Pipeline()
 	for _, key := range keys {
-		Client.Expire(ctx, key, roomTTL)
+		pipe.Expire(ctx, key, roomTTL)
 	}
+	pipe.Exec(ctx)
 }
 
 // DeleteRoom removes all room data
@@ -170,11 +165,7 @@ func DeleteRoom(ctx context.Context, roomCode string) error {
 // SetTimerDeadline stores round deadline
 func SetTimerDeadline(ctx context.Context, roomCode string, round int, deadline int64) error {
 	key := fmt.Sprintf("room:%s:timer", roomCode)
-	pipe := Client.TxPipeline()
-	pipe.HSet(ctx, key, "round", round, "deadline", deadline)
-	pipe.Expire(ctx, key, roomTTL)
-	_, err := pipe.Exec(ctx)
-	return err
+	return Client.HSet(ctx, key, "round", round, "deadline", deadline).Err()
 }
 
 // GetTimerDeadline retrieves round deadline

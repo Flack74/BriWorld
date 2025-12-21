@@ -13,6 +13,8 @@ import (
 var Client *redis.Client
 
 func InitRedis(addr, password string, db int, useTLS bool) error {
+	log.Printf("Initializing Redis with addr=%s, TLS=%v", addr, useTLS)
+	
 	var tlsConfig *tls.Config
 	if useTLS {
 		tlsConfig = &tls.Config{
@@ -24,14 +26,17 @@ func InitRedis(addr, password string, db int, useTLS bool) error {
 		Addr:         addr,
 		Password:     password,
 		DB:           db,
-		DialTimeout:  5 * time.Second,
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 3 * time.Second,
-		PoolSize:     10,
+		DialTimeout:  10 * time.Second,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		PoolSize:     20,
+		MinIdleConns: 5,
+		MaxRetries:   3,
+		PoolTimeout:  10 * time.Second,
 		TLSConfig:    tlsConfig,
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := Client.Ping(ctx).Err(); err != nil {

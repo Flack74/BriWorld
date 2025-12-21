@@ -95,6 +95,12 @@ func HandleWebSocket(c *websocket.Conn) {
 		stateManager := GetStateManager()
 		if isReconnection, _ := stateManager.CheckSessionInRoom(roomCode, sessionID); isReconnection {
 			if snapshot := stateManager.GetRoomState(roomCode); snapshot != nil {
+				// Reset stuck in_progress state for single player rooms
+				if snapshot.GameState != nil && snapshot.GameState.RoomType == "SINGLE" && snapshot.GameState.Status == "in_progress" && len(snapshot.Players) == 0 {
+					log.Printf("Resetting stuck room %s from in_progress to waiting", roomCode)
+					snapshot.GameState.Status = "waiting"
+					snapshot.GameState.CurrentRound = 0
+				}
 				room.RestoreFromSnapshot(snapshot)
 				log.Printf("Reconnection: Room %s state restored", roomCode)
 			}

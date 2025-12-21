@@ -27,16 +27,15 @@ const Home = () => {
 
       {/* Logout button for logged in users */}
       {isLoggedIn && (
-        <div className="absolute top-12 right-2 sm:top-6 sm:right-6 z-20 flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-3">
+        <div className="absolute top-6 right-2 sm:right-6 z-20 flex items-center gap-1 sm:gap-3">
           <span className="text-xs sm:text-sm text-foreground hidden sm:block">Welcome, {username}</span>
           <Button
             variant="outline"
-            size="sm"
-            className="gap-1 sm:gap-2 h-8 w-8 sm:h-auto sm:w-auto"
+            size="icon"
+            className="h-8 w-8 sm:h-10 sm:w-10"
             onClick={handleLogout}
           >
-            <LogOut className="w-3 h-3 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">Logout</span>
+            <LogOut className="w-4 h-4" />
           </Button>
         </div>
       )}

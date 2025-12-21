@@ -19,7 +19,18 @@ func NewProfileHandler(db *database.GormDB) *ProfileHandler {
 
 // GetProfile returns the current user's profile
 func (h *ProfileHandler) GetProfile(c *fiber.Ctx) error {
-	userIDStr := c.Locals("user_id").(string)
+	userIDVal := c.Locals("user_id")
+	if userIDVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+	userIDStr, ok := userIDVal.(string)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID format",
+		})
+	}
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -51,7 +62,18 @@ func (h *ProfileHandler) GetProfile(c *fiber.Ctx) error {
 
 // UpdateProfile updates the user's profile information
 func (h *ProfileHandler) UpdateProfile(c *fiber.Ctx) error {
-	userIDStr := c.Locals("user_id").(string)
+	userIDVal := c.Locals("user_id")
+	if userIDVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+	userIDStr, ok := userIDVal.(string)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID format",
+		})
+	}
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -100,7 +122,18 @@ func (h *ProfileHandler) UpdateProfile(c *fiber.Ctx) error {
 
 // DeleteAvatar removes the user's avatar
 func (h *ProfileHandler) DeleteAvatar(c *fiber.Ctx) error {
-	userIDStr := c.Locals("user_id").(string)
+	userIDVal := c.Locals("user_id")
+	if userIDVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+	userIDStr, ok := userIDVal.(string)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID format",
+		})
+	}
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

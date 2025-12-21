@@ -9,14 +9,16 @@ interface Player {
   color: "correct" | "opponent";
   avatar?: string;
   avatarUrl?: string;
+  playerColor?: string; // Map mode color
 }
 
 interface LeaderboardProps {
   players: Player[];
   messageCount: number;
+  showPlayerColors?: boolean; // Show color dots in map mode
 }
 
-const Leaderboard = ({ players, messageCount }: LeaderboardProps) => {
+const Leaderboard = ({ players, messageCount, showPlayerColors = false }: LeaderboardProps) => {
   return (
     <div className="card-elevated h-full flex flex-col overflow-hidden">
       {/* Header */}
@@ -53,13 +55,30 @@ const Leaderboard = ({ players, messageCount }: LeaderboardProps) => {
 
             {/* Avatar */}
             {player.avatarUrl ? (
-              <img
-                src={player.avatarUrl}
-                alt={player.name}
-                className={`w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-full object-cover ring-1 sm:ring-2 ring-offset-1 ring-offset-card ${
-                  player.color === "correct" ? "ring-success" : "ring-warning"
-                }`}
-              />
+              <div className="relative">
+                <img
+                  src={player.avatarUrl}
+                  alt={player.name}
+                  className={`w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-full object-cover ring-1 sm:ring-2 ring-offset-1 ring-offset-card ${
+                    player.color === "correct" ? "ring-success" : "ring-warning"
+                  }`}
+                />
+                {showPlayerColors && player.playerColor && (
+                  <div
+                    className="absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 rounded-full border-2 border-card"
+                    style={{ backgroundColor: player.playerColor }}
+                  />
+                )}
+              </div>
+            ) : showPlayerColors && player.playerColor ? (
+              <div className="relative">
+                <div
+                  className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-full ring-1 sm:ring-2 ring-offset-1 ring-offset-card ring-border flex items-center justify-center text-xs sm:text-sm lg:text-lg font-semibold text-white"
+                  style={{ backgroundColor: player.playerColor }}
+                >
+                  {player.name.charAt(0).toUpperCase()}
+                </div>
+              </div>
             ) : (
               <div
                 className={`w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm lg:text-lg font-semibold ring-1 sm:ring-2 ring-offset-1 ring-offset-card ${

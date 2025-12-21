@@ -6,6 +6,7 @@ import (
 	"briworld/internal/utils"
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,6 +41,7 @@ func (s *AuthServiceGorm) LoginUser(ctx context.Context, email, password string)
 	}
 
 	if !utils.VerifyPassword(user.PasswordHash, password) {
+		log.Printf("Password verification failed for user: %s", email)
 		return nil, fmt.Errorf("invalid password")
 	}
 
