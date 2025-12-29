@@ -138,7 +138,7 @@ const Home = () => {
           <div className="flex flex-col items-center gap-2">
             <div className="flex items-center gap-2 text-sm text-foreground">
               <Heart className="w-4 h-4 text-red-500 fill-red-500" />
-              <span>Created with love and respect for Briella.</span>
+              <span>Created with love and respect for Briella Chawla.</span>
             </div>
             <p className="text-xs text-muted-foreground">Made with care</p>
           </div>
