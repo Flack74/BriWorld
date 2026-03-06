@@ -90,7 +90,12 @@ export const GameLobby: React.FC = () => {
   const handleModeSelect = (modeId: string) => {
     setState((prev) => ({ ...prev, selectedMode: modeId }));
 
-    // Show rounds modal for FLAG mode
+    // Don't show rounds modal if joining existing private room
+    if (state.roomType === 'private' && state.roomCode) {
+      return;
+    }
+
+    // Show rounds modal for FLAG mode when creating new room
     const flagModes = ['FLAG', 'FLAG_QUIZ'];
     if (flagModes.includes(modeId)) {
       setShowRoundsModal(true);
@@ -117,7 +122,7 @@ export const GameLobby: React.FC = () => {
   };
 
   const handleStart = () => {
-    if (!state.selectedMode) return;
+    if (!state.selectedMode && !(state.roomType === 'private' && state.roomCode)) return;
 
     // Clear any existing room data for single player mode to prevent conflicts
     if (state.roomType === 'single') {
@@ -143,11 +148,8 @@ export const GameLobby: React.FC = () => {
     // Navigate to waiting room for multiplayer, directly to game for single player
     if (state.roomType === "single") {
       navigate("/game", { state: config });
-    } else if (state.roomType === "private" && state.roomCode) {
-      // Joining existing private room by code — go directly to waiting room
-      // The server will assign the correct mode
-      navigate("/waiting", { state: { ...config, gameMode: actualModeId || 'FLAG' } });
     } else {
+      // All multiplayer goes to waiting room
       navigate("/waiting", { state: config });
     }
   };
@@ -227,12 +229,6 @@ export const GameLobby: React.FC = () => {
                   onChange={handleRoomTypeChange}
                 />
 
-                <ModeCarousel
-                  modes={visibleModes}
-                  selectedMode={state.selectedMode}
-                  onSelect={handleModeSelect}
-                />
-
                 {state.roomType === 'private' && (
                   <RoomCodeInput
                     value={state.roomCode}
@@ -240,22 +236,31 @@ export const GameLobby: React.FC = () => {
                   />
                 )}
 
+                {/* Only show mode selector if not joining existing private room */}
+                {!(state.roomType === 'private' && state.roomCode.length >= 6) && (
+                  <ModeCarousel
+                    modes={visibleModes}
+                    selectedMode={state.selectedMode}
+                    onSelect={handleModeSelect}
+                  />
+                )}
+
                 <Button
                   className="w-full h-9 sm:h-10 md:h-11 text-sm sm:text-base font-semibold"
                   onClick={handleStart}
-                  disabled={!state.selectedMode && !(state.roomType === 'private' && state.roomCode)}
+                  disabled={!state.selectedMode && !(state.roomType === 'private' && state.roomCode.length >= 6)}
                   size="lg"
                 >
                   {getCtaLabel()}
                 </Button>
 
-                {!state.selectedMode && (
+                {!state.selectedMode && !(state.roomType === 'private' && state.roomCode) && (
                   <p className="text-center text-xs sm:text-sm text-muted-foreground">
                     Select a game mode to continue
                   </p>
                 )}
 
-                {state.selectedMode && ['FLAG', 'FLAG_QUIZ'].includes(state.selectedMode) && (
+                {state.selectedMode && ['FLAG', 'FLAG_QUIZ'].includes(state.selectedMode) && !(state.roomType === 'private' && state.roomCode) && (
                   <div className="text-center">
                     <button
                       onClick={() => setShowRoundsModal(true)}

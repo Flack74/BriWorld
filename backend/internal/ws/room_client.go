@@ -71,6 +71,10 @@ func (r *Room) AddClient(client *Client) {
 		if client.TimeoutSeconds > 0 {
 			r.GameState.TimeRemaining = client.TimeoutSeconds
 		}
+	} else {
+		// Joining existing room - inherit settings
+		client.RoundsCount = r.GameState.TotalRounds
+		client.TimeoutSeconds = r.GameState.TimeRemaining
 	}
 
 	// Build room_joined payload while still holding the lock
@@ -154,12 +158,22 @@ func (r *Room) RemoveClient(client *Client) {
 		redisClient.RemovePlayer(ctx, r.ID, client.Username)
 	}
 
-	// Handle owner transfer
+	// Handle owner transfer - transfer to next non-spectator player
 	if r.Owner == client.Username && len(r.Clients) > 0 {
 		for c := range r.Clients {
-			r.Owner = c.Username
-			log.Printf("Ownership transferred to %s in room %s", r.Owner, r.ID)
-			break
+			if !c.IsSpectator {
+				r.Owner = c.Username
+				log.Printf("Ownership transferred to %s in room %s", r.Owner, r.ID)
+				break
+			}
+		}
+		// If no active players, transfer to first spectator
+		if r.Owner == client.Username {
+			for c := range r.Clients {
+				r.Owner = c.Username
+				log.Printf("Ownership transferred to spectator %s in room %s", r.Owner, r.ID)
+				break
+			}
 		}
 	}
 
@@ -181,11 +195,10 @@ func (r *Room) RemoveClient(client *Client) {
 	isEmpty := len(r.Clients) == 0
 	shouldCleanup := false
 	if isEmpty {
+		// Start 90-second inactivity timer
 		r.inactiveRoundCount++
-		log.Printf("Room %s is empty (inactive count: %d)", r.ID, r.inactiveRoundCount)
-		if r.inactiveRoundCount >= 3 {
-			shouldCleanup = true
-		}
+		log.Printf("Room %s is empty, starting 90s cleanup timer", r.ID)
+		shouldCleanup = true
 	} else {
 		r.inactiveRoundCount = 0
 	}
@@ -194,7 +207,7 @@ func (r *Room) RemoveClient(client *Client) {
 	r.mu.Unlock()
 
 	if shouldCleanup {
-		go r.AutoCleanup()
+		go r.ScheduleCleanup()
 	} else if !isEmpty {
 		r.BroadcastRoomUpdate()
 	}

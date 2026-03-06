@@ -9,14 +9,16 @@ import (
 
 func Start() {
 	if os.Getenv("ENV") != "production" {
+		log.Println("Keep-alive: skipped (not production)")
 		return
 	}
 
+	log.Println("Keep-alive: service starting...")
 	go func() {
-		// Wait 2 minutes for app to fully start
-		log.Println("Keep-alive: waiting 2 minutes for app to be ready...")
-		time.Sleep(2 * time.Minute)
-		log.Println("Keep-alive service started (10 min interval)")
+		// Wait 30 seconds for app to fully start
+		log.Println("Keep-alive: waiting 30 seconds for app to be ready...")
+		time.Sleep(30 * time.Second)
+		log.Println("Keep-alive: service started (10 min interval)")
 
 		// First ping immediately
 		ping()

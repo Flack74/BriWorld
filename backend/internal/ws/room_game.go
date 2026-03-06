@@ -174,31 +174,35 @@ func (r *Room) EndRound() {
 			if r.GameState.EliminatedPlayers[username] {
 				continue
 			}
-			// Eliminate players who didn't answer correctly
+			// Eliminate players who didn't answer correctly this round
 			if !r.GameState.Answered[username] {
 				r.GameState.EliminatedPlayers[username] = true
 				log.Printf("Player %s eliminated in room %s (no correct answer)", username, r.ID)
 			}
 		}
-		r.mu.Unlock()
 		
-		r.handleLastStandingElimination()
-
-		// Check if game should end
-		r.mu.RLock()
+		// Count active players
 		activePlayers := 0
 		for username := range r.GameState.Scores {
 			if !r.GameState.EliminatedPlayers[username] {
 				activePlayers++
 			}
 		}
-		r.mu.RUnlock()
+		r.mu.Unlock()
+		
+		r.handleLastStandingElimination()
 
+		// End game if 1 or 0 players remain
 		if activePlayers <= 1 {
 			time.Sleep(2 * time.Second)
 			r.EndGame()
 			return
 		}
+		
+		// Continue to next round if multiple players remain
+		time.Sleep(2 * time.Second)
+		r.StartRound()
+		return
 	}
 
 	// Check if game is complete

@@ -18,7 +18,7 @@ export const useColorManagement = ({
   selectColor,
 }: UseColorManagementProps) => {
   const [showColorModal, setShowColorModal] = useState(false);
-  const [selectedColor, setSelectedColor] = useState<string>('#10b981');
+  const [selectedColor, setSelectedColor] = useState<string>('');
   const colorSelectedRef = useRef(false);
 
   // Show color picker for WORLD_MAP when connected (only once)

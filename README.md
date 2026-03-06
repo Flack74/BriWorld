@@ -455,6 +455,38 @@ make docker-up
 make docker-down
 ```
 
+## 🐛 Recent Bug Fixes (v2.1)
+
+### Color Selector Fix
+**Issue:** Color selector was painting green instead of selected color  
+**Fix:** Removed hardcoded default, colors now sync from server  
+**Files:** `frontend/src/hooks/useColorManagement.ts`
+
+### Private Room Join UX
+**Issue:** Users had to select mode/rounds when joining existing room  
+**Fix:** Hide mode carousel and rounds selector when room code entered  
+**Files:** `frontend/src/components/lobby/GameLobby.tsx`
+
+### Last Standing Mode
+**Issue:** Game ended after X rounds instead of continuing until elimination  
+**Fix:** Game now continues indefinitely until only 1 player remains  
+**Files:** `backend/internal/ws/room_game.go`
+
+### Room Ownership Transfer
+**Issue:** Room died when owner left  
+**Fix:** Ownership transfers to next non-spectator player automatically  
+**Files:** `backend/internal/ws/room_client.go`
+
+### Reconnection Support
+**Issue:** Unclear reconnection vs permanent leave  
+**Fix:** Updated dialog to clarify 90s reconnection window  
+**Files:** `frontend/src/components/LeaveRoomDialog.tsx`
+
+### Room Cleanup
+**Issue:** Rooms cleaned up too quickly (3 rounds)  
+**Fix:** 90-second timer for empty rooms before cleanup  
+**Files:** `backend/internal/ws/room_cleanup.go`
+
 ## 📈 Project Status
 
 ### ✅ Completed Features (100%)
@@ -505,6 +537,12 @@ make docker-down
 - **Connection Pool Optimization** - MaxConns=25, MinConns=5 for improved database performance
 - **Request Timeout Optimization** - 5-second context timeouts on auth endpoints
 - **Rating System** - Dynamic player rating calculation (+25 for winners, -10 for losers)
+- **🎨 Color Picker Fix** - Removed hardcoded green default, colors now properly sync from server
+- **🚪 Private Room Join UX** - Hide mode/rounds selector when joining existing room with code
+- **⚔️ Last Standing Fix** - Game continues until wrong answer (not limited by round count)
+- **👑 Ownership Transfer** - Room persists when owner leaves, transfers to next player
+- **🔄 90s Reconnection** - Players can reconnect within 90 seconds after disconnect
+- **⏱️ Room Cleanup** - Empty rooms auto-cleanup after 90 seconds of inactivity
 
 ### 🎯 Future Enhancements
 - **Audio Mode**: Identify countries by national anthems (implementation ready, will be enabled later)

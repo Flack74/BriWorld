@@ -243,7 +243,8 @@ const Game = () => {
 **`useColorManagement.ts`** - Color picker (World Map)
 - Shows color picker modal
 - Handles color selection
-- Syncs with server
+- Syncs with server (no hardcoded defaults)
+- Rejects duplicate colors
 
 **`useGameAutoStart.ts`** - Auto-start logic
 - Auto-starts single-player games
@@ -363,6 +364,70 @@ backend/
 ```
 
 ### Key Backend Files
+
+#### `room_client.go` - Client Management
+**Location:** `backend/internal/ws/room_client.go`
+
+**Purpose:** Manages player connections and room membership
+
+**Key Functions:**
+- `AddClient()` - Adds player to room, handles reconnection
+- `RemoveClient()` - Removes player, transfers ownership if needed
+
+**Recent Changes:**
+- Ownership transfer prioritizes non-spectator players
+- Inherits room settings when joining existing room
+- 90-second cleanup timer for empty rooms
+
+**When to modify:**
+- Changing player join/leave logic
+- Modifying ownership transfer rules
+- Adjusting room cleanup timing
+
+---
+
+#### `room_cleanup.go` - Room Lifecycle
+**Location:** `backend/internal/ws/room_cleanup.go`
+
+**Purpose:** Manages room cleanup and persistence
+
+**Key Functions:**
+- `ScheduleCleanup()` - 90-second timer for empty rooms
+- `AutoCleanup()` - Removes inactive rooms
+- `RestartGame()` - Resets game state
+- `CloseRoom()` - Owner-initiated room closure
+
+**Recent Changes:**
+- Added `ScheduleCleanup()` with 90-second delay
+- Rooms persist when owner leaves (ownership transfers)
+
+**When to modify:**
+- Changing cleanup timing
+- Modifying room persistence rules
+
+---
+
+#### `room_game.go` - Game Logic
+**Location:** `backend/internal/ws/room_game.go`
+
+**Purpose:** Core game mechanics and round management
+
+**Key Functions:**
+- `StartGame()` - Initializes game
+- `StartRound()` - Begins new round
+- `EndRound()` - Completes round, handles mode-specific logic
+- `EndGame()` - Finishes game, updates stats
+
+**Recent Changes:**
+- Last Standing mode continues until elimination (not round-limited)
+- Eliminated players tracked separately from scores
+
+**When to modify:**
+- Adding new game modes
+- Changing elimination logic
+- Modifying round progression
+
+---
 
 #### `hub.go` - WebSocket Hub
 **Location:** `backend/internal/ws/hub.go`
@@ -1080,6 +1145,39 @@ console.log('[GAME] Room:', roomUpdate);
 - Add error handling
 - Write tests for critical paths
 - Document complex logic
+
+---
+
+## 🐛 Recent Bug Fixes & Improvements
+
+### v2.1 Updates
+
+**Color Management**
+- Fixed hardcoded green color default in World Map mode
+- Colors now properly sync from server selection
+- File: `frontend/src/hooks/useColorManagement.ts`
+
+**Private Room UX**
+- Hide mode selector when joining with room code
+- Hide rounds/timeout selector for existing rooms
+- Server inherits room settings for joining players
+- Files: `frontend/src/components/lobby/GameLobby.tsx`, `backend/internal/ws/room_client.go`
+
+**Last Standing Mode**
+- Game continues until wrong answer (not round-limited)
+- Only ends when 1 or 0 players remain
+- File: `backend/internal/ws/room_game.go`
+
+**Room Persistence**
+- Ownership transfers to next player when owner leaves
+- Prioritizes non-spectator players for ownership
+- 90-second cleanup timer for empty rooms
+- Files: `backend/internal/ws/room_client.go`, `backend/internal/ws/room_cleanup.go`
+
+**Reconnection**
+- Clarified 90-second reconnection window in leave dialog
+- "Leave Permanently" button with destructive styling
+- File: `frontend/src/components/LeaveRoomDialog.tsx`
 
 ---
 

@@ -136,6 +136,43 @@ func (r *Room) AutoCleanup() {
 	log.Printf("Room %s auto-cleaned due to inactivity", roomID)
 }
 
+// ScheduleCleanup schedules room cleanup after 90 seconds of inactivity.
+func (r *Room) ScheduleCleanup() {
+	log.Printf("Room %s: Starting 90-second cleanup timer", r.ID)
+	time.Sleep(90 * time.Second)
+	
+	r.mu.Lock()
+	if len(r.Clients) > 0 {
+		// Users reconnected - cancel cleanup
+		r.inactiveRoundCount = 0
+		r.mu.Unlock()
+		log.Printf("Room %s: Cleanup cancelled - users reconnected", r.ID)
+		return
+	}
+	
+	if r.isCleanedUp {
+		r.mu.Unlock()
+		return
+	}
+	
+	r.GameState.Status = domain.RoomClosed
+	r.GameState.RoundActive = false
+	roomID := r.ID
+	r.isCleanedUp = true
+	r.mu.Unlock()
+	
+	// Cancel context
+	r.cancel()
+	
+	// Clean up Redis state
+	if redisClient.Client != nil {
+		ctx := context.Background()
+		redisClient.DeleteRoom(ctx, roomID)
+	}
+	
+	log.Printf("Room %s: Auto-cleaned after 90s inactivity", roomID)
+}
+
 // UpdatePlayerStats updates database statistics for all players after game ends.
 func (r *Room) UpdatePlayerStats(scores map[string]int) {
 	log.Printf("Updating player stats for room %s with scores: %v", r.ID, scores)
