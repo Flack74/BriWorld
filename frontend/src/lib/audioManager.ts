@@ -42,10 +42,14 @@ class AudioManager {
     const bgMusicEnabled = localStorage.getItem('bgMusicEnabled') !== 'false';
     
     if (bgMusicEnabled && track) {
+      // Save the track to localStorage
+      localStorage.setItem('bgMusicTrack', track);
+      
       this.backgroundMusic = new Audio(track);
       this.backgroundMusic.loop = true;
       this.backgroundMusic.volume = volume;
       this.backgroundMusic.play().catch((err) => {
+        console.log('Background music autoplay prevented. Will play on user interaction.');
       });
     }
   }

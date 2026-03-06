@@ -43,6 +43,7 @@ export const WorldMap = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isTouching, setIsTouching] = useState(false);
   const [touchStart, setTouchStart] = useState({ x: 0, y: 0 });
+  const [mapLoaded, setMapLoaded] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -93,6 +94,7 @@ export const WorldMap = ({
           .attr('stroke', '#333')
           .attr('stroke-width', 0.5);
         
+        setMapLoaded(true);
       })
       .catch(err => {
       });
@@ -143,7 +145,7 @@ export const WorldMap = ({
   // Update painted countries effect
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg) {
+    if (!svg || !mapLoaded) {
       return;
     }
 
@@ -187,10 +189,19 @@ export const WorldMap = ({
       const numericId = countryMap[code];
       const playerColor = playerColors[playerName] || '#10b981';
       if (numericId) {
-        d3.select(svg).selectAll('path')
-          .filter((d: any) => d.id === numericId)
-          .attr('fill', playerColor)
-          .attr('opacity', 0.8);
+        const matchedPaths = d3.select(svg).selectAll('path')
+          .filter((d: any) => d.id === numericId);
+        
+        if (!matchedPaths.empty()) {
+          matchedPaths
+            .attr('fill', playerColor)
+            .attr('opacity', 0.8);
+          console.log(`✅ Painted ${code} (${numericId}) with ${playerColor}`);
+        } else {
+          console.warn(`⚠️ No SVG path found for ${code} (ID: ${numericId})`);
+        }
+      } else {
+        console.warn(`⚠️ No mapping for country code: ${code}`);
       }
     });
     
@@ -219,7 +230,7 @@ export const WorldMap = ({
           .attr('stroke-width', 2);
       }
     }
-  }, [foundCountryCodes, currentCountry, userColor, paintedCountries, playerColors]);
+  }, [foundCountryCodes, currentCountry, userColor, paintedCountries, playerColors, mapLoaded]);
 
   // No pan/zoom handlers - static map only
 

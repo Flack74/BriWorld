@@ -18,13 +18,21 @@ interface Message {
 interface GameChatProps {
   messages: Message[];
   onSendMessage: (text: string) => void;
+  players?: string[]; // Add players list for mentions
 }
 
-const GameChat = ({ messages, onSendMessage }: GameChatProps) => {
+const GameChat = ({ messages, onSendMessage, players = [] }: GameChatProps) => {
   const [input, setInput] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [reactingToMessage, setReactingToMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Mention autocomplete state
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState("");
+  const [mentionStartPos, setMentionStartPos] = useState(0);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
   
   // Rate limiting state
   const [messageTimes, setMessageTimes] = useState<number[]>([]);
@@ -61,6 +69,70 @@ const GameChat = ({ messages, onSendMessage }: GameChatProps) => {
   
   const onReactionEmojiClick = (messageId: string, emojiData: EmojiClickData) => {
     handleReaction(messageId, emojiData.emoji);
+  };
+  
+  // Filter players for mention autocomplete
+  const filteredPlayers = players.filter(player => 
+    player.toLowerCase().startsWith(mentionSearch.toLowerCase())
+  );
+  
+  // Handle input change with mention detection
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const cursorPos = e.target.selectionStart || 0;
+    
+    setInput(value);
+    
+    // Check for @ mention
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      // Only show mentions if @ is at start or after space, and no space after @
+      const charBeforeAt = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : ' ';
+      if ((charBeforeAt === ' ' || lastAtIndex === 0) && !textAfterAt.includes(' ')) {
+        setShowMentions(true);
+        setMentionSearch(textAfterAt);
+        setMentionStartPos(lastAtIndex);
+        setSelectedMentionIndex(0);
+        return;
+      }
+    }
+    
+    setShowMentions(false);
+  };
+  
+  // Handle mention selection
+  const selectMention = (username: string) => {
+    const before = input.slice(0, mentionStartPos);
+    const after = input.slice(mentionStartPos + mentionSearch.length + 1);
+    const newValue = before + '@' + username + ' ' + after;
+    setInput(newValue);
+    setShowMentions(false);
+    inputRef.current?.focus();
+  };
+  
+  // Handle keyboard navigation in mention list
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showMentions || filteredPlayers.length === 0) return;
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedMentionIndex(prev => 
+        prev < filteredPlayers.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedMentionIndex(prev => 
+        prev > 0 ? prev - 1 : filteredPlayers.length - 1
+      );
+    } else if (e.key === 'Enter' && showMentions) {
+      e.preventDefault();
+      selectMention(filteredPlayers[selectedMentionIndex]);
+    } else if (e.key === 'Escape') {
+      setShowMentions(false);
+    }
   };
 
   useEffect(() => {
@@ -164,39 +236,42 @@ const GameChat = ({ messages, onSendMessage }: GameChatProps) => {
                 </span>
                 <span className="text-[10px] sm:text-xs lg:text-sm text-foreground break-words">{msg.text}</span>
               </div>
+
+              {/* Reaction button */}
               <button
+                type="button"
                 onClick={() => setReactingToMessage(reactingToMessage === msg.id ? null : msg.id)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground p-0.5 sm:p-1 rounded hidden lg:block"
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground text-xs"
               >
-                <Smile className="w-2 h-2 sm:w-3 sm:h-3 lg:w-4 lg:h-4" />
+                <Smile className="w-3 h-3" />
               </button>
             </div>
             
-            {/* Emoji Picker for Reactions */}
+            {/* Reaction Picker */}
             {reactingToMessage === msg.id && (
-              <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999]">
-                <EmojiPicker
-                  onEmojiClick={(emojiData) => onReactionEmojiClick(msg.id, emojiData)}
-                  width={450}
-                  height={400}
-                />
+              <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={() => setReactingToMessage(null)}>
+                <div className="bg-popover border border-border rounded-lg shadow-xl overflow-visible" onClick={(e) => e.stopPropagation()}>
+                  <EmojiPicker
+                    onEmojiClick={(emojiData) => onReactionEmojiClick(msg.id, emojiData)}
+                    width={Math.min(300, window.innerWidth - 32)}
+                    height={Math.min(400, window.innerHeight - 100)}
+                    previewConfig={{ showPreview: false }}
+                  />
+                </div>
               </div>
             )}
             
-            {/* Reactions Display */}
+            {/* Display Reactions */}
             {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-              <div className="ml-8 mt-1 flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1 mt-1 ml-6">
                 {Object.entries(msg.reactions).map(([emoji, users]) => (
                   <button
                     key={emoji}
-                    onClick={() => onSendMessage(`REACTION:${msg.id}:${emoji}`)}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 rounded-full text-xs transition-colors group relative"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-muted/50 hover:bg-muted rounded text-xs"
+                    onClick={() => handleReaction(msg.id, emoji)}
                   >
                     <span>{emoji}</span>
-                    <span className="text-muted-foreground">{users.length}</span>
-                    <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded shadow-lg whitespace-nowrap z-50">
-                      {users.join(', ')}
-                    </div>
+                    <span className="text-[10px] text-muted-foreground">{users.length}</span>
                   </button>
                 ))}
               </div>
@@ -211,26 +286,52 @@ const GameChat = ({ messages, onSendMessage }: GameChatProps) => {
         <div className="flex gap-0.5 sm:gap-1 lg:gap-2 items-center">
           <div className="relative flex-1">
             <Input
+              ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
               placeholder={isChatMuted ? "Chat muted..." : "Message..."}
               className="pr-8 sm:pr-10 lg:pr-12 bg-card border-border/50 focus-visible:ring-primary/50 text-[9px] sm:text-xs lg:text-sm h-5 sm:h-6 lg:h-8"
               disabled={isChatMuted}
             />
+            
+            {/* Mention Autocomplete Dropdown */}
+            {showMentions && filteredPlayers.length > 0 && (
+              <div className="absolute bottom-full left-0 mb-1 w-full max-w-[200px] bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-[200]">
+                {filteredPlayers.map((player, index) => (
+                  <button
+                    key={player}
+                    type="button"
+                    onClick={() => selectMention(player)}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2 ${
+                      index === selectedMentionIndex ? 'bg-muted' : ''
+                    }`}
+                  >
+                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                      {player.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-foreground">{player}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <button 
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="absolute right-1 sm:right-2 lg:right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
+              className="absolute right-1 sm:right-2 lg:right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10 hidden lg:block"
             >
               <Smile className="w-3 h-3 sm:w-4 sm:h-4 lg:w-4 lg:h-4" />
             </button>
             {showEmojiPicker && (
-              <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999]">
-                <EmojiPicker
-                  onEmojiClick={onEmojiClick}
-                  width={300}
-                  height={300}
-                />
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={() => setShowEmojiPicker(false)}>
+                <div className="bg-popover border border-border rounded-lg shadow-xl overflow-visible" onClick={(e) => e.stopPropagation()}>
+                  <EmojiPicker
+                    onEmojiClick={onEmojiClick}
+                    width={Math.min(320, window.innerWidth - 32)}
+                    height={Math.min(450, window.innerHeight - 100)}
+                    previewConfig={{ showPreview: false }}
+                  />
+                </div>
               </div>
             )}
           </div>

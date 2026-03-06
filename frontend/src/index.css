@@ -51,7 +51,7 @@
     --gradient-ocean: linear-gradient(135deg, hsl(200 85% 45%) 0%, hsl(185 70% 35%) 50%, hsl(170 60% 40%) 100%);
     --gradient-sunset: linear-gradient(135deg, hsl(40 95% 55%) 0%, hsl(25 90% 55%) 100%);
     --gradient-earth: linear-gradient(180deg, hsl(210 40% 98%) 0%, hsl(45 35% 90%) 100%);
-    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
 
     /* Shadows */
     --shadow-soft: 0 4px 20px -4px hsl(215 25% 15% / 0.1);
@@ -99,7 +99,7 @@
     --ring: 185 65% 50%;
 
     --gradient-ocean: linear-gradient(135deg, hsl(200 70% 35%) 0%, hsl(185 60% 30%) 50%, hsl(170 50% 35%) 100%);
-    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
 
     --shadow-soft: 0 4px 20px -4px hsl(0 0% 0% / 0.3);
     --shadow-medium: 0 8px 30px -8px hsl(0 0% 0% / 0.4);
@@ -123,6 +123,12 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  body::-webkit-scrollbar {
+    display: none;
   }
 
   html {
@@ -137,6 +143,18 @@
 
   .glass-card-strong {
     @apply bg-card/95 backdrop-blur-2xl border border-border/30 shadow-[var(--shadow-medium)];
+  }
+
+  .glass-nav {
+    @apply bg-white/10 backdrop-blur-xl border border-white/20 shadow-[var(--shadow-soft)];
+  }
+
+  .btn-play {
+    @apply bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-[var(--shadow-glow)];
+  }
+
+  .text-love {
+    @apply text-red-500;
   }
 
   .gradient-ocean {
@@ -183,6 +201,14 @@
 }
 
 @layer utilities {
+  .scrollbar-hide {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   .animate-float {
     animation: float 6s ease-in-out infinite;
   }
@@ -207,12 +233,58 @@
     animation: gradient-shift 8s ease infinite;
     background-size: 200% 200%;
   }
+
+  .animate-blob {
+    animation: blob 7s infinite;
+  }
+
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+
+  /* Responsive mode cards */
+  .mode-card {
+    @apply w-full sm:w-auto sm:min-w-[280px] transition-all duration-300;
+  }
+
+  /* Mobile-first responsive utilities */
+  .container-responsive {
+    @apply px-4 sm:px-6 lg:px-8 w-full max-w-7xl mx-auto;
+  }
+
+  /* Mode-specific themes */
+  .mode-hardcore {
+    --mode-primary: 0 75% 55%;
+    --mode-gradient: linear-gradient(135deg, hsl(0 75% 55% / 0.1), hsl(0 60% 45% / 0.1));
+  }
+
+  .mode-blitz {
+    --mode-primary: 35 95% 55%;
+    --mode-gradient: linear-gradient(135deg, hsl(35 95% 55% / 0.1), hsl(45 90% 50% / 0.1));
+  }
+
+  .mode-territory {
+    --mode-primary: 45 95% 55%;
+    --mode-gradient: linear-gradient(135deg, hsl(45 95% 55% / 0.1), hsl(40 90% 50% / 0.1));
+  }
+
+  .mode-journey {
+    --mode-primary: 150 70% 45%;
+    --mode-gradient: linear-gradient(135deg, hsl(150 70% 45% / 0.1), hsl(170 60% 40% / 0.1));
+  }
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-20px);
   }
@@ -222,18 +294,23 @@
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
 }
 
 @keyframes shake {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateX(0);
   }
+
   25% {
     transform: translateX(-10px);
   }
+
   75% {
     transform: translateX(10px);
   }
@@ -243,11 +320,31 @@
   0% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
+
   100% {
     background-position: 0% 50%;
+  }
+}
+
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+
+  100% {
+    transform: translate(0px, 0px) scale(1);
   }
 }
 

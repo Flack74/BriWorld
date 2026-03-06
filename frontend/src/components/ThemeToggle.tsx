@@ -7,15 +7,15 @@ export const ThemeToggle = () => {
 
   return (
     <Button
-      variant="outline"
+      variant="ghost"
       size="icon"
       onClick={toggleTheme}
-      className="fixed top-6 left-2 sm:left-6 z-50 rounded-full w-8 h-8 sm:w-10 sm:h-10"
+      className="w-14 h-14 rounded-2xl bg-background/10 backdrop-blur-xl border border-border/20 hover:bg-background/20 transition-all"
     >
       {theme === 'light' ? (
-        <Moon className="w-5 h-5" />
+        <Moon className="w-6 h-6 text-foreground" />
       ) : (
-        <Sun className="w-5 h-5" />
+        <Sun className="w-6 h-6 text-foreground" />
       )}
     </Button>
   );

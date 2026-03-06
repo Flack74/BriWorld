@@ -11,15 +11,28 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: "../web-dist",
+    outDir: "dist",
     emptyOutDir: true,
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
   },
   server: {
+    port: 5173,
     proxy: {
-      "/api": "http://localhost:8080",
+      "/api": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+      },
       "/ws": {
         target: "ws://localhost:8080",
         ws: true,
+        changeOrigin: true,
       },
     },
   },

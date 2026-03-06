@@ -83,7 +83,7 @@ const Settings = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate('/')}
+              onClick={() => navigate(-1)}
               className="rounded-xl h-8 w-8 sm:h-10 sm:w-10"
             >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -210,7 +210,7 @@ const Settings = () => {
           </div>
 
           <div className="pt-3 sm:pt-4">
-            <Button onClick={() => navigate('/')} className="w-full gradient-primary h-10 sm:h-12 text-sm sm:text-base">
+            <Button onClick={() => navigate(-1)} className="w-full gradient-primary h-10 sm:h-12 text-sm sm:text-base">
               Save & Return
             </Button>
           </div>

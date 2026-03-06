@@ -7,12 +7,15 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import About from "./pages/About";
 import Lobby from "./pages/Lobby";
 import Profile from "./pages/Profile";
+import Leaderboard from "./pages/Leaderboard";
 import WaitingRoom from "./pages/WaitingRoom";
 import Game from "./pages/Game";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import { SpectatorView } from "./pages/SpectatorView";
 
 const queryClient = new QueryClient();
 
@@ -27,8 +30,11 @@ const App = () => (
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/about" element={<About />} />
             <Route path="/lobby" element={<Lobby />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/spectate/:roomCode" element={<SpectatorView />} />
             <Route path="/waiting" element={<WaitingRoom />} />
             <Route path="/game" element={<Game />} />
             <Route path="/settings" element={<Settings />} />

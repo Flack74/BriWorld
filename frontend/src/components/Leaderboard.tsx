@@ -26,10 +26,7 @@ const Leaderboard = ({ players, messageCount, showPlayerColors = false }: Leader
         <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-11 lg:h-11 rounded-lg sm:rounded-xl gradient-warning flex items-center justify-center shadow-glow-warning lg:animate-none animate-float">
           <Trophy className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-warning-foreground" />
         </div>
-        <div>
-          <h2 className="text-sm sm:text-base lg:text-lg font-bold text-foreground">Leaderboard</h2>
-          <p className="text-[10px] sm:text-xs text-muted-foreground hidden lg:block">Live rankings</p>
-        </div>
+        <h2 className="text-sm sm:text-base lg:text-lg font-bold text-foreground">Leaderboard</h2>
       </div>
 
       {/* Player list */}
