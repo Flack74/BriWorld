@@ -5,12 +5,12 @@ RUN apk add --no-cache git ca-certificates tzdata gcc musl-dev curl bash make
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 
 RUN go install github.com/air-verse/air@latest
 
-COPY . .
+COPY backend/ .
 
 EXPOSE 8080
 
@@ -30,14 +30,14 @@ RUN apk add --no-cache \
 WORKDIR /app
 
 # Copy Go modules first for better caching
-COPY go.mod go.sum ./
+COPY backend/go.mod backend/go.sum ./
 RUN go mod download && go mod verify
 
 # Copy source code and static assets
-COPY cmd/ ./cmd/
-COPY internal/ ./internal/
-COPY static/ ./static/
-COPY Music/ ./Music/
+COPY backend/cmd/ ./cmd/
+COPY backend/internal/ ./internal/
+COPY backend/static/ ./static/
+COPY backend/Music/ ./Music/
 
 # Build optimized production binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
@@ -84,7 +84,7 @@ COPY --from=builder --chown=appuser:appgroup /app/Music ./Music/
 RUN mkdir -p uploads && chown -R appuser:appgroup uploads
 
 # Copy health check script
-COPY --chown=appuser:appgroup healthcheck.sh ./
+COPY backend/healthcheck.sh ./
 RUN chmod +x ./briworld ./healthcheck.sh
 
 # Verify files are copied correctly
