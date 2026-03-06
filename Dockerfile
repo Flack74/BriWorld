@@ -36,8 +36,6 @@ RUN go mod download && go mod verify
 # Copy source code and static assets
 COPY backend/cmd/ ./cmd/
 COPY backend/internal/ ./internal/
-COPY backend/static/ ./static/
-COPY backend/Music/ ./Music/
 
 # Build optimized production binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
@@ -88,10 +86,7 @@ COPY backend/healthcheck.sh ./
 RUN chmod +x ./briworld ./healthcheck.sh
 
 # Verify files are copied correctly
-RUN ls -la && \
-    ls -la static/ && \
-    ls -la Music/ && \
-    echo "Files verification complete"
+RUN ls -la
 
 # Set proper ownership
 RUN chown -R appuser:appgroup /app
