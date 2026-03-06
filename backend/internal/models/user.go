@@ -19,7 +19,7 @@ type User struct {
 	EmailVerified       bool       `gorm:"default:false" json:"email_verified"`
 	VerificationToken   string     `gorm:"size:64" json:"-"`
 	ResetToken          string     `gorm:"size:64" json:"-"`
-	ResetTokenExpiry    *time.Time `json:"-"`
+	ResetTokenExpiry    time.Time  `json:"-"`
 	TotalPoints         int        `gorm:"default:0" json:"total_points"`
 	TotalGames          int        `gorm:"default:0" json:"total_games"`
 	TotalWins           int        `gorm:"default:0" json:"total_wins"`

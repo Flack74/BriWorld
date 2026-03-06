@@ -68,13 +68,6 @@ export const useWebSocket = (
       sessionStorage.setItem("sessionId", sessionId);
     }
 
-    console.log("[WS DEBUG] Connecting:", {
-      roomCode,
-      gameMode,
-      roomType,
-      username,
-    });
-
     const token = localStorage.getItem("token") || "";
     let wsUrl = import.meta.env.VITE_WS_URL || "";
     
@@ -90,7 +83,6 @@ export const useWebSocket = (
     wsRef.current = websocket;
 
     websocket.onopen = () => {
-      console.log("[WS] Connected");
       setIsConnected(true);
       setWs(websocket);
     };
@@ -98,7 +90,6 @@ export const useWebSocket = (
     websocket.onmessage = (event) => {
       try {
         const message: WebSocketMessage = JSON.parse(event.data);
-        console.log('[WS] Received message:', message.type, message.payload);
 
         switch (message.type) {
           // 🔥 CRITICAL: Handle authoritative snapshot (fixes desync & blank UI)
@@ -152,15 +143,8 @@ export const useWebSocket = (
             break;
 
           // Handle initial connection confirmation
-          case "connected": {
-            const connPayload = message.payload as {
-              is_owner?: boolean;
-              room_id?: string;
-              username?: string;
-            };
-            console.log('[WS] Connected to room:', connPayload.room_id);
+          case "connected":
             break;
-          }
 
           // Handle flat room_update from backend
           case "room_update": {
@@ -320,19 +304,17 @@ export const useWebSocket = (
             break;
         }
       } catch (error) {
-        console.error("[WS] Failed to parse message:", error);
+        // Ignore parsing errors
       }
     };
 
     websocket.onclose = (event) => {
-      console.log("[WS] Connection closed:", event.code, event.reason);
       setIsConnected(false);
       setWs(null);
       wsRef.current = null;
     };
 
     websocket.onerror = (error) => {
-      console.error("[WS] Error:", error);
       setIsConnected(false);
     };
 

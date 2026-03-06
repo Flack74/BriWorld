@@ -27,7 +27,8 @@ func (h *RankingHandler) GetLeaderboard(c *fiber.Ctx) error {
 	limit := c.QueryInt("limit", 100)
 	
 	var users []models.User
-	err := h.db.Select("id, username, avatar_url, rating, rank, rank_tier").
+	err := h.db.Select("id, username, avatar_url, rating, rank, rank_tier, total_games, total_wins").
+		Where("total_games > 0").
 		Order("rating DESC").
 		Limit(limit).
 		Find(&users).Error

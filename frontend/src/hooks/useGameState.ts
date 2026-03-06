@@ -59,6 +59,22 @@ export const useGameState = ({ config, gameState, roomUpdate, ws }: UseGameState
           }
         }
 
+        // Handle country painted in map mode
+        if (message.type === 'country_painted') {
+          const paintData = message.payload;
+          
+          // Only increment for current user's paintings
+          if (paintData.player === config.username) {
+            setGameStats(prev => ({ ...prev, correct: prev.correct + 1 }));
+            AudioManager.getInstance().playCorrectAnswer();
+            
+            const countryCode = paintData.country_code;
+            if (countryCode && !guessedCountries.includes(countryCode)) {
+              setGuessedCountries(prev => [...prev, countryCode]);
+            }
+          }
+        }
+
         if (message.type === 'round_ended' && !roundHadCorrectAnswer) {
           setGameStats(prev => ({ ...prev, incorrect: prev.incorrect + 1 }));
         }

@@ -196,12 +196,7 @@ export const WorldMap = ({
           matchedPaths
             .attr('fill', playerColor)
             .attr('opacity', 0.8);
-          console.log(`✅ Painted ${code} (${numericId}) with ${playerColor}`);
-        } else {
-          console.warn(`⚠️ No SVG path found for ${code} (ID: ${numericId})`);
         }
-      } else {
-        console.warn(`⚠️ No mapping for country code: ${code}`);
       }
     });
     

@@ -197,8 +197,15 @@ func HandleWebSocket(c *websocket.Conn) {
 	// Start WritePump BEFORE registering to ensure it's ready to receive messages
 	go client.WritePump()
 	
-	// Now register the client - this will trigger BroadcastRoomUpdate
-	room.Register <- client
+	// Register the client with timeout to prevent blocking
+	select {
+	case room.Register <- client:
+		// Successfully registered
+	case <-time.After(5 * time.Second):
+		log.Printf("Registration timeout for %s in room %s", username, roomCode)
+		c.Close()
+		return
+	}
 
 	// ReadPump blocks until connection closes
 	client.ReadPump()

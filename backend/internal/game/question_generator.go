@@ -50,9 +50,11 @@ func GenerateQuestion(mode string, usedCountries map[string]bool) (*Question, er
 	case "SILHOUETTE":
 		question.Type = "silhouette"
 		question.Silhouette = GetSilhouetteForCountry(code)
-		// Skip countries without valid silhouettes (placeholder shape)
-		if question.Silhouette == "" || question.Silhouette == "M100,100 L150,100 L150,150 L100,150 Z" {
-			log.Printf("Skipping %s - no valid silhouette", name)
+		// Skip countries without valid silhouettes
+		if question.Silhouette == "" {
+			log.Printf("Skipping %s (%s) - no valid silhouette", name, code)
+			// Mark as used to avoid infinite loop
+			usedCountries[code] = true
 			return GenerateQuestion(mode, usedCountries)
 		}
 

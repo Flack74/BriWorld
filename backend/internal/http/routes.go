@@ -18,6 +18,7 @@ import (
 func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config, m *mailer.Mailer) {
 	authService := services.NewAuthServiceGorm(gormDB)
 	authHandler := handlers.NewAuthHandlerGorm(authService, cfg.JWT.Secret, cfg.JWT.Expiry, m)
+	passwordResetHandler := handlers.NewPasswordResetHandler()
 
 	// Static files (game data only - frontend served separately)
 	app.Static("/static", "./static")
@@ -43,7 +44,8 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config, m 
 	auth.Post("/register", authHandler.Register)
 	auth.Post("/login", authHandler.Login)
 	auth.Post("/refresh", authHandler.RefreshToken)
-	auth.Post("/forgot-password", authHandler.ForgotPassword)
+	auth.Post("/forgot-password", passwordResetHandler.RequestPasswordReset)
+	auth.Post("/reset-password", passwordResetHandler.ResetPassword)
 
 	// Profile routes (protected)
 	profileHandler := handlers.NewProfileHandler(gormDB)

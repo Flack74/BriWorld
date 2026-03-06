@@ -92,11 +92,19 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 	// For FLAG_QUIZ and LAST_STANDING, end round immediately after correct answer
 	r.mu.RLock()
 	gameMode := r.GameState.GameMode
+	roomType := r.GameState.RoomType
 	r.mu.RUnlock()
 	
-	if gameMode == "FLAG_QUIZ" || gameMode == "LAST_STANDING" {
+	if gameMode == "FLAG_QUIZ" {
 		log.Printf("Correct answer submitted in room %s by %s, ending round", r.ID, client.Username)
 		r.EndRound()
+	} else if gameMode == "LAST_STANDING" {
+		// In single player, end round immediately
+		if roomType == "SINGLE" {
+			log.Printf("Correct answer in SINGLE Last Standing, ending round")
+			r.EndRound()
+		}
+		// In multiplayer, wait for all players to answer or timer to expire
 	}
 }
 

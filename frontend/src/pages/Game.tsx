@@ -280,7 +280,6 @@ const Game = () => {
 
     const timer = setTimeout(() => {
       if (!gameState && !roomUpdate && isConnected) {
-        console.error('[GAME] No response from server after 30s');
         toast({
           title: 'Connection Timeout',
           description: 'Server is taking too long to respond. Please try again.',
