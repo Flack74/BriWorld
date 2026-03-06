@@ -75,17 +75,16 @@ export const useWebSocket = (
       username,
     });
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.host;
     const token = localStorage.getItem("token") || "";
-
-    const wsUrl = `${protocol}//${host}/ws?room=${encodeURIComponent(
-      roomCode,
-    )}&username=${encodeURIComponent(username)}&session=${encodeURIComponent(
-      sessionId,
-    )}&mode=${gameMode}&type=${roomType}&rounds=${rounds}&timeout=${timeout}&token=${encodeURIComponent(
-      token,
-    )}`;
+    let wsUrl = import.meta.env.VITE_WS_URL || "";
+    
+    if (wsUrl) {
+      wsUrl = `${wsUrl}?room=${encodeURIComponent(roomCode)}&username=${encodeURIComponent(username)}&session=${encodeURIComponent(sessionId)}&mode=${gameMode}&type=${roomType}&rounds=${rounds}&timeout=${timeout}&token=${encodeURIComponent(token)}`;
+    } else {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const host = window.location.host;
+      wsUrl = `${protocol}//${host}/ws?room=${encodeURIComponent(roomCode)}&username=${encodeURIComponent(username)}&session=${encodeURIComponent(sessionId)}&mode=${gameMode}&type=${roomType}&rounds=${rounds}&timeout=${timeout}&token=${encodeURIComponent(token)}`;
+    };
 
     const websocket = new WebSocket(wsUrl);
     wsRef.current = websocket;
