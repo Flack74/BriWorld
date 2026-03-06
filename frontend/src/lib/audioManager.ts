@@ -1,3 +1,5 @@
+import { getMusicUrl } from './api';
+
 class AudioManager {
   private static instance: AudioManager;
   private backgroundMusic: HTMLAudioElement | null = null;
@@ -11,10 +13,10 @@ class AudioManager {
   private isCountdownPlaying = false;
 
   private constructor() {
-    this.notificationSound = new Audio('/Music/SFX/briworld-notification.wav');
-    this.correctAnswerSound = new Audio('/Music/SFX/briworld-correct_answer.wav');
-    this.gameCompleteSound = new Audio('/Music/SFX/briworld-game-complete.mp3');
-    this.countdownSound = new Audio('/Music/SFX/briworld-last-3s-countdown-sound-.mp3');
+    this.notificationSound = new Audio(getMusicUrl('/Music/SFX/briworld-notification.wav'));
+    this.correctAnswerSound = new Audio(getMusicUrl('/Music/SFX/briworld-correct_answer.wav'));
+    this.gameCompleteSound = new Audio(getMusicUrl('/Music/SFX/briworld-game-complete.mp3'));
+    this.countdownSound = new Audio(getMusicUrl('/Music/SFX/briworld-last-3s-countdown-sound-.mp3'));
   }
 
   static getInstance(): AudioManager {
@@ -187,7 +189,7 @@ class AudioManager {
       // Restart background music if it was enabled
       const bgMusicEnabled = localStorage.getItem('bgMusicEnabled') !== 'false';
       if (bgMusicEnabled) {
-        const bgTrack = localStorage.getItem('bgMusicTrack') || '/Music/briworld-background-1.mp3';
+        const bgTrack = localStorage.getItem('bgMusicTrack') || getMusicUrl('/Music/briworld-background-1.mp3');
         this.setBackgroundMusic(bgTrack);
       }
     }

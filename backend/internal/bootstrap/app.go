@@ -146,6 +146,7 @@ func getAllowedOrigins(env string) string {
 			"https://briworld.vercel.app",
 			"https://www.briworld.com",
 			"https://briworld.com",
+			"https://bri-world.vercel.app",
 		}
 		return strings.Join(origins, ",")
 	}
