@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import AudioManager from '@/lib/audioManager';
+import { getMusicUrl } from '@/lib/api';
 
 export const useAudioManager = () => {
   useEffect(() => {
@@ -8,7 +9,7 @@ export const useAudioManager = () => {
       const audioMuted = localStorage.getItem('audioMuted') === 'true';
 
       if (bgMusicEnabled && !audioMuted) {
-        const bgTrack = localStorage.getItem('bgMusicTrack') || '/Music/briworld-background-1.mp3';
+        const bgTrack = localStorage.getItem('bgMusicTrack') || getMusicUrl('/Music/briworld-background-1.mp3');
         localStorage.setItem('bgMusicTrack', bgTrack);
         AudioManager.getInstance().setBackgroundMusic(bgTrack);
       }
