@@ -1,7 +1,12 @@
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v2';
 const MUSIC_BASE = import.meta.env.VITE_API_URL?.replace('/api/v2', '') || '';
 
-const getMusicUrl = (path: string) => `${MUSIC_BASE}${path}`;
+const getMusicUrl = (path: string) => {
+  if (MUSIC_BASE) {
+    return `${MUSIC_BASE}${path}`;
+  }
+  return path;
+};
 
 interface ApiResponse<T> {
   success: boolean;
