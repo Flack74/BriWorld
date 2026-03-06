@@ -102,7 +102,7 @@ func (h *PasswordResetHandler) ResetPassword(c *fiber.Ctx) error {
 	}
 
 	// Update password and clear token
-	user.Password = hashedPassword
+	user.PasswordHash = hashedPassword
 	user.ResetToken = ""
 	user.ResetTokenExpiry = time.Time{}
 	if err := db.DB.Save(&user).Error; err != nil {
