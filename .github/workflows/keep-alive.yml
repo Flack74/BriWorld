@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Ping BriWorld Service
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://briworld.onrender.com/api/health)
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://briworld.onrender.com/api/v2/health)
           echo "Response: $response"
           if [ "$response" = "200" ]; then
             echo "✓ Service is alive"
