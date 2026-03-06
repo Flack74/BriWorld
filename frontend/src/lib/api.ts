@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || '/api/v2';
+const API_BASE = import.meta.env.VITE_API_URL || '/api/v2/v2';
 
 interface ApiResponse<T> {
   success: boolean;
