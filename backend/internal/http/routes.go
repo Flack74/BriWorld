@@ -20,7 +20,24 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config, m 
 	authHandler := handlers.NewAuthHandlerGorm(authService, cfg.JWT.Secret, cfg.JWT.Expiry, m)
 	passwordResetHandler := handlers.NewPasswordResetHandler()
 
-	// Static files (game data only - frontend served separately)
+	// Root endpoint
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"service": "BriWorld API",
+			"version": "v2",
+			"status":  "running",
+		})
+	})
+
+	// Serve frontend static files
+	app.Static("/", "./web-dist", fiber.Static{
+		Compress:      true,
+		Browse:        false,
+		Index:         "index.html",
+		CacheDuration: 24 * time.Hour,
+	})
+
+	// Static files (game data only)
 	app.Static("/static", "./static")
 	app.Static("/Music", "./Music")
 
