@@ -93,7 +93,7 @@ Built with **Go**, **WebSocket**, **Neon PostgreSQL**, **Upstash Redis**, and **
 ## 🚀 Quick Start
 
 ### 🌐 Live Demo
-**[Play BriWorld Now!](https://briworld.onrender.com/)** (Deployed on Render)
+**[Play BriWorld Now!](https://bri-world.vercel.app/)** (Deployed on Render)
 
 ### Using Docker (Recommended)
 
