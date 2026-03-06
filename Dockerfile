@@ -36,6 +36,7 @@ RUN go mod download && go mod verify
 # Copy source code and static assets
 COPY backend/cmd/ ./cmd/
 COPY backend/internal/ ./internal/
+COPY backend/static/ ./static/
 
 # Build optimized production binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
@@ -75,6 +76,7 @@ WORKDIR /app
 
 # Copy binary and application files
 COPY --from=builder /app/briworld ./
+COPY --from=builder /app/static ./static/
 
 # Create uploads directory for avatars
 RUN mkdir -p uploads && chown -R appuser:appgroup uploads
