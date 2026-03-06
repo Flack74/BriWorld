@@ -5,23 +5,24 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import AudioManager from '@/lib/audioManager';
+import { getMusicUrl } from '@/lib/api';
 
 const Settings = () => {
   const navigate = useNavigate();
   const [audioMuted, setAudioMuted] = useState(localStorage.getItem('audioMuted') === 'true');
   const [bgMusicEnabled, setBgMusicEnabled] = useState(localStorage.getItem('bgMusicEnabled') !== 'false');
   const [bgMusicVolume, setBgMusicVolume] = useState(parseFloat(localStorage.getItem('bgMusicVolume') || '0.3'));
-  const [bgMusicTrack, setBgMusicTrack] = useState(localStorage.getItem('bgMusicTrack') || '/Music/briworld-background-1.mp3');
+  const [bgMusicTrack, setBgMusicTrack] = useState(localStorage.getItem('bgMusicTrack') || getMusicUrl('/Music/briworld-background-1.mp3'));
   const [sfxVolume, setSfxVolume] = useState(parseFloat(localStorage.getItem('sfxVolume') || '0.5'));
   const [notificationEnabled, setNotificationEnabled] = useState(localStorage.getItem('notificationEnabled') !== 'false');
   const [correctAnswerEnabled, setCorrectAnswerEnabled] = useState(localStorage.getItem('correctAnswerEnabled') !== 'false');
   const [gameCompleteEnabled, setGameCompleteEnabled] = useState(localStorage.getItem('gameCompleteEnabled') !== 'false');
 
   const tracks = [
-    { name: 'Background 1', path: '/Music/briworld-background-1.mp3' },
-    { name: 'Background 2', path: '/Music/briworld-background-2.mp3' },
-    { name: 'Background 3', path: '/Music/briworld-background-3-chopin-nocturne-in-e-flat-major-op-9.mp3' },
-    { name: 'Background 4', path: '/Music/briworld-background-4.mp3' },
+    { name: 'Background 1', path: getMusicUrl('/Music/briworld-background-1.mp3') },
+    { name: 'Background 2', path: getMusicUrl('/Music/briworld-background-2.mp3') },
+    { name: 'Background 3', path: getMusicUrl('/Music/briworld-background-3-chopin-nocturne-in-e-flat-major-op-9.mp3') },
+    { name: 'Background 4', path: getMusicUrl('/Music/briworld-background-4.mp3') },
   ];
 
   useEffect(() => {
