@@ -34,6 +34,10 @@ func (r *Room) HandleMessage(client *Client, msg *Message) {
 	case "restart_game":
 		r.RestartGame(client.Username)
 
+	case "leave_room":
+		// Player explicitly leaving - remove immediately
+		r.Unregister <- client
+
 	case "close_room":
 		r.CloseRoom(client.Username)
 

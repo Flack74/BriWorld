@@ -122,7 +122,13 @@ export const GameLobby: React.FC = () => {
   };
 
   const handleStart = () => {
+    // Validation: Must have mode selected OR joining private room with code
     if (!state.selectedMode && !(state.roomType === 'private' && state.roomCode)) return;
+
+    // Validation: Private and Public rooms require at least 2 players (can't be solo)
+    if ((state.roomType === 'private' || state.roomType === 'public') && !state.roomCode) {
+      // Creating new private/public room - this is fine, others will join
+    }
 
     // Clear any existing room data for single player mode to prevent conflicts
     if (state.roomType === 'single') {

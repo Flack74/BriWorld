@@ -100,9 +100,11 @@ const Game = () => {
 
   // Room management with WebSocket
   const leaveRoom = () => {
-    if (ws) {
-      ws.send(JSON.stringify({ type: 'close_room' }));
-      ws.close();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      // Send leave message to server
+      ws.send(JSON.stringify({ type: 'leave_room' }));
+      // Close connection
+      setTimeout(() => ws.close(), 100);
     }
     sessionStorage.removeItem('currentRoomCode');
     sessionStorage.removeItem('gameMode');
@@ -324,7 +326,7 @@ const Game = () => {
           roomType={config.roomType}
           gameStats={gameStats}
           guessedCountries={guessedCountries}
-          userColor={gameState?.player_colors?.[config.username] || selectedColor}
+          userColor={gameState?.player_colors?.[config.username] || selectedColor || '#2B7A9B'}
           paintedCountries={gameState?.painted_countries || {}}
           playerColors={gameState?.player_colors || {}}
           players={players}
