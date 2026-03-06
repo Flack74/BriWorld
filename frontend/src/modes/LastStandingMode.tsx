@@ -48,12 +48,11 @@ export function LastStandingMode({ gameState, username, onSubmitAnswer }: LastSt
     const handleSubmit = () => {
         if (!answer.trim()) return;
         onSubmitAnswer(answer);
-        setSubmittedRound(gameState.current_round);
         setAnswer('');
     };
 
-    /** Whether the player has already submitted an answer this round */
-    const hasSubmitted = submittedRound === gameState.current_round;
+    /** Whether the player has already answered correctly this round */
+    const hasAnsweredCorrectly = gameState.answered?.[username] || false;
     /** Whether the local player has been eliminated */
     const isEliminated = gameState.eliminated_players?.[username] || false;
     /** Number of players still alive in the game */
@@ -206,16 +205,16 @@ export function LastStandingMode({ gameState, username, onSubmitAnswer }: LastSt
                     placeholder="Your answer determines your survival..."
                     className="text-sm sm:text-lg h-10 sm:h-14 border-purple-500/30 focus:ring-purple-500"
                     autoFocus
-                    /* Disable input after submitting to prevent double-submit */
-                    disabled={hasSubmitted}
+                    /* Disable input only after correct answer */
+                    disabled={hasAnsweredCorrectly}
                 />
                 <Button
                     onClick={handleSubmit}
                     className="w-full h-10 sm:h-14 text-sm sm:text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                    disabled={hasSubmitted || !answer.trim()}
+                    disabled={hasAnsweredCorrectly || !answer.trim()}
                 >
-                    {/* Show waiting state after submission */}
-                    {hasSubmitted ? '⏳ Waiting for others...' : '🎯 Lock In Answer'}
+                    {/* Show waiting state after correct answer */}
+                    {hasAnsweredCorrectly ? '✅ Correct! Waiting...' : '🎯 Lock In Answer'}
                 </Button>
             </Card>
 

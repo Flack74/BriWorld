@@ -89,9 +89,15 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 		"scores":   r.GameState.Scores,
 	})
 
-	// End round immediately after correct answer
-	log.Printf("Correct answer submitted in room %s by %s, ending round", r.ID, client.Username)
-	go r.EndRound()
+	// For FLAG_QUIZ and LAST_STANDING, end round immediately after correct answer
+	r.mu.RLock()
+	gameMode := r.GameState.GameMode
+	r.mu.RUnlock()
+	
+	if gameMode == "FLAG_QUIZ" || gameMode == "LAST_STANDING" {
+		log.Printf("Correct answer submitted in room %s by %s, ending round", r.ID, client.Username)
+		r.EndRound()
+	}
 }
 
 // HandleMapPaint processes country painting in WORLD_MAP mode.

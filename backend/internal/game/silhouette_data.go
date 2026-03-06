@@ -22,7 +22,11 @@ func init() {
 
 func GetSilhouetteForCountry(countryCode string) string {
 	if silhouette, ok := SilhouetteMap[countryCode]; ok {
+		// Return empty string for placeholder shapes
+		if silhouette == "M100,100 L150,100 L150,150 L100,150 Z" {
+			return ""
+		}
 		return silhouette
 	}
-	return "M100,100 L150,100 L150,150 L100,150 Z"
+	return ""
 }

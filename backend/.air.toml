@@ -7,13 +7,13 @@ tmp_dir = "tmp"
   bin = "./tmp/main"
   cmd = "go build -buildvcs=false -o ./tmp/main ./cmd/server"
   delay = 1000
-  exclude_dir = ["assets", "tmp", "vendor", "testdata", "static", "web"]
+  exclude_dir = ["assets", "tmp", "vendor", "testdata", "static", "web", "web-dist", "node_modules", "frontend", ".git"]
   exclude_file = []
   exclude_regex = ["_test.go"]
   exclude_unchanged = false
   follow_symlink = false
   full_bin = ""
-  include_dir = []
+  include_dir = ["cmd", "internal"]
   include_ext = ["go", "tpl", "tmpl", "html"]
   include_file = []
   kill_delay = "0s"

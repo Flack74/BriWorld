@@ -290,38 +290,14 @@ export const WorldMap = ({
           </button>
         </div>
 
-        {/* World Map SVG - Interactive with zoom/pan */}
+        {/* World Map SVG - Interactive with zoom/pan on SVG only, container fixed */}
         <div 
           ref={containerRef}
-          className="absolute inset-0 overflow-hidden flex items-center justify-center bg-game-ocean/5 cursor-grab active:cursor-grabbing touch-none"
-          onMouseDown={(e) => {
-            setIsDragging(true);
-            setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-          }}
-          onMouseMove={(e) => {
-            if (isDragging) {
-              setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
-            }
-          }}
-          onMouseUp={() => setIsDragging(false)}
-          onMouseLeave={() => setIsDragging(false)}
-          onTouchStart={(e) => {
-            const touch = e.touches[0];
-            setIsTouching(true);
-            setTouchStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
-          }}
-          onTouchMove={(e) => {
-            if (isTouching && e.touches[0]) {
-              const touch = e.touches[0];
-              setPan({ x: touch.clientX - touchStart.x, y: touch.clientY - touchStart.y });
-            }
-          }}
-          onTouchEnd={() => {
-            setIsTouching(false);
-          }}
+          className="absolute inset-0 overflow-hidden flex items-center justify-center bg-game-ocean/5"
         >
           <svg
             ref={svgRef}
+            className="cursor-grab active:cursor-grabbing touch-none"
             style={{ 
               filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.1))",
               userSelect: 'none',
@@ -330,7 +306,32 @@ export const WorldMap = ({
               display: 'block',
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transition: (isDragging || isTouching) ? 'none' : 'transform 0.1s ease-out',
-              touchAction: 'pan-x pan-y'
+              touchAction: 'none'
+            }}
+            onMouseDown={(e) => {
+              setIsDragging(true);
+              setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+            }}
+            onMouseMove={(e) => {
+              if (isDragging) {
+                setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+              }
+            }}
+            onMouseUp={() => setIsDragging(false)}
+            onMouseLeave={() => setIsDragging(false)}
+            onTouchStart={(e) => {
+              const touch = e.touches[0];
+              setIsTouching(true);
+              setTouchStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+            }}
+            onTouchMove={(e) => {
+              if (isTouching && e.touches[0]) {
+                const touch = e.touches[0];
+                setPan({ x: touch.clientX - touchStart.x, y: touch.clientY - touchStart.y });
+              }
+            }}
+            onTouchEnd={() => {
+              setIsTouching(false);
             }}
           />
         </div>
