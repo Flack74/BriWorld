@@ -1,9 +1,9 @@
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v2';
-const MUSIC_BASE = import.meta.env.VITE_API_URL?.replace('/api/v2', '') || '';
+const BACKEND_BASE = import.meta.env.VITE_API_URL?.replace('/api/v2', '').replace('/api', '') || '';
 
 const getMusicUrl = (path: string) => {
-  if (MUSIC_BASE) {
-    return `${MUSIC_BASE}${path}`;
+  if (BACKEND_BASE) {
+    return `${BACKEND_BASE}${path}`;
   }
   return path;
 };
