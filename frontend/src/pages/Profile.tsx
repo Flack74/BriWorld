@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Edit2, Upload, X, Trophy, Zap, Target, Flame } from "lucide-react";
 import { useState, useEffect } from "react";
-import { fetchWithTokenRefresh } from "@/lib/tokenRefresh";
+import { api } from "@/lib/api";
 import RankBadge from "@/components/RankBadge";
 
 export default function Profile() {
@@ -25,23 +25,17 @@ export default function Profile() {
         navigate("/login");
         return;
       }
-      const baseURL = window.location.origin;
-      const response = await fetchWithTokenRefresh(`${baseURL}/api/v2/user/profile`);
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Profile data:", data);
-        setProfile(data);
-        setNewUsername(data.username);
-      } else if (response.status === 401) {
-        navigate("/login");
-      } else {
-        const errorData = await response.json();
-        console.error("Profile fetch error:", errorData);
-        setError("Failed to load profile");
-      }
+      const data = await api.getProfile();
+      console.log("Profile data:", data);
+      setProfile(data);
+      setNewUsername(data.username);
     } catch (err) {
       console.error("Failed to fetch profile:", err);
-      setError("Failed to load profile");
+      if (err instanceof Error && err.message.includes('401')) {
+        navigate("/login");
+      } else {
+        setError("Failed to load profile");
+      }
     } finally {
       setLoading(false);
     }
@@ -55,27 +49,14 @@ export default function Profile() {
         setError("Username cannot be empty");
         return;
       }
-      const baseURL = window.location.origin;
-      const response = await fetchWithTokenRefresh(`${baseURL}/api/v2/user/profile`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username: newUsername }),
-      });
-      
-      if (response.ok) {
-        localStorage.setItem("username", newUsername);
-        setProfile({ ...profile, username: newUsername });
-        setEditingUsername(false);
-        setSuccess("Username updated successfully!");
-        setTimeout(() => setSuccess(""), 3000);
-      } else {
-        const data = await response.json();
-        setError(data.error || "Failed to update username");
-      }
+      await api.updateProfile({ username: newUsername });
+      localStorage.setItem("username", newUsername);
+      setProfile({ ...profile, username: newUsername });
+      setEditingUsername(false);
+      setSuccess("Username updated successfully!");
+      setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      setError("Failed to update username");
+      setError(err instanceof Error ? err.message : "Failed to update username");
     }
   };
 
@@ -88,24 +69,12 @@ export default function Profile() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("avatar", file);
-
     try {
       setError("");
-      const baseURL = window.location.origin;
-      const response = await fetchWithTokenRefresh(`${baseURL}/api/v2/user/avatar`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (response.ok) {
-        setSuccess("Avatar uploaded successfully!");
-        setTimeout(() => setSuccess(""), 3000);
-        fetchProfile();
-      } else {
-        setError("Failed to upload avatar");
-      }
+      await api.uploadAvatar(file);
+      setSuccess("Avatar uploaded successfully!");
+      setTimeout(() => setSuccess(""), 3000);
+      fetchProfile();
     } catch (err) {
       console.error("Failed to upload avatar:", err);
       setError("Failed to upload avatar");
@@ -115,18 +84,10 @@ export default function Profile() {
   const handleDeleteAvatar = async () => {
     try {
       setError("");
-      const baseURL = window.location.origin;
-      const response = await fetchWithTokenRefresh(`${baseURL}/api/v2/user/avatar`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        setSuccess("Avatar deleted successfully!");
-        setTimeout(() => setSuccess(""), 3000);
-        fetchProfile();
-      } else {
-        setError("Failed to delete avatar");
-      }
+      await api.deleteAvatar();
+      setSuccess("Avatar deleted successfully!");
+      setTimeout(() => setSuccess(""), 3000);
+      fetchProfile();
     } catch (err) {
       console.error("Failed to delete avatar:", err);
       setError("Failed to delete avatar");

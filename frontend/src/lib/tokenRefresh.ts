@@ -1,10 +1,11 @@
+const API_BASE = import.meta.env.VITE_API_URL || '/api/v2';
+
 export const refreshToken = async (): Promise<string | null> => {
   try {
     const token = localStorage.getItem("token");
     if (!token) return null;
 
-    const baseURL = window.location.origin;
-    const response = await fetch(`${baseURL}/api/v2/auth/refresh`, {
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
