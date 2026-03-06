@@ -1,0 +1,137 @@
+[
+  {
+    "code": "CH",
+    "name": "Switzerland",
+    "continent": "Europe",
+    "landlocked": true,
+    "neighbors": ["FR", "DE", "IT", "AT", "LI"],
+    "population": 8700000,
+    "coastline": false
+  },
+  {
+    "code": "LS",
+    "name": "Lesotho",
+    "continent": "Africa",
+    "landlocked": true,
+    "neighbors": ["ZA"],
+    "population": 2100000,
+    "coastline": false
+  },
+  {
+    "code": "MN",
+    "name": "Mongolia",
+    "continent": "Asia",
+    "landlocked": true,
+    "neighbors": ["CN", "RU"],
+    "population": 3300000,
+    "coastline": false
+  },
+  {
+    "code": "BT",
+    "name": "Bhutan",
+    "continent": "Asia",
+    "landlocked": true,
+    "neighbors": ["CN", "IN"],
+    "population": 770000,
+    "coastline": false
+  },
+  {
+    "code": "IS",
+    "name": "Iceland",
+    "continent": "Europe",
+    "landlocked": false,
+    "neighbors": [],
+    "population": 370000,
+    "coastline": true
+  },
+  {
+    "code": "UY",
+    "name": "Uruguay",
+    "continent": "South America",
+    "landlocked": false,
+    "neighbors": ["AR", "BR"],
+    "population": 3500000,
+    "coastline": true
+  },
+  {
+    "code": "ZW",
+    "name": "Zimbabwe",
+    "continent": "Africa",
+    "landlocked": true,
+    "neighbors": ["ZA", "BW", "ZM", "MZ"],
+    "population": 15000000,
+    "coastline": false
+  },
+  {
+    "code": "EE",
+    "name": "Estonia",
+    "continent": "Europe",
+    "landlocked": false,
+    "neighbors": ["LV", "RU", "FI"],
+    "population": 1300000,
+    "coastline": true
+  },
+  {
+    "code": "AU",
+    "name": "Australia",
+    "continent": "Oceania",
+    "landlocked": false,
+    "neighbors": [],
+    "population": 26000000,
+    "coastline": true
+  },
+  {
+    "code": "KR",
+    "name": "South Korea",
+    "continent": "Asia",
+    "landlocked": false,
+    "neighbors": ["KP"],
+    "population": 52000000,
+    "coastline": true
+  },
+  {
+    "code": "BO",
+    "name": "Bolivia",
+    "continent": "South America",
+    "landlocked": true,
+    "neighbors": ["PE", "BR", "PY", "AR", "CL"],
+    "population": 12000000,
+    "coastline": false
+  },
+  {
+    "code": "BB",
+    "name": "Barbados",
+    "continent": "North America",
+    "landlocked": false,
+    "neighbors": [],
+    "population": 290000,
+    "coastline": true
+  },
+  {
+    "code": "SK",
+    "name": "Slovakia",
+    "continent": "Europe",
+    "landlocked": true,
+    "neighbors": ["PL", "CZ", "AT", "HU", "UA"],
+    "population": 5500000,
+    "coastline": false
+  },
+  {
+    "code": "EG",
+    "name": "Egypt",
+    "continent": "Africa",
+    "landlocked": false,
+    "neighbors": ["LY", "SD", "IL", "PS"],
+    "population": 104000000,
+    "coastline": true
+  },
+  {
+    "code": "JP",
+    "name": "Japan",
+    "continent": "Asia",
+    "landlocked": false,
+    "neighbors": [],
+    "population": 125000000,
+    "coastline": true
+  }
+]

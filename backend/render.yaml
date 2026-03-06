@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: briworld-prod
+    env: docker
+    region: oregon
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: ENV
+        value: production
+      - key: GIN_MODE
+        value: release
+      - key: GOGC
+        value: 100
+      - key: TZ
+        value: UTC
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRY
+        value: 86400
+      - key: REFRESH_TOKEN_EXPIRY
+        value: 2592000
+      - key: MAX_PLAYERS_PER_ROOM
+        value: 6
+      - key: ROUND_DURATION_SECONDS
+        value: 15
+      - key: DB_HOST
+        value: ep-blue-recipe-a47x24aq-pooler.us-east-1.aws.neon.tech
+      - key: DB_PORT
+        value: 5432
+      - key: DB_USER
+        value: neondb_owner
+      - key: DB_PASSWORD
+        value: npg_6ZWzojXQwG0R
+      - key: DB_NAME
+        value: neondb
+      - key: DB_SSL_MODE
+        value: require
+      - key: ALLOWED_ORIGINS
+        value: "*"
