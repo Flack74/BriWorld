@@ -262,6 +262,30 @@ const Game = () => {
     }
   };
 
+  // Track last paint event for banner
+  const [lastPaintEvent, setLastPaintEvent] = useState<{ player: string; country: string } | null>(null);
+
+  useEffect(() => {
+    if (!ws) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type === 'country_painted' && message.payload) {
+          const { player, country_name } = message.payload;
+          if (player && country_name) {
+            setLastPaintEvent({ player, country: country_name });
+          }
+        }
+      } catch (error) {
+        // Ignore
+      }
+    };
+
+    ws.addEventListener('message', handleMessage);
+    return () => ws.removeEventListener('message', handleMessage);
+  }, [ws]);
+
   // Handle play again
   const handlePlayAgain = () => {
     if (ws) {
@@ -326,11 +350,12 @@ const Game = () => {
           roomType={config.roomType}
           gameStats={gameStats}
           guessedCountries={guessedCountries}
-          userColor={gameState?.player_colors?.[config.username] || selectedColor || '#2B7A9B'}
+          userColor={gameState?.player_colors?.[config.username] || selectedColor || ''}
           paintedCountries={gameState?.painted_countries || {}}
           playerColors={gameState?.player_colors || {}}
           players={players}
           chatMessages={chatMessages}
+          lastPaintEvent={lastPaintEvent}
           onLeave={() => setShowLeaveDialog(true)}
           onSubmitAnswer={handleSubmitAnswer}
           onSendMessage={sendChatMessage}

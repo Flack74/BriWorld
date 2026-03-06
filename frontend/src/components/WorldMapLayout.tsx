@@ -5,6 +5,7 @@ import Leaderboard from '@/components/Leaderboard';
 import GameChat from '@/components/GameChat';
 import CountryInput from '@/components/CountryInput';
 import MuteButton from '@/components/MuteButton';
+import { useState, useEffect } from 'react';
 
 interface WorldMapLayoutProps {
   roomCode: string;
@@ -16,6 +17,7 @@ interface WorldMapLayoutProps {
   playerColors: Record<string, string>;
   players: any[];
   chatMessages: any[];
+  lastPaintEvent?: { player: string; country: string } | null;
   onLeave: () => void;
   onSubmitAnswer: (guess: string) => void;
   onSendMessage: (message: string) => void;
@@ -31,12 +33,33 @@ export const WorldMapLayout = ({
   playerColors,
   players,
   chatMessages,
+  lastPaintEvent,
   onLeave,
   onSubmitAnswer,
   onSendMessage,
 }: WorldMapLayoutProps) => {
+  const [showBanner, setShowBanner] = useState(false);
+  const [bannerData, setBannerData] = useState<{ player: string; country: string } | null>(null);
+
+  useEffect(() => {
+    if (lastPaintEvent && roomType !== 'SINGLE') {
+      setBannerData(lastPaintEvent);
+      setShowBanner(true);
+      const timer = setTimeout(() => setShowBanner(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [lastPaintEvent, roomType]);
+
   return (
     <div className="min-h-screen bg-background lg:p-4 p-0 overflow-hidden">
+      {/* Paint Banner */}
+      {showBanner && bannerData && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top duration-300">
+          <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-3 rounded-full shadow-lg font-semibold">
+            🎨 {bannerData.player} painted {bannerData.country}!
+          </div>
+        </div>
+      )}
       <div className="max-w-[1600px] mx-auto h-screen flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between lg:p-4 p-2 bg-card/50 backdrop-blur border-b border-border/30">

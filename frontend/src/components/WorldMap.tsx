@@ -28,7 +28,7 @@ export const WorldMap = ({
   recentGuesses = [],
   foundCountryCodes = [],
   currentCountry,
-  userColor = '#10b981',
+  userColor,
   paintedCountries = {},
   playerColors = {},
   onSubmitGuess,
@@ -187,8 +187,8 @@ export const WorldMap = ({
     // Paint all painted countries
     Object.entries(paintedCountries).forEach(([code, playerName]) => {
       const numericId = countryMap[code];
-      const playerColor = playerColors[playerName] || '#10b981';
-      if (numericId) {
+      const playerColor = playerColors[playerName];
+      if (numericId && playerColor) {
         const matchedPaths = d3.select(svg).selectAll('path')
           .filter((d: any) => d.id === numericId);
         

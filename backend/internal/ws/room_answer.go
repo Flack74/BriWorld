@@ -149,6 +149,12 @@ func (r *Room) HandleMapPaint(client *Client, payload interface{}) {
 	r.GameState.PaintedCountries[countryCode] = client.Username
 	r.GameState.Scores[client.Username] += 10
 
+	// Get country name for display
+	countryName, _ := game.GetCountryName(countryCode)
+	if countryName == "" {
+		countryName = countryCode
+	}
+
 	log.Printf("Player %s painted %s in room %s", client.Username, countryCode, r.ID)
 
 	// Sync to Redis
@@ -160,6 +166,7 @@ func (r *Room) HandleMapPaint(client *Client, payload interface{}) {
 	// Broadcast paint event
 	r.BroadcastMessage("country_painted", map[string]interface{}{
 		"country_code":      countryCode,
+		"country_name":      countryName,
 		"player":            client.Username,
 		"painted_countries": r.GameState.PaintedCountries,
 		"player_colors":     r.GameState.PlayerColors,

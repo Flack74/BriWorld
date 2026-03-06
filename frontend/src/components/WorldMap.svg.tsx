@@ -9,7 +9,7 @@ interface WorldMapProps {
   currentUsername?: string;
 }
 
-const WorldMap = ({ paintedCountries = {}, playerColors = {}, userColor = '#10b981', currentUsername = '' }: WorldMapProps) => {
+const WorldMap = ({ paintedCountries = {}, playerColors = {}, userColor, currentUsername = '' }: WorldMapProps) => {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
