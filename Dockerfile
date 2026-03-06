@@ -77,6 +77,7 @@ WORKDIR /app
 # Copy binary and application files
 COPY --from=builder /app/briworld ./
 COPY --from=builder /app/static ./static/
+COPY frontend/Music ./Music/
 
 # Create uploads directory for avatars
 RUN mkdir -p uploads && chown -R appuser:appgroup uploads
