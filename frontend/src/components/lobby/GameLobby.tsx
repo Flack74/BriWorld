@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Globe, Gamepad2, Edit2, Users, Play, RefreshCw } from "lucide-react";
 import { MetaStatsWidget } from "@/components/MetaStatsWidget";
 import { getOrCreateGuestUsername } from "@/lib/guestUsername";
+import { api } from "@/lib/api";
 
 interface PublicRoom {
   id: string;
@@ -45,15 +46,9 @@ export const GameLobby: React.FC = () => {
   const fetchPublicRooms = async () => {
     setIsRefreshing(true);
     try {
-      const response = await fetch('/api/v2/rooms');
-      if (response.ok) {
-        const data = await response.json();
-        console.log('[LOBBY] Fetched rooms:', data);
-        setPublicRooms(data.rooms || data || []);
-      } else {
-        console.error('[LOBBY] Failed to fetch rooms:', response.status);
-        setPublicRooms([]);
-      }
+      const data = await api.getRooms();
+      console.log('[LOBBY] Fetched rooms:', data);
+      setPublicRooms(data.rooms || data || []);
     } catch (error) {
       console.error('[LOBBY] Failed to fetch public rooms:', error);
       setPublicRooms([]);
