@@ -89,13 +89,14 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 		"scores":   r.GameState.Scores,
 	})
 
-	// For FLAG_QUIZ and LAST_STANDING, end round immediately after correct answer
+	// For FLAG and LAST_STANDING, end round immediately after correct answer
 	r.mu.RLock()
 	gameMode := r.GameState.GameMode
 	roomType := r.GameState.RoomType
 	r.mu.RUnlock()
 	
-	if gameMode == "FLAG_QUIZ" {
+	// FLAG_QUIZ is an alias for FLAG mode
+	if gameMode == "FLAG" || gameMode == "FLAG_QUIZ" {
 		log.Printf("Correct answer submitted in room %s by %s, ending round", r.ID, client.Username)
 		r.EndRound()
 	} else if gameMode == "LAST_STANDING" {

@@ -207,15 +207,15 @@ func (r *Room) UpdatePlayerStats(scores map[string]int) {
 				SET total_points = total_points + ?,
 					total_games = total_games + 1,
 					total_wins = total_wins + ?,
-					win_streak = CASE WHEN ? THEN win_streak + 1 ELSE 0 END,
+					win_streak = CASE WHEN ? = 1 THEN win_streak + 1 ELSE 0 END,
 					longest_win_streak = CASE 
-						WHEN ? AND win_streak + 1 > longest_win_streak 
+						WHEN ? = 1 AND win_streak + 1 > longest_win_streak 
 						THEN win_streak + 1 
 						ELSE longest_win_streak 
 					END,
 					rating = GREATEST(0, rating + ?)
 				WHERE username = ?
-			`, score, winValue, isWinner, isWinner, ratingChange, username).Error; err != nil {
+			`, score, winValue, winValue, winValue, ratingChange, username).Error; err != nil {
 				log.Printf("Error updating stats for %s: %v", username, err)
 			} else {
 				log.Printf("Successfully updated stats for %s (rating change: %+d)", username, ratingChange)

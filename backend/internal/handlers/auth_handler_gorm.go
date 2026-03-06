@@ -77,7 +77,11 @@ func (h *AuthHandlerGorm) Register(c *fiber.Ctx) error {
 
 	go h.mailer.SendWelcome(user.Email, user.Username)
 
-	token, _ := utils.GenerateJWT(user.ID.String(), user.Username, user.Email, h.jwtSecret, h.jwtExpiry)
+	// Generate JWT token - handle errors properly
+	token, err := utils.GenerateJWT(user.ID.String(), user.Username, user.Email, h.jwtSecret, h.jwtExpiry)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to generate authentication token"})
+	}
 
 	return c.Status(201).JSON(AuthResponse{
 		AccessToken: token,
@@ -109,7 +113,11 @@ func (h *AuthHandlerGorm) Login(c *fiber.Ctx) error {
 		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
 	}
 
-	token, _ := utils.GenerateJWT(user.ID.String(), user.Username, user.Email, h.jwtSecret, h.jwtExpiry)
+	// Generate JWT token - handle errors properly
+	token, err := utils.GenerateJWT(user.ID.String(), user.Username, user.Email, h.jwtSecret, h.jwtExpiry)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to generate authentication token"})
+	}
 
 	return c.JSON(AuthResponse{
 		AccessToken: token,
@@ -137,7 +145,14 @@ func (h *AuthHandlerGorm) ForgotPassword(c *fiber.Ctx) error {
 
 	user, err := h.authService.GetUserByEmail(c.Context(), req.Email)
 	if err == nil {
-		token, _ := utils.GenerateResetToken()
+		// Generate secure reset token
+		token, err := utils.GenerateResetToken()
+		if err != nil {
+			// Log error but don't reveal to user
+			return c.Status(200).JSON(fiber.Map{
+				"message": "If the email exists, a password reset link has been sent",
+			})
+		}
 		expiry := time.Now().Add(1 * time.Hour)
 		h.authService.UpdateResetToken(c.Context(), user.ID, token, expiry)
 		
@@ -163,7 +178,11 @@ func (h *AuthHandlerGorm) RefreshToken(c *fiber.Ctx) error {
 		return c.Status(401).JSON(fiber.Map{"error": "Invalid token"})
 	}
 
-	newToken, _ := utils.GenerateJWT(claims.UserID, claims.Username, claims.Email, h.jwtSecret, h.jwtExpiry)
+	// Generate new JWT token - handle errors properly
+	newToken, err := utils.GenerateJWT(claims.UserID, claims.Username, claims.Email, h.jwtSecret, h.jwtExpiry)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to generate new token"})
+	}
 
 	return c.Status(200).JSON(fiber.Map{
 		"access_token": newToken,

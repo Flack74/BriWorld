@@ -122,7 +122,17 @@ const Game = () => {
       try {
         const message = JSON.parse(event.data);
         if (message.type === 'room_closed' || message.type === 'room_expired') {
-          leaveRoom();
+          // Inline cleanup to avoid stale closure
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'leave_room' }));
+            setTimeout(() => ws.close(), 100);
+          }
+          sessionStorage.removeItem('currentRoomCode');
+          sessionStorage.removeItem('gameMode');
+          sessionStorage.removeItem('roomType');
+          sessionStorage.removeItem('rounds');
+          sessionStorage.removeItem('mapMode');
+          navigate('/lobby');
         }
       } catch (error) {
         // Ignore
@@ -276,6 +286,8 @@ const Game = () => {
           if (player && country_name) {
             setLastPaintEvent({ player, country: country_name });
           }
+          // Log for debugging
+          console.log('[Game] Country painted:', message.payload);
         }
       } catch (error) {
         // Ignore

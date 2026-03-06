@@ -31,7 +31,7 @@ export const useColorManagement = ({
         colorSelectedRef.current = true;
       }
     }
-  }, [isConnected, gameMode, roomUpdate, username]);
+  }, [isConnected, gameMode, roomUpdate, username, showColorModal]);
 
   // Update selected color from server confirmation
   useEffect(() => {

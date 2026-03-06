@@ -90,7 +90,7 @@ export const useGameState = ({ config, gameState, roomUpdate, ws }: UseGameState
 
     ws.addEventListener('message', handleMessage);
     return () => ws.removeEventListener('message', handleMessage);
-  }, [ws, config, gameState, roundHadCorrectAnswer]);
+  }, [ws, config, gameState, roundHadCorrectAnswer, guessedCountries]);
 
   // Countdown sound effect
   useEffect(() => {

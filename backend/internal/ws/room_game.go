@@ -52,7 +52,16 @@ func (r *Room) StartRound() {
 	r.GameState.RoundActive = true
 	r.GameState.Answered = make(map[string]bool)
 
-	// Generate question
+	// WORLD_MAP mode doesn't need questions
+	if r.GameState.GameMode == "WORLD_MAP" {
+		r.GameState.TimeRemaining = 0
+		r.mu.Unlock()
+		log.Printf("World Map mode started in room %s", r.ID)
+		r.BroadcastMessage("round_started", r.GameState)
+		return
+	}
+
+	// Generate question for other modes
 	question, err := game.GenerateQuestion(r.GameState.GameMode, r.GameState.UsedCountries)
 	if err != nil {
 		log.Printf("Error generating question for room %s: %v", r.ID, err)
@@ -66,12 +75,7 @@ func (r *Room) StartRound() {
 
 	// Set time limit
 	timeLimit := 15
-	if r.GameState.GameMode == "WORLD_MAP" {
-		timeLimit = 0 // Unlimited for map mode
-		r.GameState.TimeRemaining = 0
-	} else {
-		r.GameState.TimeRemaining = timeLimit
-	}
+	r.GameState.TimeRemaining = timeLimit
 
 	r.mu.Unlock()
 

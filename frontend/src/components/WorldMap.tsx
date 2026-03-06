@@ -149,6 +149,9 @@ export const WorldMap = ({
       return;
     }
 
+    console.log('[WorldMap] Updating painted countries:', Object.keys(paintedCountries).length, 'countries');
+    console.log('[WorldMap] Player colors:', playerColors);
+
     const countryMap: any = {
       'AF': '004', 'AL': '008', 'DZ': '012', 'AD': '020', 'AO': '024', 'AG': '028', 'AR': '032', 'AM': '051',
       'AU': '036', 'AT': '040', 'AZ': '031', 'BS': '044', 'BH': '048', 'BD': '050', 'BB': '052', 'BY': '112',
@@ -196,7 +199,12 @@ export const WorldMap = ({
           matchedPaths
             .attr('fill', playerColor)
             .attr('opacity', 0.8);
+        } else {
+          console.log('[WorldMap] No SVG path found for numeric ID:', numericId, 'code:', code);
         }
+      } else {
+        if (!numericId) console.log('[WorldMap] No mapping for country code:', code);
+        if (!playerColor) console.log('[WorldMap] No color for player:', playerName);
       }
     });
     

@@ -36,12 +36,19 @@ func (r *Room) AddClient(client *Client) {
 		delete(r.Clients, existingClient)
 	}
 
-	// Check if room is full (6 player limit)
-	if len(r.Clients) >= 6 {
+	// Check if room is full (6 player limit) - count only active players, not spectators
+	playerCount := 0
+	for c := range r.Clients {
+		if !c.IsSpectator {
+			playerCount++
+		}
+	}
+
+	if playerCount >= 6 {
 		// Room is full - add as spectator
 		client.IsSpectator = true
-		log.Printf("Player %s joined room %s as SPECTATOR (room full: %d/6)",
-			client.Username, r.ID, len(r.Clients))
+		log.Printf("Player %s joined room %s as SPECTATOR (room full: %d/6 players)",
+			client.Username, r.ID, playerCount)
 	} else {
 		client.IsSpectator = false
 	}
