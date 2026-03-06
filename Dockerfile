@@ -75,18 +75,13 @@ WORKDIR /app
 
 # Copy binary and application files
 COPY --from=builder /app/briworld ./
-COPY --from=builder --chown=appuser:appgroup /app/static ./static/
-COPY --from=builder --chown=appuser:appgroup /app/Music ./Music/
 
-# Create uploads directory for avatars (if using local storage)
+# Create uploads directory for avatars
 RUN mkdir -p uploads && chown -R appuser:appgroup uploads
 
 # Copy health check script
 COPY backend/healthcheck.sh ./
 RUN chmod +x ./briworld ./healthcheck.sh
-
-# Verify files are copied correctly
-RUN ls -la
 
 # Set proper ownership
 RUN chown -R appuser:appgroup /app
