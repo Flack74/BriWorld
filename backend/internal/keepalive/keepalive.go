@@ -33,7 +33,7 @@ func Start() {
 
 func ping() {
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get("https://briworld.onrender.com/api/health")
+	resp, err := client.Get("https://briworld.onrender.com/api/v2/health")
 	if err != nil {
 		log.Printf("Keep-alive ping failed: %v", err)
 		return
