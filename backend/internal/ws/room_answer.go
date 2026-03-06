@@ -131,10 +131,18 @@ func (r *Room) HandleMapPaint(client *Client, payload interface{}) {
 	input := strings.TrimSpace(paintData.CountryCode)
 	
 	// Try to find country by name first
-	countryCode, _ := game.FindCountryByName(input)
+	countryCode, countryName := game.FindCountryByName(input)
 	if countryCode == "" {
-		// If not found by name, assume it's already a code
+		// If not found by name, try as code
 		countryCode = strings.ToUpper(input)
+		countryName = game.GetCountryName(countryCode)
+		// If still not found, reject
+		if countryName == "" {
+			r.SendToClient(client, "paint_rejected", map[string]interface{}{
+				"error": "Country not found",
+			})
+			return
+		}
 	}
 
 	// Check if already painted
@@ -149,13 +157,7 @@ func (r *Room) HandleMapPaint(client *Client, payload interface{}) {
 	r.GameState.PaintedCountries[countryCode] = client.Username
 	r.GameState.Scores[client.Username] += 10
 
-	// Get country name for display
-	countryName, _ := game.GetCountryName(countryCode)
-	if countryName == "" {
-		countryName = countryCode
-	}
-
-	log.Printf("Player %s painted %s in room %s", client.Username, countryCode, r.ID)
+	log.Printf("Player %s painted %s (%s) in room %s", client.Username, countryName, countryCode, r.ID)
 
 	// Sync to Redis
 	if redisClient.Client != nil {

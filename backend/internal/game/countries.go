@@ -164,6 +164,7 @@ func FindCountryByName(name string) (code, countryName string) {
 		"drc": "democratic republic of the congo",
 		"car": "central african republic",
 		"png": "papua new guinea",
+		"saudi": "saudi arabia",
 		
 		// Common variations
 		"holland": "netherlands",
