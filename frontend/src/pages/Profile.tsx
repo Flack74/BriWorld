@@ -26,7 +26,7 @@ export default function Profile() {
         return;
       }
       const baseURL = window.location.origin;
-      const response = await fetchWithTokenRefresh(`${baseURL}/api/user/profile`);
+      const response = await fetchWithTokenRefresh(`${baseURL}/api/v2/user/profile`);
       if (response.ok) {
         const data = await response.json();
         console.log("Profile data:", data);
@@ -56,7 +56,7 @@ export default function Profile() {
         return;
       }
       const baseURL = window.location.origin;
-      const response = await fetchWithTokenRefresh(`${baseURL}/api/user/profile`, {
+      const response = await fetchWithTokenRefresh(`${baseURL}/api/v2/user/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -94,7 +94,7 @@ export default function Profile() {
     try {
       setError("");
       const baseURL = window.location.origin;
-      const response = await fetchWithTokenRefresh(`${baseURL}/api/user/avatar`, {
+      const response = await fetchWithTokenRefresh(`${baseURL}/api/v2/user/avatar`, {
         method: "POST",
         body: formData,
       });
@@ -116,7 +116,7 @@ export default function Profile() {
     try {
       setError("");
       const baseURL = window.location.origin;
-      const response = await fetchWithTokenRefresh(`${baseURL}/api/user/avatar`, {
+      const response = await fetchWithTokenRefresh(`${baseURL}/api/v2/user/avatar`, {
         method: "DELETE",
       });
 

@@ -4,7 +4,7 @@ export const refreshToken = async (): Promise<string | null> => {
     if (!token) return null;
 
     const baseURL = window.location.origin;
-    const response = await fetch(`${baseURL}/api/auth/refresh`, {
+    const response = await fetch(`${baseURL}/api/v2/auth/refresh`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
