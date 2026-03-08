@@ -28,6 +28,8 @@ import { WorldMapLayout } from "@/components/WorldMapLayout";
 import { QuizModeLayout } from "@/components/QuizModeLayout";
 import { GameConfig } from "@/types/game";
 
+const API_BASE = import.meta.env.VITE_API_URL;
+
 const Game = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -124,7 +126,7 @@ const Game = () => {
     if (config.roomType === "SINGLE") {
       const createRoom = async () => {
         try {
-          const res = await fetch("/api/v2/rooms", {
+          const res = await fetch(`${API_BASE}/rooms`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
