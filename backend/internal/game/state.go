@@ -34,6 +34,7 @@ type Question struct {
 	SilhouetteUnavailable bool    `json:"silhouette_unavailable,omitempty"`
 	Capital              string   `json:"capital,omitempty"`
 	Neighbors            []string `json:"neighbors,omitempty"`
+	Options              []string `json:"options,omitempty"`
 }
 
 func NewState() *State {

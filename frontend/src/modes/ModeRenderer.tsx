@@ -13,9 +13,7 @@ import { Badge } from '@/components/ui/badge';
 
 /* Import all individual mode components */
 import { EmojiMode } from './EmojiMode';
-import { CapitalRushMode } from './CapitalRushMode';
 import { SilhouetteMode } from './SilhouetteMode';
-import { TeamBattleMode } from './TeamBattleMode';
 import { FlagMode } from './FlagMode';
 import { LastStandingMode } from './LastStandingMode';
 import { BorderLogicMode } from './BorderLogicMode';
@@ -91,14 +89,8 @@ export function ModeRenderer({
       case 'EMOJI':
         return <EmojiMode gameState={gameState} username={username} onSubmitAnswer={onSubmitAnswer} />;
 
-      case 'CAPITAL_RUSH':
-        return <CapitalRushMode gameState={gameState} username={username} onSubmitAnswer={onSubmitAnswer} />;
-
       case 'SILHOUETTE':
         return <SilhouetteMode gameState={gameState} username={username} onSubmitAnswer={onSubmitAnswer} />;
-
-      case 'TEAM_BATTLE':
-        return <TeamBattleMode gameState={gameState} username={username} onSubmitAnswer={onSubmitAnswer} />;
 
       case 'LAST_STANDING':
         return <LastStandingMode gameState={gameState} username={username} onSubmitAnswer={onSubmitAnswer} />;

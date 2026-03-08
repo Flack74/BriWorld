@@ -1,7 +1,6 @@
 package ws
 
 import (
-	"briworld/internal/domain"
 	"testing"
 )
 
@@ -98,118 +97,6 @@ func TestBroadcastChatMessage(t *testing.T) {
 
 	// Message should be broadcast (check channel)
 	// This is a basic test - full test would verify message content
-}
-
-func TestSwitchTeam(t *testing.T) {
-	room := NewRoom("TEST123")
-	defer room.cancel()
-
-	room.GameState.Status = domain.RoomWaiting
-	room.GameState.GameMode = "TEAM_BATTLE"
-
-	client := &Client{
-		Username: "alice",
-		Send:     make(chan []byte, 10),
-	}
-
-	payload := map[string]interface{}{
-		"team": "RED",
-	}
-
-	room.SwitchTeam(client, payload)
-
-	// Verify team set
-	room.mu.RLock()
-	team := room.GameState.Teams["alice"]
-	room.mu.RUnlock()
-
-	if team != "RED" {
-		t.Errorf("Team = %s, want RED", team)
-	}
-}
-
-func TestSwitchTeamWrongMode(t *testing.T) {
-	room := NewRoom("TEST123")
-	defer room.cancel()
-
-	room.GameState.Status = domain.RoomWaiting
-	room.GameState.GameMode = "FLAG_QUIZ"
-
-	client := &Client{
-		Username: "alice",
-		Send:     make(chan []byte, 10),
-	}
-
-	payload := map[string]interface{}{
-		"team": "RED",
-	}
-
-	room.SwitchTeam(client, payload)
-
-	// Team should not be set
-	room.mu.RLock()
-	team := room.GameState.Teams["alice"]
-	room.mu.RUnlock()
-
-	if team != "" {
-		t.Error("Team set in non-TEAM_BATTLE mode")
-	}
-}
-
-func TestSwitchTeamGameStarted(t *testing.T) {
-	room := NewRoom("TEST123")
-	defer room.cancel()
-
-	room.GameState.Status = domain.RoomInProgress
-	room.GameState.GameMode = "TEAM_BATTLE"
-
-	client := &Client{
-		Username: "alice",
-		Send:     make(chan []byte, 10),
-	}
-
-	payload := map[string]interface{}{
-		"team": "RED",
-	}
-
-	room.SwitchTeam(client, payload)
-
-	// Team should not be set after game started
-	room.mu.RLock()
-	team := room.GameState.Teams["alice"]
-	room.mu.RUnlock()
-
-	if team != "" {
-		t.Error("Team switch allowed after game started")
-	}
-}
-
-func TestSwitchTeamInvalidTeam(t *testing.T) {
-	room := NewRoom("TEST123")
-	defer room.cancel()
-
-	room.GameState.Status = domain.RoomWaiting
-	room.GameState.GameMode = "TEAM_BATTLE"
-
-	client := &Client{
-		Username: "alice",
-		Send:     make(chan []byte, 10),
-	}
-
-	payload := map[string]interface{}{
-		"team": "INVALID",
-	}
-
-	room.SwitchTeam(client, payload)
-
-	// Invalid team should not be set
-	room.mu.RLock()
-	team := room.GameState.Teams["alice"]
-	room.mu.RUnlock()
-
-	if team == "INVALID" {
-		t.Error("Invalid team was accepted")
-	}
 }
 
 func TestMultiplePlayerColors(t *testing.T) {

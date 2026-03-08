@@ -23,13 +23,24 @@ func (r *Room) StartGame(username string) {
 		return
 	}
 
+	// Validate minimum players for multiplayer rooms
+	if (r.GameState.RoomType == "PRIVATE" || r.GameState.RoomType == "PUBLIC") && len(r.Clients) < 2 {
+		log.Printf("Cannot start multiplayer game in room %s: only %d player(s)", r.ID, len(r.Clients))
+		r.mu.Unlock()
+		// Send error to owner
+		for client := range r.Clients {
+			if client.Username == username {
+				r.SendToClient(client, "start_game_error", map[string]interface{}{
+					"error": "You need at least 2 players to start a multiplayer game!",
+				})
+				break
+			}
+		}
+		return
+	}
+
 	r.GameState.Status = domain.RoomInProgress
 	r.GameState.CurrentRound = 0
-
-	// Assign teams for TEAM_BATTLE mode
-	if r.GameState.GameMode == "TEAM_BATTLE" {
-		r.assignTeams()
-	}
 
 	r.mu.Unlock()
 
@@ -245,22 +256,3 @@ func (r *Room) EndGame() {
 	})
 }
 
-// assignTeams distributes players into RED and BLUE teams.
-func (r *Room) assignTeams() {
-	if r.GameState.Teams == nil {
-		r.GameState.Teams = make(map[string]string)
-	}
-
-	unassigned := []string{}
-	for client := range r.Clients {
-		if r.GameState.Teams[client.Username] == "" {
-			unassigned = append(unassigned, client.Username)
-		}
-	}
-
-	teams := []string{"RED", "BLUE"}
-	for i, username := range unassigned {
-		r.GameState.Teams[username] = teams[i%2]
-		log.Printf("Auto-assigned %s to team %s", username, teams[i%2])
-	}
-}

@@ -232,9 +232,10 @@ func TestStateTeams(t *testing.T) {
 	redCount := 0
 	blueCount := 0
 	for _, team := range state.Teams {
-		if team == "RED" {
+		switch team {
+		case "RED":
 			redCount++
-		} else if team == "BLUE" {
+		case "BLUE":
 			blueCount++
 		}
 	}
@@ -318,6 +319,12 @@ func TestQuestionStructure(t *testing.T) {
 	if question.Type != "flag" {
 		t.Errorf("Question Type = %s, want flag", question.Type)
 	}
+	if question.FlagCode != "FR" {
+		t.Errorf("Question FlagCode = %s, want FR", question.FlagCode)
+	}
+	if question.CountryCode != "FR" {
+		t.Errorf("Question CountryCode = %s, want FR", question.CountryCode)
+	}
 	if question.CountryName != "France" {
 		t.Errorf("Question CountryName = %s, want France", question.CountryName)
 	}
@@ -336,6 +343,18 @@ func TestQuestionWithCapital(t *testing.T) {
 		TimeLimit:   15,
 	}
 
+	if question.Type != "capital" {
+		t.Errorf("Question Type = %s, want capital", question.Type)
+	}
+	if question.CountryCode != "FR" {
+		t.Errorf("Question CountryCode = %s, want FR", question.CountryCode)
+	}
+	if question.CountryName != "France" {
+		t.Errorf("Question CountryName = %s, want France", question.CountryName)
+	}
+	if question.TimeLimit != 15 {
+		t.Errorf("Question TimeLimit = %d, want 15", question.TimeLimit)
+	}
 	if question.Capital != "Paris" {
 		t.Errorf("Question Capital = %s, want Paris", question.Capital)
 	}
@@ -351,6 +370,18 @@ func TestQuestionWithNeighbors(t *testing.T) {
 		TimeLimit:   20,
 	}
 
+	if question.Type != "border" {
+		t.Errorf("Question Type = %s, want border", question.Type)
+	}
+	if question.CountryCode != "FR" {
+		t.Errorf("Question CountryCode = %s, want FR", question.CountryCode)
+	}
+	if question.CountryName != "France" {
+		t.Errorf("Question CountryName = %s, want France", question.CountryName)
+	}
+	if question.TimeLimit != 20 {
+		t.Errorf("Question TimeLimit = %d, want 20", question.TimeLimit)
+	}
 	if len(question.Neighbors) != 4 {
 		t.Errorf("Expected 4 neighbors, got %d", len(question.Neighbors))
 	}

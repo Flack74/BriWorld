@@ -1,18 +1,3 @@
-/**
- * Game.tsx — Refactored main gameplay page following React best practices.
- *
- * This component now delegates responsibilities to:
- * - Custom hooks for state management (useGameState, useBanners, usePlayers, etc.)
- * - Layout components (WorldMapLayout, QuizModeLayout)
- * - Reusable UI components (GameBanners, GameOverModal, CongratsModal)
- *
- * Benefits:
- * - Improved testability and maintainability
- * - Clear separation of concerns
- * - Reusable logic across components
- * - Reduced complexity and cognitive load
- */
-
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -20,7 +5,7 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { useGameState } from "@/hooks/useGameState";
 import { useBanners } from "@/hooks/useBanners";
 import { usePlayers } from "@/hooks/usePlayers";
-import { useRoomManagement } from "@/hooks/useRoomManagement";
+//import { useRoomManagement } from "@/hooks/useRoomManagement";
 import { useGameModals } from "@/hooks/useGameModals";
 import { useColorManagement } from "@/hooks/useColorManagement";
 import { useGameAutoStart } from "@/hooks/useGameAutoStart";
@@ -30,7 +15,12 @@ import { ColorPickerModal } from "@/components/ColorPickerModal";
 import { CollisionDialog } from "@/components/CollisionDialog";
 import { ReconnectionDialog } from "@/components/ReconnectionDialog";
 import { LeaveRoomDialog } from "@/components/LeaveRoomDialog";
-import { SuccessBanner, ErrorBanner, TimeoutBanner, AlreadyGuessedBanner } from "@/components/GameBanners";
+import {
+  SuccessBanner,
+  ErrorBanner,
+  TimeoutBanner,
+  AlreadyGuessedBanner,
+} from "@/components/GameBanners";
 import { GameOverModal } from "@/components/GameOverModal";
 import { CongratsModal } from "@/components/CongratsModal";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -44,35 +34,125 @@ const Game = () => {
   const { toast } = useToast();
   const config = location.state as GameConfig | null;
 
-  // Guard: Redirect to lobby if config is missing
-  if (!config) {
-    sessionStorage.removeItem('currentRoomCode');
-    sessionStorage.removeItem('gameMode');
-    sessionStorage.removeItem('roomType');
-    sessionStorage.removeItem('rounds');
-    sessionStorage.removeItem('mapMode');
-    navigate('/lobby');
-    return null;
-  }
+  useEffect(() => {
+    if (!config) {
+      sessionStorage.clear();
+      navigate("/lobby");
+    }
+  }, [config, navigate]);
 
-  // Persist config to sessionStorage
-  sessionStorage.setItem('gameMode', config.gameMode);
-  sessionStorage.setItem('roomType', config.roomType);
-  sessionStorage.setItem('rounds', config.rounds?.toString() || '10');
+  useEffect(() => {
+    if (!config) return;
+    sessionStorage.setItem("gameMode", config.gameMode);
+    sessionStorage.setItem("roomType", config.roomType);
+    sessionStorage.setItem("rounds", config.rounds?.toString() || "10");
+  }, [config]);
 
   // Initialize audio manager
   useAudioManager();
 
-  // Generate room code first
-  const [roomCode] = useState(() => {
-    const savedRoomCode = sessionStorage.getItem('currentRoomCode');
-    const newCode = config.roomCode || savedRoomCode || Math.random().toString(36).substring(2, 8).toUpperCase();
-    sessionStorage.setItem('currentRoomCode', newCode);
-    return newCode;
-  });
+  // Generate room code first - fetch from backend for single player
+  // const [roomCode] = useState(() => {
+  //   const savedRoomCode = sessionStorage.getItem("currentRoomCode");
+  //   if (config.roomCode || savedRoomCode) {
+  //     const code = config.roomCode || savedRoomCode;
+  //     sessionStorage.setItem("currentRoomCode", code);
+  //     return code;
+  //   }
+  //   // For single player, request from backend
+  //   fetch("/api/v2/rooms", {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/json" },
+  //     body: JSON.stringify({
+  //       game_mode: config.gameMode,
+  //       room_type: config.roomType,
+  //     }),
+  //   })
+  //     .then((res) => res.json())
+  //     .then((data) => {
+  //       sessionStorage.setItem("currentRoomCode", data.room_code);
+  //     });
+  //   return ""; // Will be set async
+  // });
+
+  // const [roomCode, setRoomCode] = useState<string | null>(null);
+
+  // useEffect(() => {
+  //   const savedRoomCode = sessionStorage.getItem("currentRoomCode");
+
+  //   if (config?.roomCode || savedRoomCode) {
+  //     const code = config?.roomCode || savedRoomCode;
+  //     sessionStorage.setItem("currentRoomCode", code);
+  //     setRoomCode(code);
+  //     return;
+  //   }
+
+  //   // create room for single player
+  //   if (config?.roomType === "SINGLE") {
+  //     fetch("/api/v2/rooms", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         game_mode: config.gameMode,
+  //         room_type: config.roomType,
+  //       }),
+  //     })
+  //       .then((res) => res.json())
+  //       .then((data) => {
+  //         sessionStorage.setItem("currentRoomCode", data.room_code);
+  //         setRoomCode(data.room_code);
+  //       });
+  //   }
+  // }, [config]);
+
+  const [roomCode, setRoomCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!config) return;
+
+    const savedRoomCode = sessionStorage.getItem("currentRoomCode");
+
+    // reuse existing room
+    if (config.roomCode || savedRoomCode) {
+      const code = config.roomCode || savedRoomCode;
+      sessionStorage.setItem("currentRoomCode", code);
+      setRoomCode(code);
+      return;
+    }
+
+    // create new room for single player
+    if (config.roomType === "SINGLE") {
+      const createRoom = async () => {
+        try {
+          const res = await fetch("/api/v2/rooms", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              game_mode: config.gameMode,
+              room_type: config.roomType,
+            }),
+          });
+
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text);
+          }
+
+          const data = await res.json();
+
+          sessionStorage.setItem("currentRoomCode", data.room_code);
+          setRoomCode(data.room_code);
+        } catch (err) {
+          console.error("Room creation failed:", err);
+        }
+      };
+
+      createRoom();
+    }
+  }, [config]);
 
   const [isActualReconnect] = useState(() => {
-    const savedRoomCode = sessionStorage.getItem('currentRoomCode');
+    const savedRoomCode = sessionStorage.getItem("currentRoomCode");
     return !!savedRoomCode && savedRoomCode === config.roomCode;
   });
 
@@ -88,30 +168,30 @@ const Game = () => {
     startGame,
     selectColor,
     setMapMode: setWSMapMode,
-    sendPaintCountry
+    sendPaintCountry,
   } = useWebSocket({
     roomCode,
     username: config.username,
     gameMode: config.gameMode,
     roomType: config.roomType,
     rounds: config.rounds,
-    timeout: config.timeout
+    timeout: config.timeout,
   });
 
   // Room management with WebSocket
   const leaveRoom = () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       // Send leave message to server
-      ws.send(JSON.stringify({ type: 'leave_room' }));
+      ws.send(JSON.stringify({ type: "leave_room" }));
       // Close connection
       setTimeout(() => ws.close(), 100);
     }
-    sessionStorage.removeItem('currentRoomCode');
-    sessionStorage.removeItem('gameMode');
-    sessionStorage.removeItem('roomType');
-    sessionStorage.removeItem('rounds');
-    sessionStorage.removeItem('mapMode');
-    navigate('/lobby');
+    sessionStorage.removeItem("currentRoomCode");
+    sessionStorage.removeItem("gameMode");
+    sessionStorage.removeItem("roomType");
+    sessionStorage.removeItem("rounds");
+    sessionStorage.removeItem("mapMode");
+    navigate("/lobby");
   };
 
   // Handle room closed or expired
@@ -121,49 +201,51 @@ const Game = () => {
     const handleMessage = (event: MessageEvent) => {
       try {
         const message = JSON.parse(event.data);
-        if (message.type === 'room_closed' || message.type === 'room_expired') {
+        if (message.type === "room_closed" || message.type === "room_expired") {
           // Inline cleanup to avoid stale closure
           if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'leave_room' }));
+            ws.send(JSON.stringify({ type: "leave_room" }));
             setTimeout(() => ws.close(), 100);
           }
-          sessionStorage.removeItem('currentRoomCode');
-          sessionStorage.removeItem('gameMode');
-          sessionStorage.removeItem('roomType');
-          sessionStorage.removeItem('rounds');
-          sessionStorage.removeItem('mapMode');
-          navigate('/lobby');
+          sessionStorage.removeItem("currentRoomCode");
+          sessionStorage.removeItem("gameMode");
+          sessionStorage.removeItem("roomType");
+          sessionStorage.removeItem("rounds");
+          sessionStorage.removeItem("mapMode");
+          navigate("/lobby");
         }
       } catch (error) {
         // Ignore
       }
     };
 
-    ws.addEventListener('message', handleMessage);
-    return () => ws.removeEventListener('message', handleMessage);
+    ws.addEventListener("message", handleMessage);
+    return () => ws.removeEventListener("message", handleMessage);
   }, [ws, navigate]);
 
   // Game state management
-  const { startTime, gameStats, guessedCountries, hasGuessedThisRound, setStartTime } = useGameState({
+  const {
+    startTime,
+    gameStats,
+    guessedCountries,
+    hasGuessedThisRound,
+    setStartTime,
+  } = useGameState({
     config,
     gameState,
     roomUpdate,
-    ws
+    ws,
   });
 
   // Banner management
-  const {
-    showSuccessBanner,
-    showTimeoutBanner,
-    lastAnswer,
-    timeoutCountry
-  } = useBanners({ ws, username: config.username });
+  const { showSuccessBanner, showTimeoutBanner, lastAnswer, timeoutCountry } =
+    useBanners({ ws, username: config.username });
 
   // Player management
   const { players, playerAvatars } = usePlayers({
     gameState,
     roomUpdate,
-    username: config.username
+    username: config.username,
   });
 
   // Chat management
@@ -172,12 +254,12 @@ const Game = () => {
     username: config.username,
     gameState,
     roomUpdate,
-    playerAvatars
+    playerAvatars,
   });
 
   // UI state
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'chat' | 'none'>('none');
+  // const [activeTab, setActiveTab] = useState<'leaderboard' | 'chat' | 'none'>('none');
 
   // Modal management
   const {
@@ -187,17 +269,22 @@ const Game = () => {
     setShowCongratsModal,
     isReconnecting,
     wasReconnected,
-    setWasReconnected
+    setWasReconnected,
   } = useGameModals({ ws, gameState, isActualReconnect, gameStats });
 
   // Color management (World Map mode)
-  const { showColorModal, setShowColorModal, selectedColor, handleColorSelect } = useColorManagement({
+  const {
+    showColorModal,
+    setShowColorModal,
+    selectedColor,
+    handleColorSelect,
+  } = useColorManagement({
     isConnected,
     gameMode: config.gameMode,
     roomUpdate,
     username: config.username,
     roomCode,
-    selectColor
+    selectColor,
   });
 
   // Auto-start logic
@@ -209,10 +296,11 @@ const Game = () => {
     roomType: config.roomType,
     username: config.username,
     startGame,
-    setWSMapMode
+    setWSMapMode,
   });
 
-  const actualGameMode = gameState?.game_mode || roomUpdate?.game_mode || config.gameMode;
+  const actualGameMode =
+    gameState?.game_mode || roomUpdate?.game_mode || config.gameMode;
 
   // Handle game restart redirect
   useEffect(() => {
@@ -222,19 +310,19 @@ const Game = () => {
       try {
         const message = JSON.parse(event.data);
 
-        if (message.type === 'game_restarted') {
-          if (config.roomType !== 'SINGLE') {
-            navigate('/waiting', { state: { ...config, roomCode } });
+        if (message.type === "game_restarted") {
+          if (config.roomType !== "SINGLE") {
+            navigate("/waiting", { state: { ...config, roomCode } });
           }
           return;
         }
 
-        if (message.type === 'color_rejected') {
+        if (message.type === "color_rejected") {
           setShowColorModal(true);
           return;
         }
 
-        if (message.type === 'answer_submitted') {
+        if (message.type === "answer_submitted") {
           const answerData = message.payload;
           if (answerData.is_correct && answerData.player !== config.username) {
             toast({
@@ -248,22 +336,13 @@ const Game = () => {
       }
     };
 
-    ws.addEventListener('message', handleMessage);
-    return () => ws.removeEventListener('message', handleMessage);
+    ws.addEventListener("message", handleMessage);
+    return () => ws.removeEventListener("message", handleMessage);
   }, [ws, config, navigate, roomCode, toast, setShowColorModal]);
-
-  // Handle spectator redirect
-  useEffect(() => {
-    const handleSpectatorRedirect = () => {
-      navigate(`/spectate/${roomCode}`);
-    };
-    window.addEventListener('redirect_spectator', handleSpectatorRedirect as EventListener);
-    return () => window.removeEventListener('redirect_spectator', handleSpectatorRedirect as EventListener);
-  }, [navigate, roomCode]);
 
   // Handle answer submission
   const handleSubmitAnswer = (answer: string) => {
-    if (actualGameMode === 'WORLD_MAP') {
+    if (actualGameMode === "WORLD_MAP") {
       sendPaintCountry(answer);
     } else if (startTime) {
       sendAnswer(answer, Date.now() - startTime);
@@ -273,7 +352,10 @@ const Game = () => {
   };
 
   // Track last paint event for banner
-  const [lastPaintEvent, setLastPaintEvent] = useState<{ player: string; country: string } | null>(null);
+  const [lastPaintEvent, setLastPaintEvent] = useState<{
+    player: string;
+    country: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!ws) return;
@@ -281,27 +363,27 @@ const Game = () => {
     const handleMessage = (event: MessageEvent) => {
       try {
         const message = JSON.parse(event.data);
-        if (message.type === 'country_painted' && message.payload) {
+        if (message.type === "country_painted" && message.payload) {
           const { player, country_name } = message.payload;
           if (player && country_name) {
             setLastPaintEvent({ player, country: country_name });
           }
           // Log for debugging
-          console.log('[Game] Country painted:', message.payload);
+          // console.log("[Game] Country painted:", message.payload);
         }
       } catch (error) {
         // Ignore
       }
     };
 
-    ws.addEventListener('message', handleMessage);
-    return () => ws.removeEventListener('message', handleMessage);
+    ws.addEventListener("message", handleMessage);
+    return () => ws.removeEventListener("message", handleMessage);
   }, [ws]);
 
   // Handle play again
   const handlePlayAgain = () => {
     if (ws) {
-      ws.send(JSON.stringify({ type: 'restart_game' }));
+      ws.send(JSON.stringify({ type: "restart_game" }));
     }
     setShowGameOver(false);
     setShowCongratsModal(false);
@@ -319,15 +401,30 @@ const Game = () => {
     const timer = setTimeout(() => {
       if (!gameState && !roomUpdate && isConnected) {
         toast({
-          title: 'Connection Timeout',
-          description: 'Server is taking too long to respond. Please try again.',
-          variant: 'destructive',
+          title: "Connection Timeout",
+          description:
+            "Server is taking too long to respond. Please try again.",
+          variant: "destructive",
         });
-        navigate('/lobby');
+        navigate("/lobby");
       }
     }, 30000);
     return () => clearTimeout(timer);
   }, [gameState, roomUpdate, isConnected, toast, navigate]);
+
+  // return guard AFTER hooks
+  if (!config) {
+    return null;
+  }
+
+  // guard WebSocket connection
+  if (!roomCode) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Creating room...
+      </div>
+    );
+  }
 
   // Show loading until we get server's game mode confirmation
   if (!gameState && !roomUpdate) {
@@ -354,7 +451,7 @@ const Game = () => {
   }
 
   // World Map View (Only for WORLD_MAP)
-  if (actualGameMode === 'WORLD_MAP') {
+  if (actualGameMode === "WORLD_MAP") {
     return (
       <>
         <WorldMapLayout
@@ -362,7 +459,9 @@ const Game = () => {
           roomType={config.roomType}
           gameStats={gameStats}
           guessedCountries={guessedCountries}
-          userColor={gameState?.player_colors?.[config.username] || selectedColor || ''}
+          userColor={
+            gameState?.player_colors?.[config.username] || selectedColor || ""
+          }
           paintedCountries={gameState?.painted_countries || {}}
           playerColors={gameState?.player_colors || {}}
           players={players}
@@ -431,7 +530,10 @@ const Game = () => {
       <TimeoutBanner show={showTimeoutBanner} country={timeoutCountry} />
 
       {/* Loading Spinner */}
-      <LoadingSpinner show={!gameState?.question && isConnected} message="Loading next round..." />
+      <LoadingSpinner
+        show={!gameState?.question && isConnected}
+        message="Loading next round..."
+      />
 
       {/* Modals */}
       <GameOverModal
@@ -451,7 +553,9 @@ const Game = () => {
         onClose={() => setShowColorModal(false)}
         onSelectColor={handleColorSelect}
         selectedColor={selectedColor}
-        takenColors={Object.values(gameState?.player_colors || roomUpdate?.player_colors || {})}
+        takenColors={Object.values(
+          gameState?.player_colors || roomUpdate?.player_colors || {},
+        )}
       />
       <CollisionDialog />
       <ReconnectionDialog

@@ -12,9 +12,25 @@ export const useRoomManagement = ({ config, ws }: UseRoomManagementProps) => {
 
   const [roomCode] = useState(() => {
     const savedRoomCode = sessionStorage.getItem('currentRoomCode');
-    const newCode = config.roomCode || savedRoomCode || Math.random().toString(36).substring(2, 8).toUpperCase();
-    sessionStorage.setItem('currentRoomCode', newCode);
-    return newCode;
+    if (config.roomCode || savedRoomCode) {
+      const finalCode = config.roomCode || savedRoomCode;
+      sessionStorage.setItem('currentRoomCode', finalCode);
+      return finalCode;
+    }
+    // Request from backend
+    fetch('/api/v2/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        game_mode: config.gameMode,
+        room_type: config.roomType
+      })
+    })
+      .then(res => res.json())
+      .then(data => {
+        sessionStorage.setItem('currentRoomCode', data.room_code);
+      });
+    return ''; // Will be set async
   });
 
   const [isActualReconnect] = useState(() => {

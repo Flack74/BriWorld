@@ -24,18 +24,16 @@ Built with **Go**, **WebSocket**, **Neon PostgreSQL**, **Upstash Redis**, and **
 ### 🗺️ Multiple Game Modes
 - **Flag Quiz** - 170+ country flags with fuzzy matching (100-25 points based on speed)
 - **World Map** - Paint countries on interactive D3.js map
-- **Capital Rush** - Identify capital cities
-- **Silhouette** - Guess countries by their shape
+- **Silhouette** - Guess countries by their shape (with 4 multiple-choice options)
 - **Emoji** - Guess countries from emoji representations
-- **Team Battle** - Cooperative multiplayer gameplay
 - **Last Standing** - Battle royale elimination mode
   - **Single Room**: Get it wrong → Instant elimination → Results banner → Return to lobby
   - **Private/Public Room**: Lowest scorer eliminated each round
   - **Tie-breaking**: If all remaining players have same score, one more round is played
 - **Border Logic** - Guess countries by their neighbors
+- ~~**Capital Rush**~~ - *(Removed - under development)*
+- ~~**Team Battle**~~ - *(Removed - under development)*
 - ~~**Audio**~~ - *(Coming soon: Identify countries by audio clues)*
-
-`NOTE: Capital Rush and Team Battle are still in development`
 
 ### 🔐 Enterprise-Grade Security
 - **JWT authentication** (HS256) with secure token management
@@ -138,8 +136,9 @@ make dev
 
 ## 🏗️ Architecture
 
-**Backend:**
+**Backend (Game Engine):**
 - Go 1.25 with Fiber v2 framework
+- **Server-authoritative game logic** - All game state, scoring, validation
 - Neon PostgreSQL with GORM ORM
 - Upstash Redis for session management and caching
 - WebSocket for real-time multiplayer communication
@@ -147,14 +146,18 @@ make dev
 - bcrypt password hashing (cost 12)
 - Fuzzy string matching for answer validation
 - SMTP email integration for notifications
+- **Question generation** - Backend generates questions, options, game data
+- **Timer management** - Server-authoritative countdown timers
 
-**Frontend:**
+**Frontend (Rendering Client):**
 - React 18 with TypeScript
 - Vite for fast development and building
 - Tailwind CSS + shadcn/ui components
+- **Pure rendering layer** - Only displays backend state
 - Custom WebSocket hooks for real-time updates
 - D3.js for interactive world map rendering
 - Responsive design with mobile-first approach
+- **Input capture only** - Sends user actions to backend
 
 **Database & Cache:**
 - Neon PostgreSQL (serverless) for persistent data

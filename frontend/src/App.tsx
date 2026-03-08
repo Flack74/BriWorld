@@ -17,8 +17,6 @@ import WaitingRoom from "./pages/WaitingRoom";
 import Game from "./pages/Game";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import { SpectatorView } from "./pages/SpectatorView";
-
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -38,7 +36,6 @@ const App = () => (
             <Route path="/lobby" element={<Lobby />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/spectate/:roomCode" element={<SpectatorView />} />
             <Route path="/waiting" element={<WaitingRoom />} />
             <Route path="/game" element={<Game />} />
             <Route path="/settings" element={<Settings />} />

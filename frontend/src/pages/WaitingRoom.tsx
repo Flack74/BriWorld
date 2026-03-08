@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Users, Crown, Copy, Check, ChevronLeft } from "lucide-react";
 import { GameConfig, RoomUpdate } from "@/types/game";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import { TeamBattleWaitingRoom } from "@/components/TeamBattleWaitingRoom";
 
 const WaitingRoom = () => {
   const location = useLocation();
@@ -54,7 +53,7 @@ const WaitingRoom = () => {
       return;
     }
 
-    // Private room → unique code
+    // Private room → get code from backend
     if (config.roomType === "PRIVATE") {
       const saved = sessionStorage.getItem("currentRoomCode");
       if (saved) {
@@ -62,16 +61,32 @@ const WaitingRoom = () => {
         return;
       }
 
-      const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      sessionStorage.setItem("currentRoomCode", newCode);
-      setRoomCode(newCode);
+      // Request room code from backend
+      fetch('/api/v2/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          game_mode: config.gameMode,
+          room_type: config.roomType
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
+          const newCode = data.room_code;
+          sessionStorage.setItem("currentRoomCode", newCode);
+          setRoomCode(newCode);
+        })
+        .catch(err => {
+          console.error('Failed to create room:', err);
+          navigate('/lobby');
+        });
       return;
     }
 
     // Public room → deterministic shared ID (CRITICAL for sync)
     const publicRoomId = `PUBLIC_${config.gameMode}`;
     setRoomCode(publicRoomId);
-  }, [config]);
+  }, [config, navigate]);
 
   // Stable websocket config (prevents reconnect loops)
   const wsConfig = useMemo(() => {
@@ -175,22 +190,6 @@ const WaitingRoom = () => {
   const displayOwner = roomUpdate.owner;
   const displayIsOwner = displayOwner === config.username;
   const actualGameMode = roomUpdate.game_mode || config.gameMode;
-
-  // Team Battle mode
-  if (actualGameMode === "TEAM_BATTLE") {
-    return (
-      <TeamBattleWaitingRoom
-        roomCode={roomCode}
-        username={config.username}
-        players={displayPlayers}
-        owner={displayOwner}
-        teamBattle={roomUpdate.team_battle}
-        onStartGame={handleStartGame}
-        onLeaveRoom={handleLeaveRoom}
-        onSwitchTeam={switchTeam}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">

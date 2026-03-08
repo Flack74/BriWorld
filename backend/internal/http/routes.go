@@ -42,6 +42,7 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config, m 
 	app.Static("/Music", "./Music")
 
 	app.Get("/api/v2/rooms", handlers.GetPublicRooms)
+	app.Post("/api/v2/rooms", handlers.CreateRoom)
 
 	api := app.Group("/api/v2")
 
@@ -91,5 +92,4 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config, m 
 	// WebSocket routes
 	app.Use("/ws", ws.UpgradeWebSocket)
 	app.Get("/ws", websocket.New(ws.HandleWebSocket))
-	app.Get("/ws/spectate/:roomCode", websocket.New(ws.HandleSpectatorWebSocket))
 }

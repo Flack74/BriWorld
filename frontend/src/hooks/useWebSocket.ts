@@ -142,6 +142,10 @@ export const useWebSocket = (
             setGameState(message.payload as GameState);
             break;
 
+          case "start_game_error":
+            alert(message.payload.error || "Cannot start game");
+            break;
+
           // Handle initial connection confirmation
           case "connected":
             break;
@@ -354,7 +358,7 @@ export const useWebSocket = (
 
   const selectColor = (color: string) => {
     sendMessage({
-      type: "color_selected",
+      type: "set_color",
       payload: { color },
     });
   };
@@ -374,6 +378,11 @@ export const useWebSocket = (
   };
 
   const sendPaintCountry = (countryCode: string) => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) {
+      console.warn('[WebSocket] Cannot paint - connection not open:', wsRef.current?.readyState);
+      return;
+    }
+    console.log('[WebSocket] Sending paint_country:', countryCode);
     sendMessage({
       type: "paint_country",
       payload: { country_code: countryCode },

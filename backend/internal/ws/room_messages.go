@@ -22,15 +22,6 @@ func (r *Room) HandleMessage(client *Client, msg *Message) {
 	case "chat_message":
 		r.BroadcastChatMessage(client.Username, msg.Payload)
 
-	case "switch_team":
-		r.SwitchTeam(client, msg.Payload)
-
-	case "accept_promotion":
-		r.AcceptPromotion(client)
-
-	case "toggle_spectator":
-		r.ToggleSpectator(client)
-
 	case "restart_game":
 		r.RestartGame(client.Username)
 

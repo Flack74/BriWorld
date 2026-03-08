@@ -27,7 +27,7 @@ func HandleWebSocket(c *websocket.Conn) {
 	rounds := c.Query("rounds")
 	timeout := c.Query("timeout")
 	token := c.Query("token")
-	
+
 	isAuthenticated := token != ""
 
 	if roomCode == "" || username == "" {
@@ -69,9 +69,9 @@ func HandleWebSocket(c *websocket.Conn) {
 
 	// Check if room exists (O(1) lookup)
 	existingRoom := GlobalHub.GetRoom(roomCode)
-	
+
 	log.Printf("[DEBUG] Room lookup: code=%s, exists=%v, requestedMode=%s", roomCode, existingRoom != nil, gameMode)
-	
+
 	// Validate game mode if room already exists
 	if existingRoom != nil {
 		existingRoom.mu.RLock()
@@ -79,16 +79,16 @@ func HandleWebSocket(c *websocket.Conn) {
 		isCompleted := existingRoom.GameState.Status == "completed"
 		isEmpty := len(existingRoom.Clients) == 0
 		existingRoom.mu.RUnlock()
-		
+
 		log.Printf("[DEBUG] Existing room: mode=%s, completed=%v, empty=%v", existingMode, isCompleted, isEmpty)
-		
+
 		// Only validate mode if room is active (not completed or has players)
 		if existingMode != "" && existingMode != gameMode && !(isCompleted && isEmpty) {
 			log.Printf("Game mode mismatch: room %s is %s but user tried to join with %s", roomCode, existingMode, gameMode)
-			msg := map[string]interface{}{
+			msg := map[string]any{
 				"type": "game_mode_mismatch",
-				"payload": map[string]interface{}{
-					"message": fmt.Sprintf("Room %s is for %s mode, but you selected %s mode. Please go back and select %s mode.", roomCode, existingMode, gameMode, existingMode),
+				"payload": map[string]any{
+					"message":   fmt.Sprintf("Room %s is for %s mode, but you selected %s mode. Please go back and select %s mode.", roomCode, existingMode, gameMode, existingMode),
 					"room_mode": existingMode,
 					"your_mode": gameMode,
 					"room_code": roomCode,
@@ -103,14 +103,14 @@ func HandleWebSocket(c *websocket.Conn) {
 			return
 		}
 	}
-	
+
 	room := GlobalHub.GetOrCreateRoom(roomCode)
-	
+
 	if room == nil {
 		log.Printf("Room %s is closed/expired, rejecting connection", roomCode)
-		msg := map[string]interface{}{
+		msg := map[string]any{
 			"type": "room_expired",
-			"payload": map[string]interface{}{
+			"payload": map[string]any{
 				"message": "This room has expired due to inactivity",
 			},
 		}
@@ -122,7 +122,7 @@ func HandleWebSocket(c *websocket.Conn) {
 		c.Close()
 		return
 	}
-	
+
 	// Only check reconnection if room already existed
 	if existingRoom != nil {
 		stateManager := GetStateManager()
@@ -147,7 +147,7 @@ func HandleWebSocket(c *websocket.Conn) {
 	} else {
 		log.Printf("New room created: %s", roomCode)
 	}
-	
+
 	room.mu.Lock()
 	if room.GameState.GameMode == "" {
 		room.GameState.GameMode = gameMode
@@ -155,10 +155,10 @@ func HandleWebSocket(c *websocket.Conn) {
 		// Double-check: game mode was set by another user after our first check
 		room.mu.Unlock()
 		log.Printf("Game mode mismatch (race condition): room is %s but user tried to join with %s", room.GameState.GameMode, gameMode)
-		msg := map[string]interface{}{
+		msg := map[string]any{
 			"type": "game_mode_mismatch",
-			"payload": map[string]interface{}{
-				"message": fmt.Sprintf("This room is for %s mode, but you selected %s mode", room.GameState.GameMode, gameMode),
+			"payload": map[string]any{
+				"message":   fmt.Sprintf("This room is for %s mode, but you selected %s mode", room.GameState.GameMode, gameMode),
 				"room_mode": room.GameState.GameMode,
 				"your_mode": gameMode,
 			},
@@ -193,10 +193,10 @@ func HandleWebSocket(c *websocket.Conn) {
 
 	// Set room reference immediately to avoid race condition
 	client.Room = room
-	
+
 	// Start WritePump BEFORE registering to ensure it's ready to receive messages
 	go client.WritePump()
-	
+
 	// Register the client with timeout to prevent blocking
 	select {
 	case room.Register <- client:

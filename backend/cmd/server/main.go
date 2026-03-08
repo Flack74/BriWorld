@@ -10,24 +10,16 @@ import (
 )
 
 func main() {
-	// Load .env file
-	if err := godotenv.Load(".env"); err != nil {
-		log.Printf("⚠️  .env file not found or error loading: %v", err)
-	} else {
-		log.Println("✓ .env file loaded")
-	}
-	
-	// Log current ENV value
+	// Log current ENV value if development .env else render
 	env := os.Getenv("ENV")
-	log.Printf("ENV from environment: %s", env)
 	
-	// Ensure ENV is set to production if not already set
-	if env == "" {
-		log.Println("ENV not set, defaulting to production")
-		os.Setenv("ENV", "production")
+	if env == "" || env == "development" {
+		err := godotenv.Load()
+		if err != nil {
+			log.Println("No .env file found")
+		}
 	}
 	
-	log.Printf("Final ENV value: %s", os.Getenv("ENV"))
 	
 	app, err := bootstrap.New()
 	if err != nil {

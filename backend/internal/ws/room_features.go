@@ -161,51 +161,6 @@ func (r *Room) handleEmojiReaction(username, reactionStr string) {
 	log.Printf("Reaction in room %s - %s reacted %s to message %s", r.ID, username, emoji, messageID)
 }
 
-// SwitchTeam allows a player to switch teams in TEAM_BATTLE mode.
-func (r *Room) SwitchTeam(client *Client, payload interface{}) {
-	r.mu.Lock()
-
-	// Only allow in waiting room
-	if r.GameState.Status != domain.RoomWaiting {
-		r.mu.Unlock()
-		log.Printf("Team switch rejected: game already started")
-		return
-	}
-
-	// Only for TEAM_BATTLE
-	if r.GameState.GameMode != "TEAM_BATTLE" {
-		r.mu.Unlock()
-		log.Printf("Team switch rejected: not TEAM_BATTLE mode")
-		return
-	}
-
-	data, _ := json.Marshal(payload)
-	var teamData struct {
-		Team string `json:"team"`
-	}
-	json.Unmarshal(data, &teamData)
-
-	// Validate team
-	if teamData.Team != "RED" && teamData.Team != "BLUE" {
-		r.mu.Unlock()
-		log.Printf("Team switch rejected: invalid team %s", teamData.Team)
-		return
-	}
-
-	// Initialize teams if needed
-	if r.GameState.Teams == nil {
-		r.GameState.Teams = make(map[string]string)
-	}
-
-	// Set player's team
-	r.GameState.Teams[client.Username] = teamData.Team
-	log.Printf("Player %s switched to team %s", client.Username, teamData.Team)
-
-	r.mu.Unlock()
-
-	r.BroadcastRoomUpdate()
-}
-
 // AcceptPromotion promotes a spectator to player.
 func (r *Room) AcceptPromotion(client *Client) {
 	r.mu.Lock()

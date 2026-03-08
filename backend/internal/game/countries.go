@@ -338,3 +338,46 @@ return region
 }
 return "World"
 }
+
+// GenerateAnswerOptions creates randomized multiple-choice options
+// Returns 4 options including the correct answer, shuffled
+func GenerateAnswerOptions(correctCode string, count int) []string {
+	if count < 2 {
+		count = 4 // Default to 4 options
+	}
+	
+	correctName := countries[correctCode]
+	if correctName == "" {
+		return []string{}
+	}
+	
+	// Collect all country names except the correct one
+	allOptions := make([]string, 0, len(countries)-1)
+	for code, name := range countries {
+		if code != correctCode {
+			allOptions = append(allOptions, name)
+		}
+	}
+	
+	// Shuffle all options
+	rand.Shuffle(len(allOptions), func(i, j int) {
+		allOptions[i], allOptions[j] = allOptions[j], allOptions[i]
+	})
+	
+	// Take first (count-1) wrong answers
+	wrongCount := count - 1
+	if wrongCount > len(allOptions) {
+		wrongCount = len(allOptions)
+	}
+	options := allOptions[:wrongCount]
+	
+	// Add correct answer
+	options = append(options, correctName)
+	
+	// Shuffle final options so correct answer is not always last
+	rand.Shuffle(len(options), func(i, j int) {
+		options[i], options[j] = options[j], options[i]
+	})
+	
+	return options
+}

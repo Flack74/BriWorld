@@ -62,11 +62,6 @@ func (p *GameStartWorkerPool) processGameStart(job *GameStartJob) {
 	r.GameState.Status = "in_progress"
 	r.GameState.CurrentRound = 0
 
-	// Assign teams for TEAM_BATTLE mode
-	if r.GameState.GameMode == "TEAM_BATTLE" {
-		r.assignTeams()
-	}
-
 	r.mu.Unlock()
 
 	// Send game_started immediately in background

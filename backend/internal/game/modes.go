@@ -5,11 +5,11 @@ type GameMode string
 
 // Game mode constants - exhaustive list of all supported modes
 const (
-	ModeFlag         GameMode = "FLAG"
-	ModeWorldMap     GameMode = "WORLD_MAP"
+	ModeFlag     GameMode = "FLAG"
+	ModeWorldMap GameMode = "WORLD_MAP"
 	// ModeCapitalRush  GameMode = "CAPITAL_RUSH" // TODO: Will be added later
-	ModeSilhouette   GameMode = "SILHOUETTE"
-	ModeEmoji        GameMode = "EMOJI"
+	ModeSilhouette GameMode = "SILHOUETTE"
+	ModeEmoji      GameMode = "EMOJI"
 	// ModeTeamBattle   GameMode = "TEAM_BATTLE" // TODO: Will be added later
 	ModeLastStanding GameMode = "LAST_STANDING"
 	ModeBorderLogic  GameMode = "BORDER_LOGIC"
@@ -20,14 +20,12 @@ const (
 type QuestionType string
 
 const (
-	QuestionFlagGuess       QuestionType = "FLAG_GUESS"
-	QuestionMapGuess        QuestionType = "MAP_GUESS"
-	// QuestionCapitalGuess    QuestionType = "CAPITAL_GUESS" // TODO: Will be added later
+	QuestionFlagGuess QuestionType = "FLAG_GUESS"
+	QuestionMapGuess  QuestionType = "MAP_GUESS"
+	// QuestionCapitalGuess    QuestionType = "CAPITAL_Rush" // TODO: Will be added later
 	QuestionSilhouetteGuess QuestionType = "SILHOUETTE_GUESS"
 	QuestionEmojiGuess      QuestionType = "EMOJI_GUESS"
-	// QuestionTeamGuess       QuestionType = "TEAM_GUESS" // TODO: Will be added later
 	QuestionBorderGuess     QuestionType = "BORDER_GUESS"
-	// QuestionAudioGuess      QuestionType = "AUDIO_GUESS" // TODO: Will be added later
 )
 
 // ModeConfig holds metadata for each game mode

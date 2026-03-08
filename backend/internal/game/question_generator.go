@@ -16,7 +16,7 @@ func GenerateQuestion(mode string, usedCountries map[string]bool) (*Question, er
 	// Get a random unused country
 	var code, name string
 	maxAttempts := 100
-	for i := 0; i < maxAttempts; i++ {
+	for range maxAttempts {
 		code, name = GetRandomCountry()
 		if !usedCountries[code] {
 			break
@@ -35,17 +35,9 @@ func GenerateQuestion(mode string, usedCountries map[string]bool) (*Question, er
 	}
 
 	switch mode {
-	case "FLAG_QUIZ", "FLAG", "LAST_STANDING", "TEAM_BATTLE":
+	case "FLAG_QUIZ", "FLAG", "LAST_STANDING":
 		question.Type = "flag"
 		question.FlagCode = code
-
-	case "CAPITAL_RUSH":
-		question.Type = "capital"
-		question.Capital = GetCapital(code)
-		if question.Capital == "" {
-			log.Printf("Warning: No capital found for %s", name)
-			question.Capital = "Unknown"
-		}
 
 	case "SILHOUETTE":
 		question.Type = "silhouette"
@@ -57,6 +49,8 @@ func GenerateQuestion(mode string, usedCountries map[string]bool) (*Question, er
 			usedCountries[code] = true
 			return GenerateQuestion(mode, usedCountries)
 		}
+		// Generate 4 randomized answer options
+		question.Options = GenerateAnswerOptions(code, 4)
 
 	case "EMOJI":
 		question.Type = "emoji"
