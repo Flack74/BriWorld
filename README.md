@@ -305,5 +305,11 @@ cd frontend && npm run build
 
 ## Read Next
 
-- [UNDERSTANDING_BRIWORLD.md](/home/flack/Documents/Go_Projects/BriWorld-v2/UNDERSTANDING_BRIWORLD.md)
-- [backend/README.md](/home/flack/Documents/Go_Projects/BriWorld-v2/backend/README.md)
+- [UNDERSTANDING_BRIWORLD.md](https://github.com/Flack74/BriWorld/UNDERSTANDING_BRIWORLD.md)
+- [backend/README.md](https://github.com/Flack74/BriWorld/backend/README.md)
+
+
+<div align="center">
+⭐ Star this repo if you find it useful!  
+Built with ❤️ by Flack
+</div>
