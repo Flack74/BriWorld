@@ -49,6 +49,24 @@ func HandleWebSocket(c *websocket.Conn) {
 		roomType = "SINGLE"
 	}
 
+	if gameMode == "EMOJI" {
+		log.Printf("Rejected disabled game mode EMOJI for room %s", roomCode)
+		msg := map[string]any{
+			"type": "unsupported_game_mode",
+			"payload": map[string]any{
+				"message":   "Emoji mode is temporarily disabled",
+				"game_mode": gameMode,
+			},
+		}
+		if data, err := json.Marshal(msg); err == nil {
+			c.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			c.WriteMessage(websocket.TextMessage, data)
+		}
+		time.Sleep(100 * time.Millisecond)
+		c.Close()
+		return
+	}
+
 	roundsCount := 10
 	if rounds != "" {
 		if r, err := strconv.Atoi(rounds); err == nil && r > 0 {

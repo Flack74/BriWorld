@@ -53,8 +53,9 @@ const ResetPassword = () => {
 
       toast({ title: "Success!", description: "Your password has been reset" });
       navigate("/login");
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message || "Failed to reset password", variant: "destructive" });
+    } catch (error: unknown) {
+      const description = error instanceof Error ? error.message : "Failed to reset password";
+      toast({ title: "Error", description, variant: "destructive" });
     } finally {
       setLoading(false);
     }

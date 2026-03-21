@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
-import { GameConfig } from '@/types/game';
+import { useState, useEffect } from 'react';
+import { GameConfig, GameState, RoomUpdate } from '@/types/game';
 import AudioManager from '@/lib/audioManager';
 
 interface UseGameStateProps {
   config: GameConfig;
-  gameState: any;
-  roomUpdate: any;
+  gameState: GameState | null;
+  roomUpdate: RoomUpdate | null;
   ws: WebSocket | null;
 }
 

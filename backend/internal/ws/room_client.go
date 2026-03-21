@@ -97,18 +97,22 @@ func (r *Room) AddClient(client *Client) {
 	}
 
 	joinedPayload := map[string]interface{}{
-		"players":        players,
-		"current_count":  len(players),
-		"status":         string(r.GameState.Status),
-		"current_round":  r.GameState.CurrentRound,
-		"owner":          r.Owner,
-		"game_mode":      r.GameState.GameMode,
-		"room_type":      r.GameState.RoomType,
-		"map_mode":       r.GameState.MapMode,
-		"player_colors":  r.GameState.PlayerColors,
-		"player_avatars": playerAvatars,
-		"is_owner":       r.Owner == client.Username,
-		"is_spectator":   client.IsSpectator,
+		"players":           players,
+		"current_count":     len(players),
+		"status":            string(r.GameState.Status),
+		"current_round":     r.GameState.CurrentRound,
+		"total_rounds":      r.GameState.TotalRounds,
+		"question":          r.GameState.Question,
+		"scores":            cloneStringIntMap(r.GameState.Scores),
+		"time_remaining":    r.GameState.TimeRemaining,
+		"owner":             r.Owner,
+		"game_mode":         r.GameState.GameMode,
+		"room_type":         r.GameState.RoomType,
+		"map_mode":          r.GameState.MapMode,
+		"painted_countries": cloneStringStringMap(r.GameState.PaintedCountries),
+		"player_colors":     cloneStringStringMap(r.GameState.PlayerColors),
+		"player_avatars":    playerAvatars,
+		"is_owner":          r.Owner == client.Username,
 	}
 
 	shouldAutoStart := r.GameState.RoomType == "SINGLE" && r.GameState.Status == domain.RoomWaiting && r.Owner == client.Username
@@ -129,6 +133,7 @@ func (r *Room) AddClient(client *Client) {
 
 	// Send room_joined to the connecting client
 	r.SendToClient(client, "room_joined", joinedPayload)
+	r.SendToClient(client, "state_snapshot", r.BuildStatePayload())
 
 	// For SINGLE player rooms, send game_started immediately
 	if shouldAutoStart {
@@ -142,6 +147,7 @@ func (r *Room) AddClient(client *Client) {
 
 	// Broadcast room update to all clients
 	r.BroadcastRoomUpdate()
+	r.BroadcastStateSnapshot()
 }
 
 // RemoveClient removes a client from the room.

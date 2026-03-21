@@ -1,24 +1,35 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Edit2, Upload, X, Trophy, Zap, Target, Flame } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 import RankBadge from "@/components/RankBadge";
 
+interface ProfileData {
+  username: string;
+  avatar_url?: string;
+  total_points?: number;
+  rating?: number;
+  rank?: string;
+  rank_tier?: string;
+  is_placement_complete?: boolean;
+  placement_matches?: number;
+  total_games?: number;
+  total_wins?: number;
+  win_streak?: number;
+  longest_win_streak?: number;
+}
+
 export default function Profile() {
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
@@ -39,7 +50,11 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    void fetchProfile();
+  }, [fetchProfile]);
 
   const handleUpdateUsername = async () => {
     try {

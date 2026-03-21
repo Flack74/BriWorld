@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
+import { GameState, LeaderboardPlayer, RoomUpdate } from '@/types/game';
 
 interface UsePlayersProps {
-  gameState: any;
-  roomUpdate: any;
+  gameState: GameState | null;
+  roomUpdate: RoomUpdate | null;
   username: string;
 }
 
@@ -15,7 +16,26 @@ export const usePlayers = ({ gameState, roomUpdate, username }: UsePlayersProps)
     }
   }, [roomUpdate]);
 
-  const players = useMemo(() => {
+  const players = useMemo<LeaderboardPlayer[]>(() => {
+    const scores = gameState?.scores || roomUpdate?.scores;
+
+    if (scores) {
+      return Object.entries(scores)
+        .map(([name, score]) => ({
+          id: name,
+          name,
+          score: score as number,
+          isYou: name === username,
+          isLeader: false,
+          color: (name === username ? 'correct' : 'opponent') as 'correct' | 'opponent',
+          avatar: name.charAt(0).toUpperCase(),
+          avatarUrl: playerAvatars[name],
+          playerColor: gameState?.player_colors?.[name] || roomUpdate?.player_colors?.[name],
+        }))
+        .sort((a, b) => b.score - a.score)
+        .map((p, i) => ({ ...p, isLeader: i === 0 }));
+    }
+
     if (gameState?.scores) {
       return Object.entries(gameState.scores)
         .map(([name, score]) => ({
@@ -46,8 +66,8 @@ export const usePlayers = ({ gameState, roomUpdate, username }: UsePlayersProps)
           avatarUrl: playerAvatars[name],
           playerColor: gameState?.player_colors?.[name] || roomUpdate?.player_colors?.[name],
         }))
-        .sort((a: any, b: any) => b.score - a.score)
-        .map((p: any, i: number) => ({ ...p, isLeader: i === 0 }));
+        .sort((a, b) => b.score - a.score)
+        .map((p, i) => ({ ...p, isLeader: i === 0 }));
     }
 
     return [];

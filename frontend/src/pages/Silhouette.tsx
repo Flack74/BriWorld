@@ -42,16 +42,21 @@ export default function Silhouette() {
   });
 
   useEffect(() => {
-    console.log("WS GAME STATE:", wsGameState);
-    if (wsGameState?.question && wsGameState.status === "in_progress") {
-      console.log("Silhouette question:", wsGameState.question);
+    // console.log("WS GAME STATE:", wsGameState);
 
+    if (!wsGameState) return;
+
+    // console.log("STATUS:", wsGameState.status);
+    // console.log("QUESTION:", wsGameState.question);
+    // console.log("SILHOUETTE:", wsGameState?.question?.silhouette);
+
+    if (wsGameState.question && wsGameState.status === "in_progress") {
       setStartTime(Date.now());
       setSelectedAnswer(null);
       setShowResult(false);
       setHintLevel(0);
     }
-  }, [wsGameState?.question, wsGameState?.current_round]);
+  }, [wsGameState]);
 
   const handleStart = () => {
     startGame();
@@ -221,16 +226,96 @@ export default function Silhouette() {
                     "drop-shadow-[0_0_20px_rgba(139,92,246,0.7)]",
                 )}
               >
-                <path
-                  d={
-                    wsGameState.question.silhouette ||
-                    "M100,100 L150,100 L150,150 L100,150 Z"
+                {(() => {
+                  const raw = wsGameState.question.silhouette as
+                    | string
+                    | number[][]
+                    | undefined;
+
+                  const fill = hintLevel >= 2 ? "#8b5cf6" : "#374151";
+                  const stroke = hintLevel >= 1 ? "#a78bfa" : "#4b5563";
+                  const strokeWidth = hintLevel >= 1 ? 3 : 2;
+
+                  if (!raw) {
+                    return (
+                      <path
+                        d="M60,60 L140,60 L140,140 L60,140 Z"
+                        fill={fill}
+                        stroke={stroke}
+                        strokeWidth={strokeWidth}
+                      />
+                    );
                   }
-                  fill={hintLevel >= 2 ? "#8b5cf6" : "#374151"}
-                  stroke={hintLevel >= 1 ? "#a78bfa" : "#4b5563"}
-                  strokeWidth={hintLevel >= 1 ? 3 : 2}
-                  className="transition-all duration-500"
-                />
+
+                  // CASE 1: SVG path string (lat/lng coordinates)
+                  if (typeof raw === "string") {
+                    const matches = Array.from(
+                      raw.matchAll(/(-?\d+\.?\d*),(-?\d+\.?\d*)/g),
+                    );
+
+                    if (matches.length === 0) return null;
+
+                    const coords = matches.map((match) => ({
+                      x: parseFloat(match[1]),
+                      y: parseFloat(match[2]),
+                    }));
+                    const minX = Math.min(...coords.map((coord) => coord.x));
+                    const maxX = Math.max(...coords.map((coord) => coord.x));
+                    const minY = Math.min(...coords.map((coord) => coord.y));
+                    const maxY = Math.max(...coords.map((coord) => coord.y));
+                    const width = Math.max(maxX - minX, 1);
+                    const height = Math.max(maxY - minY, 1);
+                    const padding = 12;
+                    const scale = Math.min(
+                      (200 - padding * 2) / width,
+                      (180 - padding * 2) / height,
+                    );
+                    const offsetX = (200 - width * scale) / 2;
+                    const offsetY = (180 - height * scale) / 2;
+
+                    const converted = raw.replace(
+                      /(-?\d+\.?\d*),(-?\d+\.?\d*)/g,
+                      (_: string, xStr: string, yStr: string) => {
+                        const x =
+                          (parseFloat(xStr) - minX) * scale + offsetX;
+                        const y =
+                          (maxY - parseFloat(yStr)) * scale + offsetY;
+
+                        return `${x.toFixed(2)},${y.toFixed(2)}`;
+                      },
+                    );
+
+                    return (
+                      <path
+                        d={converted}
+                        fill={fill}
+                        stroke={stroke}
+                        strokeWidth={strokeWidth}
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                      />
+                    );
+                  }
+
+                  // CASE 2: polygon coordinate array
+                  if (Array.isArray(raw)) {
+                    const coords = raw as number[][];
+                    const points = coords
+                      .map(([x, y]) => `${x},${y}`)
+                      .join(" ");
+
+                    return (
+                      <polygon
+                        points={points}
+                        fill={fill}
+                        stroke={stroke}
+                        strokeWidth={strokeWidth}
+                      />
+                    );
+                  }
+
+                  return null;
+                })()}
               </svg>
 
               {hintLevel > 0 && (

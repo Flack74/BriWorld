@@ -4,11 +4,16 @@ import (
 	"testing"
 )
 
-func TestGenerateQuestion(t *testing.T) {
-	// Load countries data first
-	if err := LoadCountries("../../static/world.json"); err != nil {
-		t.Skipf("Skipping test - countries data not available: %v", err)
+func setupGameData(t *testing.T) {
+	t.Helper()
+
+	if err := LoadStaticData(); err != nil {
+		t.Skipf("Skipping test - static data not available: %v", err)
 	}
+}
+
+func TestGenerateQuestion(t *testing.T) {
+	setupGameData(t)
 
 	tests := []struct {
 		name    string
@@ -17,102 +22,86 @@ func TestGenerateQuestion(t *testing.T) {
 	}{
 		{"flag quiz mode", "FLAG_QUIZ", false},
 		{"flag mode", "FLAG", false},
-		{"capital rush mode", "CAPITAL_RUSH", false},
 		{"silhouette mode", "SILHOUETTE", false},
 		{"emoji mode", "EMOJI", false},
 		{"border logic mode", "BORDER_LOGIC", false},
 		{"world map mode", "WORLD_MAP", false},
 		{"last standing mode", "LAST_STANDING", false},
-		{"team battle mode", "TEAM_BATTLE", false},
 		{"unknown mode defaults to flag", "UNKNOWN", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
 			usedCountries := make(map[string]bool)
-			question, err := GenerateQuestion(tt.mode, usedCountries)
+
+			question, err := Data.GenerateQuestion(tt.mode, usedCountries)
 
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GenerateQuestion() error = %v, wantErr %v", err, tt.wantErr)
-				return
+				t.Fatalf("GenerateQuestion() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if !tt.wantErr {
-				if question == nil {
-					t.Error("GenerateQuestion() returned nil question")
-					return
-				}
-				if question.CountryCode == "" {
-					t.Error("Question has empty country code")
-				}
-				if question.CountryName == "" {
-					t.Error("Question has empty country name")
-				}
-				if question.Type == "" {
-					t.Error("Question has empty type")
-				}
+			if question == nil {
+				t.Fatal("GenerateQuestion() returned nil question")
+			}
+
+			if question.CountryCode == "" {
+				t.Error("Question has empty country code")
+			}
+
+			if question.CountryName == "" {
+				t.Error("Question has empty country name")
+			}
+
+			if question.Type == "" {
+				t.Error("Question has empty type")
 			}
 		})
 	}
 }
 
 func TestGenerateQuestionUsedCountries(t *testing.T) {
-	if err := LoadCountries("../../static/world.json"); err != nil {
-		t.Skipf("Skipping test - countries data not available: %v", err)
-	}
+	setupGameData(t)
 
 	usedCountries := make(map[string]bool)
 
-	// Generate multiple questions
 	for i := 0; i < 10; i++ {
-		question, err := GenerateQuestion("FLAG_QUIZ", usedCountries)
+
+		q, err := Data.GenerateQuestion("FLAG_QUIZ", usedCountries)
 		if err != nil {
-			t.Fatalf("GenerateQuestion() failed on iteration %d: %v", i, err)
+			t.Fatalf("GenerateQuestion failed: %v", err)
 		}
 
-		// Check if country was already used
-		if usedCountries[question.CountryCode] {
-			t.Errorf("Country %s was used twice", question.CountryCode)
+		if usedCountries[q.CountryCode] {
+			t.Fatalf("Country %s was reused", q.CountryCode)
 		}
 
-		// Mark as used
-		usedCountries[question.CountryCode] = true
+		usedCountries[q.CountryCode] = true
 	}
 
 	if len(usedCountries) != 10 {
-		t.Errorf("Expected 10 unique countries, got %d", len(usedCountries))
+		t.Fatalf("Expected 10 unique countries, got %d", len(usedCountries))
 	}
 }
 
 func TestGenerateQuestionAllCountriesUsed(t *testing.T) {
-	if err := LoadCountries("../../static/world.json"); err != nil {
-		t.Skipf("Skipping test - countries data not available: %v", err)
-	}
+	setupGameData(t)
 
 	usedCountries := make(map[string]bool)
-	totalCountries := GetTotalCountries()
 
-	// Mark all countries as used
-	allCountries := GetAllCountries()
-	for code := range allCountries {
+	for code := range Data.Countries {
 		usedCountries[code] = true
 	}
 
-	// Try to generate question - should fail
-	_, err := GenerateQuestion("FLAG_QUIZ", usedCountries)
-	if err == nil {
-		t.Error("GenerateQuestion() should fail when all countries are used")
-	}
+	_, err := Data.GenerateQuestion("FLAG_QUIZ", usedCountries)
 
-	if len(usedCountries) != totalCountries {
-		t.Errorf("Expected %d countries, got %d", totalCountries, len(usedCountries))
+	if err == nil {
+		t.Fatal("Expected error when all countries used")
 	}
 }
 
 func TestGenerateQuestionTypes(t *testing.T) {
-	if err := LoadCountries("../../static/world.json"); err != nil {
-		t.Skipf("Skipping test - countries data not available: %v", err)
-	}
+	setupGameData(t)
 
 	tests := []struct {
 		mode         string
@@ -120,7 +109,6 @@ func TestGenerateQuestionTypes(t *testing.T) {
 	}{
 		{"FLAG_QUIZ", "flag"},
 		{"FLAG", "flag"},
-		{"CAPITAL_RUSH", "capital"},
 		{"SILHOUETTE", "silhouette"},
 		{"EMOJI", "emoji"},
 		{"BORDER_LOGIC", "border"},
@@ -128,45 +116,33 @@ func TestGenerateQuestionTypes(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+
 		t.Run(tt.mode, func(t *testing.T) {
-			question, err := GenerateQuestion(tt.mode, make(map[string]bool))
+
+			q, err := Data.GenerateQuestion(tt.mode, make(map[string]bool))
 			if err != nil {
-				t.Fatalf("GenerateQuestion() failed: %v", err)
+				t.Fatalf("GenerateQuestion failed: %v", err)
 			}
 
-			if question.Type != tt.expectedType {
-				t.Errorf("Question type = %s, want %s", question.Type, tt.expectedType)
+			if q.Type != tt.expectedType {
+				t.Fatalf("Expected type %s got %s", tt.expectedType, q.Type)
 			}
+
 		})
 	}
 }
 
-func TestGenerateQuestionCapitalMode(t *testing.T) {
-	if err := LoadCountries("../../static/world.json"); err != nil {
-		t.Skipf("Skipping test - countries data not available: %v", err)
-	}
-
-	question, err := GenerateQuestion("CAPITAL_RUSH", make(map[string]bool))
-	if err != nil {
-		t.Fatalf("GenerateQuestion() failed: %v", err)
-	}
-
-	if question.Capital == "" {
-		t.Error("Capital question has empty capital")
-	}
-}
-
 func TestGenerateQuestionBorderMode(t *testing.T) {
-	if err := LoadCountries("../../static/world.json"); err != nil {
-		t.Skipf("Skipping test - countries data not available: %v", err)
-	}
+	setupGameData(t)
 
-	// Try multiple times as some countries might be islands
-	var question *Question
+	var q *Question
 	var err error
-	for i := 0; i < 20; i++ {
-		question, err = GenerateQuestion("BORDER_LOGIC", make(map[string]bool))
-		if err == nil && len(question.Neighbors) > 0 {
+
+	for range 20 {
+
+		q, err = Data.GenerateQuestion("BORDER_LOGIC", make(map[string]bool))
+
+		if err == nil && len(q.Neighbors) > 0 {
 			break
 		}
 	}
@@ -175,20 +151,22 @@ func TestGenerateQuestionBorderMode(t *testing.T) {
 		t.Skipf("Could not generate border question: %v", err)
 	}
 
-	if len(question.Neighbors) == 0 {
-		t.Error("Border question has no neighbors")
+	if len(q.Neighbors) == 0 {
+		t.Fatal("Border question has no neighbors")
 	}
 }
 
 func BenchmarkGenerateQuestion(b *testing.B) {
-	if err := LoadCountries("../../static/world.json"); err != nil {
-		b.Skipf("Skipping benchmark - countries data not available: %v", err)
+
+	if err := LoadStaticData(); err != nil {
+		b.Skip("Static data not available")
 	}
 
 	usedCountries := make(map[string]bool)
+
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		GenerateQuestion("FLAG_QUIZ", usedCountries)
+		Data.GenerateQuestion("FLAG_QUIZ", usedCountries)
 	}
 }

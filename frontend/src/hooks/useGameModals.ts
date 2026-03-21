@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import AudioManager from '@/lib/audioManager';
+import { GameState } from '@/types/game';
 
 interface UseGameModalsProps {
   ws: WebSocket | null;
-  gameState: any;
+  gameState: GameState | null;
   isActualReconnect: boolean;
   gameStats: { correct: number; incorrect: number };
 }

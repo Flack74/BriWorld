@@ -1,1061 +1,553 @@
-# 🌍 Understanding BriWorld - Complete Developer Guide
+# Understanding BriWorld
 
-> **A comprehensive guide to understanding, developing, and extending the BriWorld multiplayer geography quiz game.**
+This document explains how BriWorld is put together, how the important runtime paths work, and where to make changes without breaking room sync or game flow.
 
----
+The goal is readability first. This is not a dump of every file. It is a map of the system.
 
-## 📋 Table of Contents
+## 1. Mental Model
 
-1. [Project Overview](#project-overview)
-2. [Architecture](#architecture)
-3. [Frontend Structure](#frontend-structure)
-4. [Backend Structure](#backend-structure)
-5. [WebSocket Communication](#websocket-communication)
-6. [Game Flow](#game-flow)
-7. [Adding New Features](#adding-new-features)
-8. [Testing](#testing)
-9. [Deployment](#deployment)
-10. [Developer Tips](#developer-tips)
+BriWorld is a real-time, server-authoritative geography game.
 
----
+That means:
+- the backend is the source of truth for rooms, players, rounds, scores, and live multiplayer state
+- the frontend is a rendering and interaction client
+- clients send intents such as `start_game`, `answer`, `paint_country`, or `chat`
+- the server validates the action, mutates room state, and broadcasts the updated snapshot
 
-## 🎯 Project Overview
+This model matters because it keeps multiplayer behavior consistent:
+- every player sees the same room state
+- reconnecting players can recover from the backend snapshot
+- scores and progression are harder to desync or spoof client-side
 
-### What is BriWorld?
+## 2. System Shape
 
-BriWorld is a **real-time multiplayer geography quiz game** featuring:
-- 9 game modes (Flag Quiz, World Map, Capital Rush, Silhouette, Emoji, Team Battle, Last Standing, Border Logic)
-- Up to 6 players per room
-- WebSocket-based real-time synchronization
-- Server-authoritative game logic
-- Persistent player sessions with Redis
-- JWT authentication
+```text
+React UI
+  -> REST for setup and account features
+  -> WebSocket for live gameplay
 
-`NOTE: Capital Rush and Team Battle are still in development`
-### Tech Stack
+Go backend
+  -> Room lifecycle
+  -> Question generation
+  -> Authoritative timers and scoring
+  -> Broadcast snapshots
 
-**Frontend:**
-- React 18 + TypeScript
-- Vite (build tool)
-- Tailwind CSS + shadcn/ui
-- D3.js (interactive maps)
-- WebSocket (real-time)
-
-**Backend:**
-- Go 1.25 + Fiber v2
-- Neon PostgreSQL (database)
-- Upstash Redis (sessions)
-- WebSocket (gorilla/websocket)
-- JWT authentication
-
----
-
-## 🏗️ Architecture
-
-### High-Level Architecture
-
-```
-┌─────────────┐
-│   Client    │
-│  (React)    │
-└──────┬──────┘
-       │ WebSocket
-       ▼
-┌─────────────┐
-│  Go Server  │
-│   (Fiber)   │
-└──────┬──────┘
-       │
-   ┌───┴───┐
-   │       │
-   ▼       ▼
-┌──────┐ ┌──────┐
-│ Neon │ │Redis │
-│  DB  │ │Cache │
-└──────┘ └──────┘
+Persistence
+  -> PostgreSQL for durable user/application data
+  -> Redis for ephemeral session/reconnect support
 ```
 
-### Data Flow
-
-```
-User Action (Click/Type)
-    ↓
-React Component
-    ↓
-WebSocket Send
-    ↓
-Go WebSocket Handler
-    ↓
-Game Manager (validates)
-    ↓
-Update Game State
-    ↓
-Broadcast to All Clients
-    ↓
-React State Update
-    ↓
-UI Re-render
-```
-
----
-
-## 🎨 Frontend Structure
-
-### Directory Layout
-
-```
-frontend/src/
-├── components/          # Reusable UI components
-│   ├── GameBanners.tsx     # Success/Error feedback
-│   ├── GameOverModal.tsx   # Game completion
-│   ├── CongratsModal.tsx   # Achievement celebration
-│   ├── LoadingSpinner.tsx  # Loading states
-│   ├── WorldMapLayout.tsx  # World Map mode layout
-│   ├── QuizModeLayout.tsx  # Quiz modes layout
-│   ├── Leaderboard.tsx     # Player scores
-│   ├── GameChat.tsx        # Multiplayer chat
-│   └── ...
-│
-├── hooks/               # Custom React hooks
-│   ├── useWebSocket.ts     # WebSocket connection
-│   ├── useGameState.ts     # Game statistics
-│   ├── useBanners.ts       # Banner visibility
-│   ├── usePlayers.ts       # Player data
-│   ├── useGameModals.ts    # Modal states
-│   ├── useAudioManager.ts  # Audio initialization
-│   ├── useColorManagement.ts # Color picker
-│   ├── useGameAutoStart.ts # Auto-start logic
-│   └── useChatMessages.ts  # Chat transformation
-│
-├── pages/               # Page components
-│   ├── Game.tsx            # Main game page (374 lines)
-│   ├── Lobby.tsx           # Game lobby
-│   ├── WaitingRoom.tsx     # Multiplayer waiting
-│   └── ...
-│
-├── modes/               # Game mode renderers
-│   └── ModeRenderer.tsx    # Mode-specific UI
-│
-├── types/               # TypeScript types
-│   └── game.ts             # Game interfaces
-│
-└── lib/                 # Utilities
-    ├── api.ts              # API client
-    ├── audioManager.ts     # Sound effects
-    └── ...
-```
-
-### Key Frontend Files
-
-#### `Game.tsx` - Main Game Component
-**Location:** `frontend/src/pages/Game.tsx`
-
-**Purpose:** Orchestrates the entire game experience
-
-**Responsibilities:**
-- WebSocket connection management
-- Game state coordination
-- Layout rendering (World Map vs Quiz modes)
-- Modal management
-- Event handling
-
-**When to modify:**
-- Adding new game-wide features
-- Changing layout structure
-- Modifying WebSocket message handling
-
-**Code Structure:**
-```typescript
-const Game = () => {
-  // 1. Initialize hooks
-  const { ws, gameState, roomUpdate } = useWebSocket({...});
-  const { players } = usePlayers({...});
-  const { showGameOver } = useGameModals({...});
-  
-  // 2. Handle events
-  useEffect(() => {
-    // WebSocket message handlers
-  }, [ws]);
-  
-  // 3. Render layout
-  if (gameMode === 'WORLD_MAP') {
-    return <WorldMapLayout {...props} />;
-  }
-  return <QuizModeLayout {...props} />;
-};
-```
-
----
-
-#### `useWebSocket.ts` - WebSocket Hook
-**Location:** `frontend/src/hooks/useWebSocket.ts`
-
-**Purpose:** Manages WebSocket connection and message handling
-
-**Key Functions:**
-- `connect()` - Establishes WebSocket connection
-- `sendAnswer()` - Submits player answer
-- `sendChatMessage()` - Sends chat message
-- `startGame()` - Triggers game start
-- `selectColor()` - Sets player color (World Map)
-
-**Message Types Handled:**
-- `room_update` - Room state changes
-- `game_state` - Game state updates
-- `chat_message` - Chat messages
-- `answer_submitted` - Answer feedback
-- `round_started` - New round begins
-- `round_ended` - Round completion
-- `game_completed` - Game finished
-
-**When to modify:**
-- Adding new WebSocket message types
-- Changing connection logic
-- Modifying reconnection behavior
-
----
-
-#### Custom Hooks Overview
-
-**`useGameState.ts`** - Game statistics and round tracking
-- Tracks correct/incorrect answers
-- Manages guessed countries
-- Handles round state
-
-**`useBanners.ts`** - Banner visibility and timing
-- Shows success/error/timeout banners
-- Auto-dismisses after delay
-
-**`usePlayers.ts`** - Player data transformation
-- Converts server data to UI format
-- Manages player avatars
-- Sorts leaderboard
-
-**`useGameModals.ts`** - Modal state management
-- Game over modal
-- Congrats modal (197 countries)
-- Reconnection dialog
-
-**`useAudioManager.ts`** - Audio initialization
-- Initializes background music
-- Handles user interaction requirements
-
-**`useColorManagement.ts`** - Color picker (World Map)
-- Shows color picker modal
-- Handles color selection
-- Syncs with server (no hardcoded defaults)
-- Rejects duplicate colors
-
-**`useGameAutoStart.ts`** - Auto-start logic
-- Auto-starts single-player games
-- Handles World Map initialization
-
-**`useChatMessages.ts`** - Chat transformation
-- Formats messages for display
-- Handles @mentions
-- Plays notification sounds
-
----
-
-### Component Architecture
-
-#### Layout Components
-
-**`WorldMapLayout.tsx`** - World Map mode layout
-- Desktop: 3-column (Leaderboard | Map | Chat)
-- Mobile: Stacked (Map | Input | Chat)
-- Handles country painting
-- Real-time color synchronization
-
-**`QuizModeLayout.tsx`** - Quiz modes layout
-- Desktop: 3-column (Leaderboard | Quiz | Chat)
-- Mobile: Stacked (Quiz | Leaderboard | Chat)
-- Timer display
-- Round counter
-
-#### Feedback Components
-
-**`GameBanners.tsx`** - Answer feedback
-- `SuccessBanner` - Correct answer
-- `ErrorBanner` - Wrong answer
-- `TimeoutBanner` - Time's up
-- `AlreadyGuessedBanner` - Duplicate guess
-
-**`GameOverModal.tsx`** - Game completion
-- Final score display
-- Play again button
-- Back to lobby button
-
-**`CongratsModal.tsx`** - Achievement celebration
-- Shows when all 197 countries found
-- Celebration animation
-
-**`LoadingSpinner.tsx`** - Loading states
-- Customizable message
-- Glassmorphism design
-
----
-
-## 🔧 Backend Structure
-
-### Directory Layout
-
-```
-backend/
-├── cmd/server/          # Application entry point
-│   └── main.go             # Server initialization
-│
-├── internal/
-│   ├── bootstrap/       # App initialization
-│   │   └── app.go          # Bootstrap logic
-│   │
-│   ├── config/          # Configuration
-│   │   └── config.go       # Environment variables
-│   │
-│   ├── database/        # Database layer
-│   │   ├── database.go     # Connection setup
-│   │   └── migrations.go   # Auto-migrations
-│   │
-│   ├── domain/          # Domain models
-│   │   ├── client.go       # Client types
-│   │   └── room.go         # Room types
-│   │
-│   ├── game/            # Game logic
-│   │   ├── country.go      # Country data
-│   │   ├── question.go     # Question generation
-│   │   └── modes.go        # Mode-specific logic
-│   │
-│   ├── handlers/        # HTTP handlers
-│   │   ├── auth.go         # Authentication
-│   │   ├── user.go         # User management
-│   │   └── room.go         # Room management
-│   │
-│   ├── http/            # HTTP routes
-│   │   └── routes.go       # Route definitions
-│   │
-│   ├── middleware/      # HTTP middleware
-│   │   └── auth.go         # JWT validation
-│   │
-│   ├── models/          # Database models
-│   │   ├── user.go         # User model
-│   │   └── room.go         # Room model
-│   │
-│   ├── redis/           # Redis client
-│   │   └── redis.go        # Session management
-│   │
-│   ├── services/        # Business logic
-│   │   ├── auth.go         # Auth service
-│   │   └── user.go         # User service
-│   │
-│   ├── utils/           # Utilities
-│   │   ├── jwt.go          # JWT helpers
-│   │   └── fuzzy.go        # Fuzzy matching
-│   │
-│   └── ws/              # WebSocket
-│       ├── hub.go          # Connection hub
-│       ├── client.go       # Client connection
-│       ├── room.go         # Room management
-│       └── handlers.go     # Message handlers
-│
-└── static/              # Static data
-    ├── world.json          # Country data
-    ├── capitals.json       # Capital cities
-    └── borders.json        # Country borders
-```
-
-### Key Backend Files
-
-#### `room_client.go` - Client Management
-**Location:** `backend/internal/ws/room_client.go`
-
-**Purpose:** Manages player connections and room membership
-
-**Key Functions:**
-- `AddClient()` - Adds player to room, handles reconnection
-- `RemoveClient()` - Removes player, transfers ownership if needed
-
-**Recent Changes:**
-- Ownership transfer prioritizes non-spectator players
-- Inherits room settings when joining existing room
-- 90-second cleanup timer for empty rooms
-
-**When to modify:**
-- Changing player join/leave logic
-- Modifying ownership transfer rules
-- Adjusting room cleanup timing
-
----
-
-#### `room_cleanup.go` - Room Lifecycle
-**Location:** `backend/internal/ws/room_cleanup.go`
-
-**Purpose:** Manages room cleanup and persistence
-
-**Key Functions:**
-- `ScheduleCleanup()` - 90-second timer for empty rooms
-- `AutoCleanup()` - Removes inactive rooms
-- `RestartGame()` - Resets game state
-- `CloseRoom()` - Owner-initiated room closure
-
-**Recent Changes:**
-- Added `ScheduleCleanup()` with 90-second delay
-- Rooms persist when owner leaves (ownership transfers)
-
-**When to modify:**
-- Changing cleanup timing
-- Modifying room persistence rules
-
----
-
-#### `room_game.go` - Game Logic
-**Location:** `backend/internal/ws/room_game.go`
-
-**Purpose:** Core game mechanics and round management
-
-**Key Functions:**
-- `StartGame()` - Initializes game
-- `StartRound()` - Begins new round
-- `EndRound()` - Completes round, handles mode-specific logic
-- `EndGame()` - Finishes game, updates stats
-
-**Recent Changes:**
-- Last Standing mode continues until elimination (not round-limited)
-- Eliminated players tracked separately from scores
-
-**When to modify:**
-- Adding new game modes
-- Changing elimination logic
-- Modifying round progression
-
----
-
-#### `hub.go` - WebSocket Hub
-**Location:** `backend/internal/ws/hub.go`
-
-**Purpose:** Central WebSocket connection manager
-
-**Responsibilities:**
-- Manages all active WebSocket connections
-- Routes messages to appropriate rooms
-- Handles client registration/unregistration
-- Broadcasts messages to clients
-
-**Key Structures:**
-```go
-type Hub struct {
-    rooms      map[string]*Room    // Active game rooms
-    register   chan *Client        // Register new clients
-    unregister chan *Client        // Unregister clients
-    broadcast  chan *BroadcastMsg  // Broadcast messages
-    mu         sync.RWMutex        // Thread safety
-}
-```
-
-**Goroutines:**
-- `Run()` - Main event loop processing registration, unregistration, and broadcasts
-
-**When to modify:**
-- Adding new room management features
-- Changing connection handling
-- Modifying broadcast logic
-
----
-
-#### `room.go` - Game Room
-**Location:** `backend/internal/ws/room.go`
-
-**Purpose:** Manages individual game room state and logic
-
-**Responsibilities:**
-- Player management
-- Game state tracking
-- Round management
-- Score calculation
-- Message broadcasting
-
-**Key Structures:**
-```go
-type Room struct {
-    ID         string
-    Clients    map[*Client]bool
-    GameState  *GameState
-    mu         sync.RWMutex
-    // ... other fields
-}
-```
-
-**Key Methods:**
-- `BroadcastMessage()` - Send message to all players
-- `StartGame()` - Initialize game
-- `StartRound()` - Begin new round
-- `HandleAnswer()` - Process player answer
-- `EndRound()` - Complete round
-- `EndGame()` - Finish game
-
-**When to modify:**
-- Adding new game modes
-- Changing game rules
-- Modifying scoring logic
-
----
-
-#### `client.go` - WebSocket Client
-**Location:** `backend/internal/ws/client.go`
-
-**Purpose:** Represents individual WebSocket connection
-
-**Responsibilities:**
-- Reading messages from client
-- Writing messages to client
-- Connection lifecycle management
-
-**Key Structures:**
-```go
-type Client struct {
-    ID        string
-    Username  string
-    Conn      *websocket.Conn
-    Send      chan []byte
-    Room      *Room
-    // ... other fields
-}
-```
-
-**Goroutines:**
-- `ReadPump()` - Reads messages from WebSocket
-- `WritePump()` - Writes messages to WebSocket
-
-**When to modify:**
-- Changing message format
-- Adding client-specific features
-- Modifying connection handling
-
----
-
-#### `question.go` - Question Generation
-**Location:** `backend/internal/game/question.go`
-
-**Purpose:** Generates questions for different game modes
-
-**Key Functions:**
-- `GenerateQuestion()` - Creates mode-specific questions
-- `GenerateFlagQuestion()` - Flag quiz questions
-- `GenerateCapitalQuestion()` - Capital city questions
-- `GenerateSilhouetteQuestion()` - Silhouette questions
-- `GenerateBorderQuestion()` - Border logic questions
-
-**When to modify:**
-- Adding new game modes
-- Changing question difficulty
-- Modifying question format
-
----
-
-## 🔌 WebSocket Communication
-
-### Message Flow
-
-```
-Client                    Server
-  │                         │
-  ├─ join_room ────────────>│
-  │<──── room_update ───────┤
-  │                         │
-  ├─ start_game ───────────>│
-  │<──── game_state ────────┤
-  │<──── round_started ─────┤
-  │                         │
-  ├─ submit_answer ────────>│
-  │<──── answer_submitted ──┤ (broadcast to all)
-  │<──── score_update ──────┤
-  │                         │
-  │<──── round_ended ───────┤
-  │<──── game_completed ────┤
-```
-
-### Message Types
-
-#### Client → Server
-
-**`join_room`**
-```json
-{
-  "type": "join_room",
-  "payload": {
-    "room_code": "ABC123",
-    "username": "player1",
-    "game_mode": "FLAG"
-  }
-}
-```
-
-**`submit_answer`**
-```json
-{
-  "type": "submit_answer",
-  "payload": {
-    "answer": "Brazil",
-    "response_time": 2500
-  }
-}
-```
-
-**`start_game`**
-```json
-{
-  "type": "start_game"
-}
-```
-
-**`chat_message`**
-```json
-{
-  "type": "chat_message",
-  "payload": {
-    "message": "Hello!"
-  }
-}
-```
-
-#### Server → Client
-
-**`room_update`**
-```json
-{
-  "type": "room_update",
-  "payload": {
-    "room_code": "ABC123",
-    "players": ["player1", "player2"],
-    "status": "waiting",
-    "owner": "player1"
-  }
-}
-```
-
-**`game_state`**
-```json
-{
-  "type": "game_state",
-  "payload": {
-    "status": "in_progress",
-    "current_round": 3,
-    "total_rounds": 10,
-    "time_remaining": 12,
-    "question": {
-      "flag_url": "https://...",
-      "options": ["Brazil", "Argentina", "Chile"]
-    },
-    "scores": {
-      "player1": 250,
-      "player2": 180
-    }
-  }
-}
-```
-
-**`answer_submitted`**
-```json
-{
-  "type": "answer_submitted",
-  "payload": {
-    "player": "player1",
-    "is_correct": true,
-    "country_name": "Brazil",
-    "points_earned": 85
-  }
-}
-```
-
----
-
-## 🎮 Game Flow
-
-### Complete Game Lifecycle
-
-```
-1. Player enters lobby
-   ↓
-2. Selects game mode
-   ↓
-3. Chooses room type (Single/Private/Public)
-   ↓
-4. WebSocket connects
-   ↓
-5. Joins/Creates room
-   ↓
-6. [Multiplayer] Waits for players
-   ↓
-7. Game starts
-   ↓
-8. For each round:
-   ├─ Question generated
-   ├─ Timer starts
-   ├─ Players submit answers
-   ├─ Answers validated
-   ├─ Scores updated
-   ├─ Results broadcast
-   └─ Next round or end game
-   ↓
-9. Game completes
-   ↓
-10. Show final scores
-    ↓
-11. Play again or return to lobby
-```
-
-### Round Lifecycle (Detailed)
-
-**1. Round Start**
-```go
-// Server: room.go
-func (r *Room) StartRound() {
-    // Generate question
-    question := game.GenerateQuestion(r.GameMode)
-    
-    // Update game state
-    r.GameState.CurrentRound++
-    r.GameState.Question = question
-    r.GameState.TimeRemaining = r.Timeout
-    
-    // Broadcast to all clients
-    r.BroadcastMessage("round_started", question)
-    
-    // Start timer goroutine
-    go r.RunTimer()
-}
-```
-
-**2. Player Answers**
-```typescript
-// Client: Game.tsx
-const handleSubmitAnswer = (answer: string) => {
-  const responseTime = Date.now() - startTime;
-  sendAnswer(answer, responseTime);
-};
-```
-
-**3. Answer Validation**
-```go
-// Server: room.go
-func (r *Room) HandleAnswer(client *Client, answer string, responseTime int) {
-    // Validate answer
-    isCorrect := game.ValidateAnswer(answer, r.GameState.Question.CorrectAnswer)
-    
-    // Calculate points (time-based)
-    points := calculatePoints(responseTime, isCorrect)
-    
-    // Update score
-    r.GameState.Scores[client.Username] += points
-    
-    // Broadcast result
-    r.BroadcastMessage("answer_submitted", AnswerResult{
-        Player: client.Username,
-        IsCorrect: isCorrect,
-        Points: points,
-    })
-}
-```
-
-**4. Round End**
-```go
-// Server: room.go
-func (r *Room) EndRound() {
-    // Stop timer
-    r.StopTimer()
-    
-    // Broadcast round end
-    r.BroadcastMessage("round_ended", RoundResult{
-        CorrectAnswer: r.GameState.Question.CorrectAnswer,
-        Scores: r.GameState.Scores,
-    })
-    
-    // Check if game complete
-    if r.GameState.CurrentRound >= r.GameState.TotalRounds {
-        r.EndGame()
-    } else {
-        // Start next round after delay
-        time.Sleep(3 * time.Second)
-        r.StartRound()
-    }
-}
-```
-
----
-
-## ➕ Adding New Features
-
-### Adding a New Game Mode
-
-**Step 1: Define Mode Constants**
-```go
-// backend/internal/domain/game.go
-const (
-    GameModeNewMode = "NEW_MODE"
-)
-```
-
-**Step 2: Create Question Generator**
-```go
-// backend/internal/game/question.go
-func GenerateNewModeQuestion(countries []Country) *Question {
-    // Select random country
-    country := countries[rand.Intn(len(countries))]
-    
-    return &Question{
-        Type: "new_mode",
-        Data: map[string]interface{}{
-            "hint": country.SomeProperty,
-            "correct_answer": country.Name,
-        },
-    }
-}
-```
-
-**Step 3: Add to Question Generator**
-```go
-// backend/internal/game/question.go
-func GenerateQuestion(mode string, countries []Country) *Question {
-    switch mode {
-    case GameModeNewMode:
-        return GenerateNewModeQuestion(countries)
-    // ... other modes
-    }
-}
-```
-
-**Step 4: Create Frontend Mode Component**
-```typescript
-// frontend/src/modes/NewMode.tsx
-export const NewMode = ({ question, onSubmit }) => {
-  return (
-    <div>
-      <h2>New Mode</h2>
-      <p>{question.hint}</p>
-      <input onSubmit={onSubmit} />
-    </div>
-  );
-};
-```
-
-**Step 5: Add to Mode Renderer**
-```typescript
-// frontend/src/modes/ModeRenderer.tsx
-if (gameState.game_mode === 'NEW_MODE') {
-  return <NewMode {...props} />;
-}
-```
-
-**Step 6: Add to Lobby**
-```typescript
-// frontend/src/components/lobby/GameLobby.tsx
-const modes = [
-  // ... existing modes
-  {
-    id: 'NEW_MODE',
-    name: 'New Mode',
-    description: 'Description of new mode',
-    icon: '🎮',
-  },
-];
-```
-
----
-
-### Adding a New WebSocket Message Type
-
-**Step 1: Define Message Type**
-```go
-// backend/internal/domain/messages.go
-const (
-    MessageTypeNewFeature = "new_feature"
-)
-```
-
-**Step 2: Create Handler**
-```go
-// backend/internal/ws/handlers.go
-func (r *Room) HandleNewFeature(client *Client, payload interface{}) {
-    // Process message
-    data := payload.(map[string]interface{})
-    
-    // Update state
-    // ...
-    
-    // Broadcast to all clients
-    r.BroadcastMessage("new_feature_response", response)
-}
-```
-
-**Step 3: Add to Message Router**
-```go
-// backend/internal/ws/client.go (ReadPump)
-case "new_feature":
-    client.Room.HandleNewFeature(client, message.Payload)
-```
-
-**Step 4: Handle in Frontend**
-```typescript
-// frontend/src/hooks/useWebSocket.ts
-useEffect(() => {
-  if (!ws) return;
-  
-  const handleMessage = (event: MessageEvent) => {
-    const message = JSON.parse(event.data);
-    
-    if (message.type === 'new_feature_response') {
-      // Handle response
-    }
-  };
-  
-  ws.addEventListener('message', handleMessage);
-  return () => ws.removeEventListener('message', handleMessage);
-}, [ws]);
-```
-
----
-
-### Modifying UI Layout
-
-**To change game layout:**
-1. Edit `frontend/src/components/WorldMapLayout.tsx` or `QuizModeLayout.tsx`
-2. Modify Tailwind classes for spacing/sizing
-3. Test on desktop and mobile viewports
-
-**To add new UI component:**
-1. Create component in `frontend/src/components/`
-2. Export from component file
-3. Import in parent component
-4. Add props interface with TypeScript
-
-**Example:**
-```typescript
-// frontend/src/components/NewComponent.tsx
-interface NewComponentProps {
-  data: string;
-  onAction: () => void;
-}
-
-export const NewComponent = ({ data, onAction }: NewComponentProps) => {
-  return (
-    <div className="p-4 rounded-lg bg-card">
-      <p>{data}</p>
-      <button onClick={onAction}>Action</button>
-    </div>
-  );
-};
-```
-
----
-
-## 🧪 Testing
-
-### Frontend Tests
-
-**Run tests:**
-```bash
-cd frontend
-npm test                 # Run once
-npm run test:watch       # Watch mode
-npm run test:coverage    # With coverage
-```
-
-**Test structure:**
-```
-frontend/src/
-├── hooks/__tests__/
-│   ├── usePlayers.test.ts
-│   └── useGameModals.test.ts
-└── components/__tests__/
-    ├── GameOverModal.test.tsx
-    ├── LoadingSpinner.test.tsx
-    └── GameBanners.test.tsx
-```
-
-**Writing a new test:**
-```typescript
-// frontend/src/components/__tests__/NewComponent.test.tsx
-import { render } from '@testing-library/react';
-import { screen } from '@testing-library/dom';
-import { NewComponent } from '../NewComponent';
-
-describe('NewComponent', () => {
-  it('should render correctly', () => {
-    render(<NewComponent data="test" onAction={() => {}} />);
-    expect(screen.getByText('test')).toBeTruthy();
-  });
-});
-```
-
-### Backend Tests
-
-**Run tests:**
-```bash
-cd backend
-make test-unit          # Backend only
-make test               # Backend + Frontend
-```
-
-**Writing a new test:**
-```go
-// backend/internal/game/question_test.go
-func TestGenerateQuestion(t *testing.T) {
-    countries := LoadCountries()
-    question := GenerateQuestion("FLAG", countries)
-    
-    if question == nil {
-        t.Error("Expected question, got nil")
-    }
-}
-```
-
----
-
-## 🚀 Deployment
-
-### Local Development
+## 3. Current Active Product Surface
+
+At the time of this document, the main playable mode selection exposes 5 active modes:
+- `FLAG`
+- `WORLD_MAP`
+- `SILHOUETTE`
+- `LAST_STANDING`
+- `BORDER_LOGIC`
+
+The repository still contains additional mode code, especially `EMOJI`, plus some unfinished or disabled paths such as `CAPITAL_RUSH`, `TEAM_BATTLE`, and `AUDIO`.
+
+Important rule:
+- code present in the repo is not automatically a supported player-facing feature
+- always check the active frontend mode config and websocket join rules before assuming a mode is live
+
+## 4. Backend Architecture
+
+### 4.1 Entry Point
+
+File:
+- [main.go](/home/flack/Documents/Go_Projects/BriWorld-v2/backend/cmd/server/main.go)
+
+What it does:
+- loads `.env` in development
+- builds the application through the bootstrap package
+- starts the server
+- waits for shutdown signals
+
+This file should stay thin. If complex boot logic is added here, it becomes hard to test and reason about.
+
+### 4.2 Bootstrap Layer
+
+Directory:
+- `backend/internal/bootstrap`
+
+Responsibility:
+- initialize config
+- connect infrastructure such as database, redis, mailer
+- create the Fiber app
+- register middleware and HTTP routes
+- own process startup and shutdown concerns
+
+This is the composition root of the backend.
+
+### 4.3 Config Layer
+
+Directory:
+- `backend/internal/config`
+
+Responsibility:
+- read environment variables
+- normalize defaults for development and production
+- centralize config structs
+
+This layer should be the only place that knows raw env keys in detail.
+
+### 4.4 Database and Persistence
+
+Directories:
+- `backend/internal/database`
+- `backend/internal/models`
+
+Responsibilities:
+- open PostgreSQL connections
+- manage migrations and database bootstrapping
+- define persistent models such as users, stats, achievements, and challenge-related data
+
+Use this layer for durable data. Do not treat websocket room memory as the place for permanent user state.
+
+### 4.5 Services Layer
+
+Directory:
+- `backend/internal/services`
+
+Responsibilities:
+- business logic for auth, profile, meta, and other application features
+- coordination between handlers and persistence
+
+The service layer is where non-trivial REST/business flows should live.
+
+### 4.6 HTTP Layer
+
+Directories:
+- `backend/internal/http`
+- `backend/internal/handlers`
+- `backend/internal/middleware`
+
+Responsibilities:
+- define routes
+- parse requests
+- call services
+- return HTTP responses
+- enforce auth/authorization where needed
+
+This layer should stay transport-focused. It should not absorb room logic that belongs in websocket/game packages.
+
+### 4.7 Game Engine Layer
+
+Directory:
+- `backend/internal/game`
+
+Responsibilities:
+- game mode types
+- question generation
+- country data loading
+- silhouette loading and fallback data
+- fuzzy answer behavior and mode-specific question setup
+
+This package is the content and rules source for mode generation. It does not own websocket transport, but its outputs feed websocket gameplay.
+
+Important examples:
+- silhouette mode depends on backend-generated outline data in `backend/static/silhouettes.json`
+- loaders resolve static data robustly so running from different working directories still works
+- question generation decides what the next round looks like
+
+### 4.8 WebSocket Multiplayer Layer
+
+Directory:
+- `backend/internal/ws`
+
+This is the most important runtime package in BriWorld.
+
+It owns:
+- room creation and lookup
+- room state mutation
+- join and leave handling
+- reconnection behavior
+- round progression
+- score updates
+- world map painting
+- broadcasting authoritative state to clients
+
+If multiplayer behavior is wrong, this package is usually the first place to inspect.
+
+## 5. WebSocket Architecture
+
+### 5.1 Why It Exists
+
+REST works well for:
+- auth
+- profile
+- room creation
+- metadata
+
+It is a poor fit for:
+- per-round timers
+- live room membership
+- immediate score updates
+- chat
+- map painting
+- reconnect-aware room sync
+
+That is why gameplay moves through WebSocket.
+
+### 5.2 Connection Flow
+
+The frontend opens a websocket with query params that include:
+- room code
+- username
+- session id
+- game mode
+- room type
+- rounds
+- timeout
+- token when available
+
+The backend handler:
+1. validates required values
+2. rejects unsupported or disabled modes
+3. validates mode compatibility with an existing room
+4. creates or loads the room
+5. restores room state if this is a reconnect path
+6. registers the client and starts read/write pumps
+
+The handler file to know first:
+- [handlers.go](/home/flack/Documents/Go_Projects/BriWorld-v2/backend/internal/ws/handlers.go)
+
+### 5.3 Room as the Unit of Multiplayer
+
+A room represents one live multiplayer context:
+- members
+- owner
+- mode
+- room type
+- scores
+- current question
+- timers
+- answered state
+- painted countries
+- player colors
+- elimination state
+
+That room state must be safe to read and mutate concurrently.
+
+### 5.4 Broadcast Strategy
+
+BriWorld uses two broad types of websocket updates:
+
+Small event messages:
+- player joined
+- chat message
+- game started
+- round started
+- answer result
+
+Authoritative snapshots:
+- full room/game state used to resync clients
+
+The key helper is in:
+- [room_broadcast.go](/home/flack/Documents/Go_Projects/BriWorld-v2/backend/internal/ws/room_broadcast.go)
+
+Why snapshots matter:
+- reconnecting clients need a full state view
+- newly joined clients should not reconstruct the room by replaying a long event history
+- snapshot-based sync reduces drift between clients
+
+### 5.5 Room State Safety
+
+Patterns already important in this repo:
+- clone maps before broadcasting
+- avoid holding room locks while calling routines that reacquire state
+- guard nil question access
+- treat backend state as authoritative
+
+Common failure modes if this discipline slips:
+- deadlocks
+- stale scores
+- one-round-late UI behavior
+- clients seeing different map or leaderboard state
+
+## 6. Frontend Architecture
+
+### 6.1 Frontend Role
+
+The frontend is not the game engine.
+
+Its job is to:
+- connect
+- render
+- collect intent
+- recover local session context
+- keep UI usable across screen sizes
+
+This division is important. If the frontend starts inventing scores, winners, round state, or room truth independently, multiplayer consistency breaks.
+
+### 6.2 Main Frontend Entry Paths
+
+Relevant pages:
+- `src/pages/Lobby.tsx`
+- `src/pages/Game.tsx`
+- `src/pages/WaitingRoom.tsx`
+- `src/pages/About.tsx`
+
+`Game.tsx` is the runtime shell for active play.
+
+It composes:
+- websocket connectivity
+- game-state helpers
+- player state helpers
+- chat handling
+- banners and modals
+- map or quiz layouts
+
+Primary file:
+- [Game.tsx](/home/flack/Documents/Go_Projects/BriWorld-v2/frontend/src/pages/Game.tsx)
+
+### 6.3 Hook-Based State Organization
+
+The frontend relies heavily on hooks to keep responsibilities separated.
+
+Important hooks:
+- `useWebSocket`: connection lifecycle, incoming messages, outgoing actions
+- `useGameState`: UI state derived from backend game state
+- `usePlayers`: leaderboard/player representation
+- `useChatMessages`: chat formatting and message state
+- `useGameAutoStart`: single-player and owner auto-start behavior
+- `useColorManagement`: player color UI flow
+
+This is good architecture when hook boundaries stay clear and payload typing stays strict.
+
+### 6.4 Rendering Layers
+
+The active game screen is rendered through shared layouts:
+- quiz-style layouts
+- world-map layout
+- mobile multiplayer panels for chat and leaderboard
+
+That split exists because world map gameplay has a different interaction surface from text/option-based round modes.
+
+## 7. Frontend Networking Model
+
+### 7.1 REST
+
+REST is used for:
+- auth
+- profile
+- room creation
+- password reset flows
+- other standard app operations
+
+### 7.2 WebSocket
+
+`useWebSocket.ts` is the live game transport client.
+
+Responsibilities:
+- build the websocket URL
+- open/close/reconnect the connection
+- parse messages
+- update game and room state
+- expose actions like `sendAnswer`, `startGame`, `sendChatMessage`, and `sendPaintCountry`
+
+Important implementation detail:
+- in development, the websocket URL should resolve to the backend, not the Vite server
+- the frontend now prefers `VITE_WS_URL`, then derives from `VITE_API_URL`, then falls back only as a last resort
+
+## 8. Room Sync Model
+
+This is the most important behavior to preserve during refactors.
+
+### Principle
+
+Every player in the same room should observe the same authoritative game state.
+
+That includes:
+- status
+- round number
+- question
+- scores
+- player list
+- owner
+- chat
+- colors
+- painted countries
+- elimination state
+
+### How BriWorld Does It
+
+The backend now broadcasts state snapshots at important transition points such as:
+- join
+- start game
+- round start
+- room updates
+- score changes
+- map painting
+- round end
+- completion
+
+This is what keeps public and private rooms in sync.
+
+### Why This Matters
+
+Without snapshot discipline:
+- public room joins can lag behind current room state
+- reconnecting players can land on stale UI
+- world map can feel local-only instead of shared
+- players can get stuck in “waiting for room to start”
+
+## 9. Reconnection Model
+
+Reconnection in BriWorld is not just “try the socket again”.
+
+A useful reconnect path requires:
+- persistent session identity
+- room lookup by session
+- room snapshot restore
+- frontend ability to recover room code and config
+- backend willingness to treat the session as a returning player
+
+Current approach:
+- frontend stores minimal config in session storage
+- backend tracks room/session state
+- snapshots are sent again when the player reconnects
+
+This is the correct direction for production multiplayer because it treats reconnect as state recovery, not a brand-new join.
+
+## 10. Current Active Modes
+
+### `FLAG`
+
+Shape:
+- timed question mode
+- standard text answer submission
+
+Backend concerns:
+- question generation
+- fuzzy answer matching
+- scoring based on timing/game rules
+
+Frontend concerns:
+- render flag clue
+- timer display
+- input UX and success/error feedback
+
+### `WORLD_MAP`
+
+Shape:
+- map interaction mode
+- players paint countries on the shared map
+
+Backend concerns:
+- validate paint attempts
+- track painted countries globally for the room
+- maintain player colors and shared scores
+
+Frontend concerns:
+- interactive world map rendering
+- stable player color presentation
+- shared leaderboard and map state
+
+### `SILHOUETTE`
+
+Shape:
+- backend provides silhouette path data
+- frontend renders the outline and answer UI
+
+Backend concerns:
+- provide real silhouette data, not placeholders
+- load silhouette assets robustly
+- generate mode questions correctly
+
+Frontend concerns:
+- scale/normalize the backend path to the display box
+- avoid treating silhouette payloads like image URLs
+
+### `LAST_STANDING`
+
+Shape:
+- elimination-based round system
+
+Backend concerns:
+- elimination bookkeeping
+- winner resolution
+- active-player tracking
+
+Frontend concerns:
+- clear elimination state
+- correct room-wide results and transitions
+
+### `BORDER_LOGIC`
+
+Shape:
+- deduction mode based on country neighbors
+
+Backend concerns:
+- neighbor data integrity
+- question generation
+
+Frontend concerns:
+- readable prompt and answer UX
+
+## 11. Disabled or Future Modes
+
+The codebase contains disabled or future mode paths.
+
+Current expectation:
+- keep the code if it is useful for later
+- hide it from the lobby and main selection config
+- reject unsupported live mode joins at the websocket boundary
+
+This is better than deleting code impulsively or leaving half-enabled modes visible to users.
+
+## 12. Important Data Files
+
+Key static data lives under backend assets such as:
+- world/country metadata
+- borders
+- capitals
+- silhouettes
+
+The silhouette pipeline deserves special mention:
+- silhouette data is generated on the backend
+- runtime loads `backend/static/silhouettes.json`
+- there is also a generated Go fallback data file
+
+If silhouette rendering looks wrong, the issue can be in either:
+- the generated silhouette data itself
+- the frontend normalization/rendering logic
+
+## 13. Development Workflow
+
+### Recommended Loop
+
+1. run backend tests
+2. run frontend lint
+3. run frontend build
+4. verify the specific mode or room flow manually
+
+Commands:
 
 ```bash
-# Backend
-cd backend
-make dev                # Hot reload with Air
-
-# Frontend
-cd frontend
-npm run dev             # Vite dev server
+cd backend && go test ./...
+cd frontend && npm run lint
+cd frontend && npm run build
 ```
 
-### Production Build
+### Why This Order
 
-```bash
-# Build everything
-cd backend
-make build-all          # Builds frontend + backend
+- backend tests catch websocket and game-state regressions
+- frontend lint catches payload, hook, and typing mistakes
+- frontend build confirms the app still compiles cleanly
 
-# Run production
-make run                # Runs compiled binary
-```
+## 14. Environment Model
 
-### Docker
+### Backend
 
-```bash
-cd backend
+Typical backend env:
 
-# Build image
-make docker-build
-
-# Run container
-make docker-run
-
-# Or use docker-compose
-make docker-up
-make docker-down
-```
-
-### Environment Variables
-
-**Backend (.env):**
 ```env
-# Database
+PORT=8080
+ENV=development
+
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=briworld
@@ -1063,188 +555,116 @@ DB_PASSWORD=password
 DB_NAME=briworld_db
 DB_SSL_MODE=disable
 
-# Server
-PORT=8080
-ENV=development
-
-# JWT
 JWT_SECRET=your-secret-key
-JWT_EXPIRY=86400
 
-# Redis
-REDIS_ADDR=localhost:6379
+REDIS_HOST=localhost
+REDIS_PORT=6379
 REDIS_PASSWORD=
 REDIS_DB=0
+REDIS_TLS=false
 ```
 
-**Frontend (.env):**
+### Frontend
+
+Typical frontend env:
+
 ```env
-VITE_API_URL=http://localhost:8080
+VITE_API_URL=http://localhost:8080/api/v2
 VITE_WS_URL=ws://localhost:8080/ws
 ```
 
----
+Important:
+- `VITE_API_URL` should include `/api/v2` for the current frontend API helpers
+- if `VITE_WS_URL` is omitted, websocket resolution should still derive correctly from `VITE_API_URL`
 
-## 💡 Developer Tips
+## 15. How to Add or Re-enable a Mode Safely
 
-### Debugging WebSocket Issues
+Do not just add a page and a title string.
 
-**Problem:** Messages not received
-**Solution:** Check WebSocket connection status
-```typescript
-console.log('[WS] Connected:', isConnected);
-console.log('[WS] State:', ws?.readyState);
-```
+A proper mode change touches multiple layers:
 
-**Problem:** Duplicate event handlers
-**Solution:** Ensure cleanup in useEffect
-```typescript
-useEffect(() => {
-  const handler = (event) => { /* ... */ };
-  ws.addEventListener('message', handler);
-  return () => ws.removeEventListener('message', handler);
-}, [ws]);
-```
+1. backend game generation
+2. websocket room progression
+3. frontend mode selection config
+4. frontend renderer/layout path
+5. tests and manual verification
 
-### Debugging Game State
+Checklist:
+- define or re-enable the backend mode constant
+- ensure question generation supports it
+- confirm room/game logic supports it
+- expose it in frontend mode config
+- ensure `Game.tsx` and mode renderer can display it
+- verify mobile layout
+- verify single, private, and public room behavior
+- verify reconnect behavior
 
-**Add logging:**
-```go
-// backend/internal/ws/room.go
-log.Printf("[ROOM %s] Current state: %+v", r.ID, r.GameState)
-```
+## 16. Safe Refactor Rules
 
-```typescript
-// frontend/src/pages/Game.tsx
-console.log('[GAME] State:', gameState);
-console.log('[GAME] Room:', roomUpdate);
-```
+When working in BriWorld, these rules prevent the most common regressions:
 
-### Performance Optimization
+- do not let the frontend become the source of truth for multiplayer state
+- do not broadcast shared room maps directly without cloning mutable maps first
+- do not hold locks while calling helpers that reacquire room state
+- do not trust old session storage blindly without backend verification
+- do not expose disabled modes only by accident of stale config
+- do not assume single-player fixes automatically work in private/public rooms
 
-**Frontend:**
-- Use `useMemo` for expensive computations
-- Use `useCallback` for stable function references
-- Avoid unnecessary re-renders with `React.memo`
+## 17. Where to Look First When Something Breaks
 
-**Backend:**
-- Use goroutines for concurrent operations
-- Implement connection pooling
-- Cache frequently accessed data in Redis
+### “Room not syncing”
+Start with:
+- `backend/internal/ws`
+- `frontend/src/hooks/useWebSocket.ts`
 
-### Common Pitfalls
+### “Mode visible but should not be playable”
+Start with:
+- `frontend/src/constants/gameModes.ts`
+- websocket join validation in `backend/internal/ws/handlers.go`
 
-**❌ Don't:**
-- Modify state directly (use setState)
-- Forget to clean up event listeners
-- Block the main goroutine
-- Store sensitive data in localStorage
+### “Map actions sent but not visible to other players”
+Start with:
+- map paint handler in websocket room logic
+- snapshot broadcast path
+- frontend room state application
 
-**✅ Do:**
-- Use TypeScript for type safety
-- Add error handling
-- Write tests for critical paths
-- Document complex logic
+### “Silhouette looks wrong”
+Start with:
+- backend silhouette data generation
+- backend silhouette loader
+- frontend silhouette renderer normalization/scaling
 
----
+### “Refresh dumps player out of the game”
+Start with:
+- frontend session storage recovery
+- backend reconnection/session lookup
+- snapshot restoration path
 
-## 🐛 Recent Bug Fixes & Improvements
+## 18. What “Production Grade” Means Here
 
-### v2.1 Updates
+For BriWorld, production grade does not mean “more abstractions”.
 
-**Color Management**
-- Fixed hardcoded green color default in World Map mode
-- Colors now properly sync from server selection
-- File: `frontend/src/hooks/useColorManagement.ts`
+It means:
+- deterministic room behavior
+- reliable reconnect flow
+- typed frontend contracts
+- snapshot-based multiplayer sync
+- clear boundaries between REST, websocket, and game logic
+- build/test/lint staying green
+- modes either fully supported or explicitly disabled
 
-**Private Room UX**
-- Hide mode selector when joining with room code
-- Hide rounds/timeout selector for existing rooms
-- Server inherits room settings for joining players
-- Files: `frontend/src/components/lobby/GameLobby.tsx`, `backend/internal/ws/room_client.go`
+That is the standard to hold changes against.
 
-**Last Standing Mode**
-- Game continues until wrong answer (not round-limited)
-- Only ends when 1 or 0 players remain
-- File: `backend/internal/ws/room_game.go`
+## 19. Final Orientation
 
-**Room Persistence**
-- Ownership transfers to next player when owner leaves
-- Prioritizes non-spectator players for ownership
-- 90-second cleanup timer for empty rooms
-- Files: `backend/internal/ws/room_client.go`, `backend/internal/ws/room_cleanup.go`
+If you are new to the codebase, start here:
 
-**Reconnection**
-- Clarified 90-second reconnection window in leave dialog
-- "Leave Permanently" button with destructive styling
-- File: `frontend/src/components/LeaveRoomDialog.tsx`
+1. `backend/cmd/server/main.go`
+2. `backend/internal/bootstrap`
+3. `backend/internal/ws`
+4. `backend/internal/game`
+5. `frontend/src/pages/Game.tsx`
+6. `frontend/src/hooks/useWebSocket.ts`
+7. `frontend/src/components/lobby/GameLobby.tsx`
 
----
-
-## 📊 Project Metrics
-
-### Frontend
-- **Game.tsx:** 374 lines (reduced from 1047, -64%)
-- **Custom Hooks:** 10 total (7 new)
-- **Components:** 6 reusable
-- **Tests:** 17 passing (5 test suites)
-
-### Backend
-- **Language:** Go 1.25
-- **Framework:** Fiber v2
-- **Database:** PostgreSQL (Neon)
-- **Cache:** Redis (Upstash)
-- **WebSocket:** gorilla/websocket
-
----
-
-## 🎯 Quick Reference
-
-### File Locations
-
-**Want to modify game UI?**
-→ `frontend/src/pages/Game.tsx`
-→ `frontend/src/components/WorldMapLayout.tsx`
-→ `frontend/src/components/QuizModeLayout.tsx`
-
-**Want to modify WebSocket logic?**
-→ `frontend/src/hooks/useWebSocket.ts`
-→ `backend/internal/ws/hub.go`
-→ `backend/internal/ws/room.go`
-
-**Want to modify game rules?**
-→ `backend/internal/ws/room.go`
-→ `backend/internal/game/question.go`
-
-**Want to add a new mode?**
-→ `backend/internal/game/question.go` (question generation)
-→ `frontend/src/modes/ModeRenderer.tsx` (UI rendering)
-→ `frontend/src/components/lobby/GameLobby.tsx` (lobby entry)
-
-**Want to modify authentication?**
-→ `backend/internal/handlers/auth.go`
-→ `backend/internal/middleware/auth.go`
-→ `backend/internal/services/auth.go`
-
-**Want to modify database models?**
-→ `backend/internal/models/`
-
----
-
-## 🎉 Summary
-
-BriWorld is a well-architected, production-ready multiplayer game with:
-- ✅ Clean separation of concerns
-- ✅ Comprehensive testing
-- ✅ Real-time WebSocket communication
-- ✅ Scalable architecture
-- ✅ Full TypeScript type safety
-- ✅ Docker deployment ready
-
-**For questions or contributions, refer to this guide and the codebase comments.**
-
----
-
-*Last Updated: 2024*
-*Version: 2.0*
-*Status: Production Ready*
+That path gives the fastest understanding of how the product works end to end.

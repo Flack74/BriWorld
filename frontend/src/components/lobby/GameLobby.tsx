@@ -19,6 +19,7 @@ interface PublicRoom {
   players: number;
   maxPlayers: number;
   mode: string;
+  status?: string;
 }
 
 export const GameLobby: React.FC = () => {
@@ -47,7 +48,7 @@ export const GameLobby: React.FC = () => {
     setIsRefreshing(true);
     try {
       const data = await api.getRooms();
-      console.log('[LOBBY] Fetched rooms:', data);
+      // console.log('[LOBBY] Fetched rooms:', data);
       setPublicRooms(data.rooms || data || []);
     } catch (error) {
       console.error('[LOBBY] Failed to fetch public rooms:', error);
@@ -68,12 +69,12 @@ export const GameLobby: React.FC = () => {
     .map((id) => GAME_MODES[id])
     .filter(Boolean); // Remove any undefined modes
 
-  // Debug: Log visible modes
+  // Debug logging kept commented for future lobby troubleshooting.
   useEffect(() => {
-    console.log('[LOBBY] Room type:', state.roomType);
-    console.log('[LOBBY] Visible mode count:', visibleModes.length);
-    console.log('[LOBBY] Modes:', visibleModes.map(m => m?.title));
-  }, [state.roomType, visibleModes.length]);
+    // console.log('[LOBBY] Room type:', state.roomType);
+    // console.log('[LOBBY] Visible mode count:', visibleModes.length);
+    // console.log('[LOBBY] Modes:', visibleModes.map(m => m?.title));
+  }, [state.roomType, visibleModes]);
 
   const handleRoomTypeChange = (roomType: RoomType) => {
     setState({
@@ -121,38 +122,43 @@ export const GameLobby: React.FC = () => {
     return "Create Public Room";
   };
 
-  const handleStart = () => {
+  const buildConfig = (overrides?: Partial<LobbyState>) => {
+    const nextState = { ...state, ...overrides };
+    const selectedModeObj = nextState.selectedMode ? GAME_MODES[nextState.selectedMode] : undefined;
+    const actualModeId = selectedModeObj?.id || nextState.selectedMode;
+
+    return {
+      username,
+      gameMode: actualModeId,
+      rounds: selectedRounds,
+      roomType: nextState.roomType.toUpperCase() as "SINGLE" | "PRIVATE" | "PUBLIC",
+      roomCode: nextState.roomCode || undefined,
+      timeout: selectedTimeout,
+    };
+  };
+
+  const handleStart = (overrides?: Partial<LobbyState>) => {
+    const nextState = { ...state, ...overrides };
+
     // Validation: Must have mode selected OR joining private room with code
-    if (!state.selectedMode && !(state.roomType === 'private' && state.roomCode)) return;
+    if (!nextState.selectedMode) return;
 
     // Validation: Private and Public rooms require at least 2 players (can't be solo)
-    if ((state.roomType === 'private' || state.roomType === 'public') && !state.roomCode) {
+    if ((nextState.roomType === 'private' || nextState.roomType === 'public') && !nextState.roomCode) {
       // Creating new private/public room - this is fine, others will join
     }
 
     // Clear any existing room data for single player mode to prevent conflicts
-    if (state.roomType === 'single') {
+    if (nextState.roomType === 'single') {
       sessionStorage.removeItem('currentRoomCode');
       sessionStorage.removeItem('gameMode');
       sessionStorage.removeItem('roomType');
       sessionStorage.removeItem('rounds');
     }
-
-    // Get the actual mode ID from GAME_MODES (not the key)
-    const selectedModeObj = GAME_MODES[state.selectedMode];
-    const actualModeId = selectedModeObj?.id || state.selectedMode;
-
-    const config = {
-      username,
-      gameMode: actualModeId, // Use the actual mode.id, not the key
-      rounds: selectedRounds,
-      roomType: state.roomType.toUpperCase() as "SINGLE" | "PRIVATE" | "PUBLIC",
-      roomCode: state.roomCode || undefined,
-      timeout: selectedTimeout,
-    };
+    const config = buildConfig(overrides);
 
     // Navigate to waiting room for multiplayer, directly to game for single player
-    if (state.roomType === "single") {
+    if (nextState.roomType === "single") {
       navigate("/game", { state: config });
     } else {
       // All multiplayer goes to waiting room
@@ -242,25 +248,22 @@ export const GameLobby: React.FC = () => {
                   />
                 )}
 
-                {/* Only show mode selector if not joining existing private room */}
-                {!(state.roomType === 'private' && state.roomCode.length >= 6) && (
-                  <ModeCarousel
-                    modes={visibleModes}
-                    selectedMode={state.selectedMode}
-                    onSelect={handleModeSelect}
-                  />
-                )}
+                <ModeCarousel
+                  modes={visibleModes}
+                  selectedMode={state.selectedMode}
+                  onSelect={handleModeSelect}
+                />
 
                 <Button
                   className="w-full h-9 sm:h-10 md:h-11 text-sm sm:text-base font-semibold"
                   onClick={handleStart}
-                  disabled={!state.selectedMode && !(state.roomType === 'private' && state.roomCode.length >= 6)}
+                  disabled={!state.selectedMode}
                   size="lg"
                 >
                   {getCtaLabel()}
                 </Button>
 
-                {!state.selectedMode && !(state.roomType === 'private' && state.roomCode) && (
+                {!state.selectedMode && (
                   <p className="text-center text-xs sm:text-sm text-muted-foreground">
                     Select a game mode to continue
                   </p>
@@ -321,7 +324,7 @@ export const GameLobby: React.FC = () => {
                               <span className="text-[10px] sm:text-xs bg-primary/20 text-primary px-1.5 sm:px-2 py-0.5 rounded">
                                 {GAME_MODES[room.mode]?.title || room.mode}
                               </span>
-                              {(room as any).status === 'in_progress' && (
+                              {room.status === 'in_progress' && (
                                 <span className="text-[10px] sm:text-xs bg-orange-500/20 text-orange-500 px-1.5 py-0.5 rounded">
                                   Live
                                 </span>
@@ -333,7 +336,7 @@ export const GameLobby: React.FC = () => {
                               {room.players}/{room.maxPlayers} players
                             </span>
                             <div className="flex gap-1">
-                              {(room as any).status === 'in_progress' && (
+                              {room.status === 'in_progress' && (
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -352,8 +355,11 @@ export const GameLobby: React.FC = () => {
                                   variant="outline"
                                   className="h-6 sm:h-7 px-2 text-xs"
                                   onClick={() => {
-                                    setState(prev => ({ ...prev, roomCode: room.id, selectedMode: room.mode }));
-                                    setTimeout(() => handleStart(), 0);
+                                    handleStart({
+                                      roomType: 'public',
+                                      roomCode: room.id,
+                                      selectedMode: room.mode,
+                                    });
                                   }}
                                 >
                                   <Play className="w-3 h-3 mr-0.5" />
@@ -387,11 +393,11 @@ export const GameLobby: React.FC = () => {
           open={showRoundsModal}
           onClose={() => setShowRoundsModal(false)}
           onSelectRounds={(rounds) => {
-            console.log('[LOBBY] Selected rounds:', rounds);
+            // console.log('[LOBBY] Selected rounds:', rounds);
             setSelectedRounds(rounds);
           }}
           onSelectTimeout={(timeout) => {
-            console.log('[LOBBY] Selected timeout:', timeout);
+            // console.log('[LOBBY] Selected timeout:', timeout);
             setSelectedTimeout(timeout);
           }}
           isLoggedIn={isLoggedIn}

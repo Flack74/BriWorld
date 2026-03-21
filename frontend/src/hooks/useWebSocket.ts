@@ -2,11 +2,54 @@ import { useState, useEffect, useRef } from "react";
 import {
   WebSocketMessage,
   GameState,
+  GameStateSnapshot,
   RoomUpdate,
   ChatMessage,
   GameConfig,
 } from "@/types/game";
 import type { WebSocketOutgoingMessage } from "@/types/ws";
+
+function buildWebSocketUrl(params: {
+  roomCode: string;
+  username: string;
+  sessionId: string;
+  gameMode: GameConfig["gameMode"];
+  roomType: "SINGLE" | "PRIVATE" | "PUBLIC";
+  rounds: number;
+  timeout: number;
+  token: string;
+}): string {
+  const explicitWsUrl = import.meta.env.VITE_WS_URL;
+  const apiBase = import.meta.env.VITE_API_URL;
+
+  let baseUrl: URL;
+
+  if (explicitWsUrl) {
+    baseUrl = new URL(explicitWsUrl, window.location.origin);
+  } else if (apiBase) {
+    const apiUrl = new URL(apiBase, window.location.origin);
+    apiUrl.protocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
+    apiUrl.pathname = "/ws";
+    apiUrl.search = "";
+    baseUrl = apiUrl;
+  } else {
+    const fallback = new URL(window.location.origin);
+    fallback.protocol = fallback.protocol === "https:" ? "wss:" : "ws:";
+    fallback.pathname = "/ws";
+    baseUrl = fallback;
+  }
+
+  baseUrl.searchParams.set("room", params.roomCode);
+  baseUrl.searchParams.set("username", params.username);
+  baseUrl.searchParams.set("session", params.sessionId);
+  baseUrl.searchParams.set("mode", params.gameMode);
+  baseUrl.searchParams.set("type", params.roomType);
+  baseUrl.searchParams.set("rounds", String(params.rounds));
+  baseUrl.searchParams.set("timeout", String(params.timeout));
+  baseUrl.searchParams.set("token", params.token);
+
+  return baseUrl.toString();
+}
 
 interface UseWebSocketProps {
   roomCode: string;
@@ -43,6 +86,25 @@ export const useWebSocket = (
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
 
+  const applySnapshot = (snapshot: GameStateSnapshot) => {
+    setGameState(snapshot as GameState);
+    setRoomUpdate({
+      players: snapshot.players || Object.keys(snapshot.scores || {}),
+      current_count:
+        snapshot.current_count ??
+        snapshot.players?.length ??
+        Object.keys(snapshot.scores || {}).length,
+      status: snapshot.status,
+      current_round: snapshot.current_round,
+      owner: snapshot.owner,
+      game_mode: snapshot.game_mode,
+      map_mode: snapshot.map_mode,
+      player_colors: snapshot.player_colors,
+      player_avatars: snapshot.player_avatars,
+      team_battle: snapshot.team_battle,
+    });
+  };
+
   const roomCode = props?.roomCode;
   const username = props?.username;
   const gameMode = props?.gameMode;
@@ -53,15 +115,6 @@ export const useWebSocket = (
   useEffect(() => {
     if (!roomCode || !username || !gameMode || !roomType) return;
 
-    // 🔒 Prevent duplicate socket connections (CRITICAL FIX)
-    if (
-      wsRef.current &&
-      (wsRef.current.readyState === WebSocket.OPEN ||
-        wsRef.current.readyState === WebSocket.CONNECTING)
-    ) {
-      return;
-    }
-
     let sessionId = sessionStorage.getItem("sessionId");
     if (!sessionId) {
       sessionId = generateSessionId();
@@ -69,77 +122,67 @@ export const useWebSocket = (
     }
 
     const token = localStorage.getItem("token") || "";
-    let wsUrl = import.meta.env.VITE_WS_URL || "";
-    
-    if (wsUrl) {
-      wsUrl = `${wsUrl}?room=${encodeURIComponent(roomCode)}&username=${encodeURIComponent(username)}&session=${encodeURIComponent(sessionId)}&mode=${gameMode}&type=${roomType}&rounds=${rounds}&timeout=${timeout}&token=${encodeURIComponent(token)}`;
-    } else {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.host;
-      wsUrl = `${protocol}//${host}/ws?room=${encodeURIComponent(roomCode)}&username=${encodeURIComponent(username)}&session=${encodeURIComponent(sessionId)}&mode=${gameMode}&type=${roomType}&rounds=${rounds}&timeout=${timeout}&token=${encodeURIComponent(token)}`;
-    };
+    const wsUrl = buildWebSocketUrl({
+      roomCode,
+      username,
+      sessionId,
+      gameMode,
+      roomType,
+      rounds,
+      timeout,
+      token,
+    });
 
-    const websocket = new WebSocket(wsUrl);
-    wsRef.current = websocket;
+    let websocket: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectAttempts = 0;
+    let cancelled = false;
 
-    websocket.onopen = () => {
-      setIsConnected(true);
-      setWs(websocket);
-    };
+    const connect = () => {
+      if (cancelled) return;
 
-    websocket.onmessage = (event) => {
-      try {
-        const message: WebSocketMessage = JSON.parse(event.data);
+      websocket = new WebSocket(wsUrl);
+      wsRef.current = websocket;
 
-        switch (message.type) {
+      websocket.onopen = () => {
+        reconnectAttempts = 0;
+        setIsConnected(true);
+        setWs(websocket);
+      };
+
+      websocket.onmessage = (event) => {
+        try {
+          const message: WebSocketMessage = JSON.parse(event.data);
+
+          switch (message.type) {
           // 🔥 CRITICAL: Handle authoritative snapshot (fixes desync & blank UI)
           case "state_snapshot": {
-            const snapshot = message.payload as GameState;
-            setGameState(snapshot);
-
-            setRoomUpdate({
-              players: Object.keys(snapshot.scores || {}),
-              current_count: Object.keys(snapshot.scores || {}).length,
-              status: snapshot.status,
-              current_round: snapshot.current_round,
-              owner: (snapshot as unknown as { owner?: string }).owner,
-              game_mode: snapshot.game_mode,
-              map_mode: (snapshot as unknown as { map_play_mode?: string })
-                .map_play_mode,
-              player_colors: snapshot.player_colors,
-              player_avatars: undefined,
-              team_battle: snapshot.team_battle,
-            });
+            applySnapshot(message.payload as GameStateSnapshot);
             break;
           }
 
           // 🖼️ Wait for images before starting timer (fixes flag/silhouette delay)
           case "round_started": {
-            const roundState = message.payload as GameState;
+            const roundState = message.payload as GameStateSnapshot;
+            const flagCode = roundState.question?.flag_code;
 
-            const imageSrc =
-              roundState.question?.silhouette ||
-              (roundState.question?.flag_code
-                ? `/flags/${roundState.question.flag_code}.png`
-                : null);
-
-            if (imageSrc) {
+            if (flagCode) {
               const img = new Image();
-              img.src = imageSrc;
+              img.src = `/flags/${flagCode}.png`;
               img.onload = () => {
-                setGameState(roundState);
+                applySnapshot(roundState);
               };
               img.onerror = () => {
-                setGameState(roundState);
+                applySnapshot(roundState);
               };
             } else {
-              setGameState(roundState);
+              applySnapshot(roundState);
             }
             break;
           }
 
           case "game_started":
-            setGameState(message.payload as GameState);
+            applySnapshot(message.payload as GameStateSnapshot);
             break;
 
           case "start_game_error":
@@ -154,51 +197,31 @@ export const useWebSocket = (
           case "room_update": {
             const updatePayload = message.payload as RoomUpdate;
             setRoomUpdate(updatePayload);
+            setGameState((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    status: updatePayload.status ?? prev.status,
+                    current_round:
+                      updatePayload.current_round ?? prev.current_round,
+                    game_mode: updatePayload.game_mode ?? prev.game_mode,
+                    room_type:
+                      updatePayload.room_type ?? prev.room_type,
+                    map_play_mode:
+                      (updatePayload.map_mode as GameState["map_play_mode"]) ??
+                      prev.map_play_mode,
+                    player_colors:
+                      updatePayload.player_colors ?? prev.player_colors,
+                    scores: updatePayload.scores ?? prev.scores,
+                  }
+                : prev,
+            );
             break;
           }
 
           // Handle room_joined — flat payload with full room state
           case "room_joined": {
-            const payload = message.payload as {
-              players?: string[];
-              owner?: string;
-              current_count?: number;
-              status?: string;
-              game_mode?: string;
-              room_type?: string;
-              map_mode?: string;
-              player_colors?: Record<string, string>;
-              player_avatars?: Record<string, string>;
-              scores?: Record<string, number>;
-              is_owner?: boolean;
-              team_battle?: any;
-              current_round?: number;
-            };
-
-            setRoomUpdate({
-              players: payload.players || [username || ''],
-              current_count: payload.current_count || payload.players?.length || 1,
-              status: (payload.status as GameState['status']) || 'waiting',
-              current_round: payload.current_round || 0,
-              owner: payload.owner || username,
-              game_mode: payload.game_mode as GameState['game_mode'],
-              map_mode: payload.map_mode,
-              player_colors: payload.player_colors,
-              player_avatars: payload.player_avatars,
-              team_battle: payload.team_battle,
-            });
-
-            // Also set initial game state if not yet set
-            setGameState((prev) => prev ?? {
-              status: (payload.status as GameState['status']) || 'waiting',
-              current_round: payload.current_round || 0,
-              total_rounds: 10,
-              scores: payload.scores || {},
-              time_remaining: 0,
-              game_mode: payload.game_mode as GameState['game_mode'],
-              room_type: (payload.room_type as GameState['room_type']) || 'SINGLE',
-              player_colors: payload.player_colors,
-            } as GameState);
+            applySnapshot(message.payload as GameStateSnapshot);
             break;
           }
 
@@ -267,7 +290,7 @@ export const useWebSocket = (
               isSystem: false,
             };
 
-            setMessages((prev) => [chatMsg, ...prev]);
+            setMessages((prev) => [...prev, chatMsg]);
             break;
           }
 
@@ -306,31 +329,49 @@ export const useWebSocket = (
 
           default:
             break;
+          }
+        } catch (error) {
+          // Ignore parsing errors
         }
-      } catch (error) {
-        // Ignore parsing errors
-      }
+      };
+
+      websocket.onclose = () => {
+        setIsConnected(false);
+        setWs((current) => (current === websocket ? null : current));
+        if (wsRef.current === websocket) {
+          wsRef.current = null;
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        reconnectAttempts += 1;
+        const delay = Math.min(1000 * reconnectAttempts, 5000);
+        reconnectTimer = setTimeout(connect, delay);
+      };
+
+      websocket.onerror = () => {
+        setIsConnected(false);
+      };
     };
 
-    websocket.onclose = (event) => {
-      setIsConnected(false);
-      setWs(null);
-      wsRef.current = null;
-    };
-
-    websocket.onerror = (error) => {
-      setIsConnected(false);
-    };
+    connect();
 
     return () => {
+      cancelled = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
       if (
-        websocket.readyState === WebSocket.OPEN ||
-        websocket.readyState === WebSocket.CONNECTING
+        websocket &&
+        (websocket.readyState === WebSocket.OPEN ||
+          websocket.readyState === WebSocket.CONNECTING)
       ) {
         websocket.close();
       }
     };
-  }, [roomCode, username]); // 🔥 STABLE deps (fixes desync & reconnect loops)
+  }, [roomCode, username, gameMode, roomType, rounds, timeout]);
 
   const sendMessage = (message: WebSocketOutgoingMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -379,10 +420,10 @@ export const useWebSocket = (
 
   const sendPaintCountry = (countryCode: string) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) {
-      console.warn('[WebSocket] Cannot paint - connection not open:', wsRef.current?.readyState);
+      // console.warn('[WebSocket] Cannot paint - connection not open:', wsRef.current?.readyState);
       return;
     }
-    console.log('[WebSocket] Sending paint_country:', countryCode);
+    // console.log('[WebSocket] Sending paint_country:', countryCode);
     sendMessage({
       type: "paint_country",
       payload: { country_code: countryCode },

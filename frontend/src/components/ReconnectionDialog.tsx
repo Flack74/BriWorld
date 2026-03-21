@@ -38,22 +38,17 @@ export const ReconnectionDialog = ({ isReconnecting, onReconnected }: Reconnecti
           <AlertDialogTitle>
             {isReconnecting ? 'Reconnecting...' : 'Reconnected!'}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-foreground/80">
+          <div className="flex items-center justify-center gap-2 my-4">
             {isReconnecting ? (
-              <>
-                <div className="flex items-center justify-center gap-2 my-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-                Restoring your game session...
-              </>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             ) : (
-              <>
-                <div className="flex items-center justify-center gap-2 my-4">
-                  <span className="text-4xl">✅</span>
-                </div>
-                Your game has been restored successfully!
-              </>
+              <span className="text-4xl">✅</span>
             )}
+          </div>
+          <AlertDialogDescription className="text-foreground/80">
+            {isReconnecting
+              ? 'Restoring your game session...'
+              : 'Your game has been restored successfully!'}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {!isReconnecting && (

@@ -44,8 +44,9 @@ func (r *Room) StartGame(username string) {
 
 	r.mu.Unlock()
 
-	// Send game_started immediately in background
-	go r.BroadcastMessage("game_started", r.GameState)
+	// Send an authoritative state immediately before the first round starts.
+	go r.BroadcastMessage("game_started", r.BuildStatePayload())
+	go r.BroadcastStateSnapshot()
 	// Start first round in background
 	go r.StartRound()
 }
@@ -68,12 +69,13 @@ func (r *Room) StartRound() {
 		r.GameState.TimeRemaining = 0
 		r.mu.Unlock()
 		log.Printf("World Map mode started in room %s", r.ID)
-		r.BroadcastMessage("round_started", r.GameState)
+		r.BroadcastMessage("round_started", r.BuildStatePayload())
+		r.BroadcastStateSnapshot()
 		return
 	}
 
 	// Generate question for other modes
-	question, err := game.GenerateQuestion(r.GameState.GameMode, r.GameState.UsedCountries)
+	question, err := game.Data.GenerateQuestion(r.GameState.GameMode, r.GameState.UsedCountries)
 	if err != nil {
 		log.Printf("Error generating question for room %s: %v", r.ID, err)
 		r.mu.Unlock()
@@ -93,7 +95,8 @@ func (r *Room) StartRound() {
 	log.Printf("Round %d started in room %s: %s",
 		r.GameState.CurrentRound, r.ID, question.CountryName)
 
-	r.BroadcastMessage("round_started", r.GameState)
+	r.BroadcastMessage("round_started", r.BuildStatePayload())
+	r.BroadcastStateSnapshot()
 
 	// Start countdown timer if timed mode
 	if timeLimit > 0 {
@@ -155,9 +158,14 @@ func (r *Room) EndRound() {
 	}
 
 	r.GameState.RoundActive = false
-	correctAnswer := r.GameState.Question.CountryName
+	correctAnswer := ""
+	if r.GameState.Question != nil {
+		correctAnswer = r.GameState.Question.CountryName
+	}
 	currentRound := r.GameState.CurrentRound
 	totalRounds := r.GameState.TotalRounds
+	gameMode := r.GameState.GameMode
+	scores := cloneStringIntMap(r.GameState.Scores)
 
 	r.mu.Unlock()
 
@@ -173,17 +181,18 @@ func (r *Room) EndRound() {
 	// Broadcast round results
 	r.BroadcastMessage("round_ended", map[string]interface{}{
 		"correct_answer": correctAnswer,
-		"scores":         r.GameState.Scores,
+		"scores":         scores,
 	})
+	r.BroadcastStateSnapshot()
 
 	// Handle LAST_STANDING elimination
-	if r.GameState.GameMode == "LAST_STANDING" {
+	if gameMode == "LAST_STANDING" {
 		// Mark players who didn't answer correctly as eliminated
 		r.mu.Lock()
 		if r.GameState.EliminatedPlayers == nil {
 			r.GameState.EliminatedPlayers = make(map[string]bool)
 		}
-		
+
 		for username := range r.GameState.Scores {
 			// Skip already eliminated players
 			if r.GameState.EliminatedPlayers[username] {
@@ -195,7 +204,7 @@ func (r *Room) EndRound() {
 				log.Printf("Player %s eliminated in room %s (no correct answer)", username, r.ID)
 			}
 		}
-		
+
 		// Count active players
 		activePlayers := 0
 		for username := range r.GameState.Scores {
@@ -204,7 +213,7 @@ func (r *Room) EndRound() {
 			}
 		}
 		r.mu.Unlock()
-		
+
 		r.handleLastStandingElimination()
 
 		// End game if 1 or 0 players remain
@@ -213,7 +222,7 @@ func (r *Room) EndRound() {
 			r.EndGame()
 			return
 		}
-		
+
 		// Continue to next round if multiple players remain
 		time.Sleep(2 * time.Second)
 		r.StartRound()
@@ -251,8 +260,6 @@ func (r *Room) EndGame() {
 	go r.UpdatePlayerStats(scores)
 
 	// Broadcast game completion
-	r.BroadcastMessage("game_completed", map[string]interface{}{
-		"final_scores": scores,
-	})
+	r.BroadcastMessage("game_completed", r.BuildStatePayload())
+	r.BroadcastStateSnapshot()
 }
-

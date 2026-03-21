@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
+import { GameState, RoomUpdate } from "@/types/game";
 
 interface UseGameAutoStartProps {
   isConnected: boolean;
-  gameState: any;
-  roomUpdate: any;
+  gameState: GameState | null;
+  roomUpdate: RoomUpdate | null;
   gameMode: string;
   roomType: string;
   username: string;
@@ -42,7 +43,7 @@ export const useGameAutoStart = ({
       !autoStartedRef.current &&
       status === "waiting"
     ) {
-      console.log("[AUTO-START] Triggering game start for", gameMode);
+      // console.log("[AUTO-START] Triggering game start for", gameMode);
       autoStartedRef.current = true;
       // Small delay to ensure connection is stable
       setTimeout(() => {

@@ -46,7 +46,7 @@ export default function Emoji() {
       setStartTime(Date.now());
       setGuess("");
     }
-  }, [wsGameState?.question, wsGameState?.current_round]);
+  }, [wsGameState?.question, wsGameState?.current_round, wsGameState?.status]);
 
   const handleStart = () => {
     startGame();
@@ -273,12 +273,12 @@ export default function Emoji() {
               </div>
             </div>
 
-            <div className="glass-panel p-8 md:p-12 text-center">
-              <div className="flex justify-center gap-1.5 sm:gap-2 mb-6">
+            <div className="glass-panel p-4 sm:p-6 md:p-12 text-center overflow-hidden">
+              <div className="flex flex-wrap justify-center items-center gap-1 sm:gap-1.5 md:gap-2 mb-5 sm:mb-6 max-w-full mx-auto">
                 {emojis.map((emoji, i) => (
                   <span
                     key={i}
-                    className="text-2xl sm:text-3xl md:text-4xl transition-all duration-500 opacity-100 scale-100"
+                    className="inline-flex items-center justify-center min-w-[1.75rem] sm:min-w-[2.1rem] md:min-w-[2.6rem] text-[1.25rem] leading-none sm:text-[1.6rem] md:text-[2.1rem] transition-all duration-500 opacity-100 scale-100"
                     style={{
                       animationDelay: `${i * 150}ms`,
                       animation: "bounce 1s ease-in-out",
@@ -295,7 +295,7 @@ export default function Emoji() {
                   value={guess}
                   onChange={(e) => setGuess(e.target.value)}
                   placeholder="Type country name..."
-                  className="flex-1 text-center text-lg py-6"
+                  className="flex-1 text-center text-base sm:text-lg py-5 sm:py-6"
                   onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
                   autoFocus
                 />

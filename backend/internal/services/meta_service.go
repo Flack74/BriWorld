@@ -30,7 +30,8 @@ func (s *MetaService) GetTodayChallenge() (*models.DailyChallenge, error) {
 }
 
 func (s *MetaService) GenerateDailyChallenge(date time.Time) (*models.DailyChallenge, error) {
-	modes := []string{"FLAG", "WORLD_MAP", "CAPITAL_RUSH", "SILHOUETTE", "EMOJI", "TEAM_BATTLE"}
+	// Emoji mode is intentionally disabled for now, but the implementation stays in the codebase.
+	modes := []string{"FLAG", "WORLD_MAP", "CAPITAL_RUSH", "SILHOUETTE", "TEAM_BATTLE"}
 	difficulties := []string{"EASY", "MEDIUM", "HARD"}
 	
 	challenge := &models.DailyChallenge{

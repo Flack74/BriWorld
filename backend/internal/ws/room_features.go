@@ -56,6 +56,22 @@ func (r *Room) SetPlayerColor(client *Client, payload interface{}) {
 
 	log.Printf("Player %s selected color %s in room %s", client.Username, colorData.Color, r.ID)
 	r.BroadcastRoomUpdate()
+	r.BroadcastStateSnapshot()
+}
+
+func (r *Room) SetMapMode(client *Client, payload interface{}) {
+	data, _ := json.Marshal(payload)
+	var mapModeData struct {
+		Mode string `json:"mode"`
+	}
+	json.Unmarshal(data, &mapModeData)
+
+	r.mu.Lock()
+	r.GameState.MapMode = mapModeData.Mode
+	r.mu.Unlock()
+
+	r.BroadcastRoomUpdate()
+	r.BroadcastStateSnapshot()
 }
 
 // BroadcastChatMessage handles chat messages and emoji reactions.
@@ -197,6 +213,7 @@ func (r *Room) AcceptPromotion(client *Client) {
 		"message": "You are now a player",
 	})
 	r.BroadcastRoomUpdate()
+	r.BroadcastStateSnapshot()
 }
 
 // ToggleSpectator allows a player to switch to spectator mode.
@@ -226,4 +243,5 @@ func (r *Room) ToggleSpectator(client *Client) {
 		"message": "You are now a spectator",
 	})
 	r.BroadcastRoomUpdate()
+	r.BroadcastStateSnapshot()
 }

@@ -1,11 +1,12 @@
 import { useMemo, useState, useEffect } from 'react';
 import AudioManager from '@/lib/audioManager';
+import { ChatMessage, GameChatMessage, GameState, RoomUpdate } from '@/types/game';
 
 interface UseChatMessagesProps {
-  messages: any[];
+  messages: ChatMessage[];
   username: string;
-  gameState: any;
-  roomUpdate: any;
+  gameState: GameState | null;
+  roomUpdate: RoomUpdate | null;
   playerAvatars: Record<string, string>;
 }
 
@@ -35,7 +36,7 @@ export const useChatMessages = ({
   }, [messages, username, notifiedMessages]);
 
   // Transform messages for GameChat
-  const chatMessages = useMemo(() => {
+  const chatMessages = useMemo<GameChatMessage[]>(() => {
     return messages.map(msg => ({
       id: msg.id,
       sender: msg.sender,

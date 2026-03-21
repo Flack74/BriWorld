@@ -2,8 +2,8 @@ package ws
 
 import (
 	"briworld/internal/game"
-	"briworld/internal/utils"
 	redisClient "briworld/internal/redis"
+	"briworld/internal/utils"
 	"context"
 	"encoding/json"
 	"log"
@@ -24,6 +24,11 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 		return
 	}
 
+	if r.GameState.Question == nil {
+		r.mu.Unlock()
+		return
+	}
+
 	data, _ := json.Marshal(payload)
 	var answerData struct {
 		Answer string `json:"answer"`
@@ -40,7 +45,7 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 	isCorrect := utils.FuzzyMatch(answer, correctAnswer, 2)
 
 	r.mu.Lock()
-	
+
 	// If wrong answer, just ignore it and let player keep trying
 	if !isCorrect {
 		r.mu.Unlock()
@@ -68,7 +73,8 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 
 	r.GameState.Scores[client.Username] += pointsEarned
 	currentScore := r.GameState.Scores[client.Username]
-	
+	scores := cloneStringIntMap(r.GameState.Scores)
+
 	log.Printf("Player %s answered correctly in room %s (+%d points)",
 		client.Username, r.ID, pointsEarned)
 
@@ -86,15 +92,16 @@ func (r *Room) HandleAnswer(client *Client, payload interface{}) {
 	r.BroadcastMessage("score_update", map[string]interface{}{
 		"username": client.Username,
 		"score":    currentScore,
-		"scores":   r.GameState.Scores,
+		"scores":   scores,
 	})
+	r.BroadcastStateSnapshot()
 
 	// For FLAG and LAST_STANDING, end round immediately after correct answer
 	r.mu.RLock()
 	gameMode := r.GameState.GameMode
 	roomType := r.GameState.RoomType
 	r.mu.RUnlock()
-	
+
 	// FLAG_QUIZ is an alias for FLAG mode
 	if gameMode == "FLAG" || gameMode == "FLAG_QUIZ" {
 		log.Printf("Correct answer submitted in room %s by %s, ending round", r.ID, client.Username)
@@ -117,9 +124,9 @@ func (r *Room) HandleMapPaint(client *Client, payload interface{}) {
 	}
 
 	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	if r.GameState.GameMode != "WORLD_MAP" {
+		r.mu.Unlock()
 		return
 	}
 
@@ -130,15 +137,16 @@ func (r *Room) HandleMapPaint(client *Client, payload interface{}) {
 	json.Unmarshal(data, &paintData)
 
 	input := strings.TrimSpace(paintData.CountryCode)
-	
+
 	// Try to find country by name first
-	countryCode, countryName := game.FindCountryByName(input)
+	countryCode, countryName := game.Data.FindCountryByName(input)
 	if countryCode == "" {
 		// If not found by name, try as code
 		countryCode = strings.ToUpper(input)
-		countryName = game.GetCountryName(countryCode)
+		countryName = game.Data.GetCountryName(countryCode)
 		// If still not found, reject
 		if countryName == "" {
+			r.mu.Unlock()
 			r.SendToClient(client, "paint_rejected", map[string]interface{}{
 				"error": "Country not found",
 			})
@@ -148,6 +156,7 @@ func (r *Room) HandleMapPaint(client *Client, payload interface{}) {
 
 	// Check if already painted
 	if _, painted := r.GameState.PaintedCountries[countryCode]; painted {
+		r.mu.Unlock()
 		r.SendToClient(client, "paint_rejected", map[string]interface{}{
 			"error": "Country already painted",
 		})
@@ -166,13 +175,19 @@ func (r *Room) HandleMapPaint(client *Client, payload interface{}) {
 		redisClient.PaintCountry(ctx, r.ID, countryCode, client.Username)
 	}
 
+	paintedCountries := cloneStringStringMap(r.GameState.PaintedCountries)
+	playerColors := cloneStringStringMap(r.GameState.PlayerColors)
+	scores := cloneStringIntMap(r.GameState.Scores)
+	r.mu.Unlock()
+
 	// Broadcast paint event
 	r.BroadcastMessage("country_painted", map[string]interface{}{
 		"country_code":      countryCode,
 		"country_name":      countryName,
 		"player":            client.Username,
-		"painted_countries": r.GameState.PaintedCountries,
-		"player_colors":     r.GameState.PlayerColors,
-		"scores":            r.GameState.Scores,
+		"painted_countries": paintedCountries,
+		"player_colors":     playerColors,
+		"scores":            scores,
 	})
+	r.BroadcastStateSnapshot()
 }

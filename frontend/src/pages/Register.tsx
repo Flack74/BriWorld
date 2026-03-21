@@ -26,8 +26,9 @@ const Register = () => {
       await api.register(username, email, password);
       toast({ title: "Registration successful!", description: "Please log in with your credentials." });
       navigate("/login");
-    } catch (error: any) {
-      toast({ title: "Registration failed", description: error.message || "Registration failed", variant: "destructive" });
+    } catch (error: unknown) {
+      const description = error instanceof Error ? error.message : "Registration failed";
+      toast({ title: "Registration failed", description, variant: "destructive" });
     } finally {
       setLoading(false);
     }

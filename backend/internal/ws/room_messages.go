@@ -16,6 +16,9 @@ func (r *Room) HandleMessage(client *Client, msg *Message) {
 	case "paint_country":
 		r.HandleMapPaint(client, msg.Payload)
 
+	case "set_map_mode":
+		r.SetMapMode(client, msg.Payload)
+
 	case "set_color":
 		r.SetPlayerColor(client, msg.Payload)
 

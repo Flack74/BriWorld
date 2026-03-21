@@ -27,14 +27,40 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { WorldMapLayout } from "@/components/WorldMapLayout";
 import { QuizModeLayout } from "@/components/QuizModeLayout";
 import { GameConfig } from "@/types/game";
+import { getOrCreateGuestUsername } from "@/lib/guestUsername";
 
 const API_BASE = import.meta.env.VITE_API_URL;
+
+const getStoredConfig = (): GameConfig | null => {
+  const gameMode = sessionStorage.getItem("gameMode");
+  const roomType = sessionStorage.getItem("roomType");
+  const roomCode = sessionStorage.getItem("currentRoomCode") || undefined;
+  const rounds = Number(sessionStorage.getItem("rounds") || 10);
+  const timeout = Number(sessionStorage.getItem("timeout") || 15);
+  const username =
+    sessionStorage.getItem("username") ||
+    localStorage.getItem("username") ||
+    getOrCreateGuestUsername();
+
+  if (!gameMode || !roomType || !username) {
+    return null;
+  }
+
+  return {
+    username,
+    gameMode: gameMode as GameConfig["gameMode"],
+    roomType: roomType as GameConfig["roomType"],
+    roomCode,
+    rounds,
+    timeout,
+  };
+};
 
 const Game = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const config = location.state as GameConfig | null;
+  const config = (location.state as GameConfig | null) || getStoredConfig();
 
   useEffect(() => {
     if (!config) {
@@ -45,9 +71,11 @@ const Game = () => {
 
   useEffect(() => {
     if (!config) return;
+    sessionStorage.setItem("username", config.username);
     sessionStorage.setItem("gameMode", config.gameMode);
     sessionStorage.setItem("roomType", config.roomType);
     sessionStorage.setItem("rounds", config.rounds?.toString() || "10");
+    sessionStorage.setItem("timeout", config.timeout?.toString() || "15");
   }, [config]);
 
   // Initialize audio manager

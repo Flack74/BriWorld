@@ -9,6 +9,12 @@ import { useToast } from "@/hooks/use-toast";
 import { BackgroundLayout } from "@/components/BackgroundLayout";
 import { api } from "@/lib/api";
 
+interface LoginResponse {
+  access_token: string;
+  user: {
+    username: string;
+  };
+}
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -22,13 +28,14 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const data: any = await api.login(email, password);
+      const data = await api.login(email, password) as LoginResponse;
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("username", data.user.username);
       toast({ title: "Login successful!", description: "Welcome back!" });
       navigate("/lobby");
-    } catch (error: any) {
-      toast({ title: "Login failed", description: error.message || "Invalid credentials", variant: "destructive" });
+    } catch (error: unknown) {
+      const description = error instanceof Error ? error.message : "Invalid credentials";
+      toast({ title: "Login failed", description, variant: "destructive" });
     } finally {
       setLoading(false);
     }

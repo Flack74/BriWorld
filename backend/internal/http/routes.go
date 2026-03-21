@@ -54,6 +54,8 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config, m 
 		})
 	})
 
+	api.Get("/emoji/clues", handlers.GetEmojiCluesHandler)
+
 	auth := api.Group("/auth")
 	auth.Use(limiter.New(limiter.Config{
 		Max:        10,

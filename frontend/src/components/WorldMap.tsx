@@ -4,6 +4,12 @@ import { useState, useRef, useEffect } from "react";
 import * as d3 from 'd3';
 import { feature } from 'topojson-client';
 
+type WorldAtlasFeature = GeoJSON.Feature<GeoJSON.Geometry, GeoJSON.GeoJsonProperties> & {
+  id?: string | number;
+};
+
+type WorldAtlasCollection = GeoJSON.FeatureCollection<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>;
+
 interface RecentGuess {
   country: string;
   correct: boolean;
@@ -60,8 +66,8 @@ export const WorldMap = ({
       .then(res => {
         return res.json();
       })
-      .then(topology => {
-        const countries = feature(topology, topology.objects.countries);
+      .then((topology: { objects: { countries: unknown } }) => {
+        const countries = feature(topology as never, topology.objects.countries as never) as WorldAtlasCollection;
         
         const width = 960;
         const height = 700;
@@ -89,7 +95,7 @@ export const WorldMap = ({
           .enter()
           .append('path')
           .attr('d', path)
-          .attr('id', (d: any) => d.id)
+          .attr('id', (d) => String((d as WorldAtlasFeature).id ?? ''))
           .attr('fill', '#ececec')
           .attr('stroke', '#333')
           .attr('stroke-width', 0.5);
@@ -107,10 +113,10 @@ export const WorldMap = ({
       return;
     }
 
-    console.log('[WorldMap] Updating painted countries:', Object.keys(paintedCountries).length, 'countries');
-    console.log('[WorldMap] Player colors:', playerColors);
+    // console.log('[WorldMap] Updating painted countries:', Object.keys(paintedCountries).length, 'countries');
+    // console.log('[WorldMap] Player colors:', playerColors);
 
-    const countryMap: any = {
+    const countryMap: Record<string, string> = {
       'AF': '004', 'AL': '008', 'DZ': '012', 'AD': '020', 'AO': '024', 'AG': '028', 'AR': '032', 'AM': '051',
       'AU': '036', 'AT': '040', 'AZ': '031', 'BS': '044', 'BH': '048', 'BD': '050', 'BB': '052', 'BY': '112',
       'BE': '056', 'BZ': '084', 'BJ': '204', 'BT': '064', 'BO': '068', 'BA': '070', 'BW': '072', 'BR': '076',
@@ -151,18 +157,18 @@ export const WorldMap = ({
       const playerColor = playerColors[playerName];
       if (numericId && playerColor) {
         const matchedPaths = d3.select(svg).selectAll('path')
-          .filter((d: any) => d.id === numericId);
+          .filter((d) => String((d as WorldAtlasFeature).id ?? '') === numericId);
         
         if (!matchedPaths.empty()) {
           matchedPaths
             .attr('fill', playerColor)
             .attr('opacity', 0.8);
         } else {
-          console.log('[WorldMap] No SVG path found for numeric ID:', numericId, 'code:', code);
+          // console.log('[WorldMap] No SVG path found for numeric ID:', numericId, 'code:', code);
         }
       } else {
-        if (!numericId) console.log('[WorldMap] No mapping for country code:', code);
-        if (!playerColor) console.log('[WorldMap] No color for player:', playerName);
+        // if (!numericId) console.log('[WorldMap] No mapping for country code:', code);
+        // if (!playerColor) console.log('[WorldMap] No color for player:', playerName);
       }
     });
     
@@ -172,7 +178,7 @@ export const WorldMap = ({
         const numericId = countryMap[code];
         if (numericId) {
           d3.select(svg).selectAll('path')
-            .filter((d: any) => d.id === numericId)
+            .filter((d) => String((d as WorldAtlasFeature).id ?? '') === numericId)
             .attr('fill', userColor)
             .attr('opacity', 0.8);
         }
@@ -184,7 +190,7 @@ export const WorldMap = ({
       const numericId = countryMap[currentCountry];
       if (numericId) {
         d3.select(svg).selectAll('path')
-          .filter((d: any) => d.id === numericId)
+          .filter((d) => String((d as WorldAtlasFeature).id ?? '') === numericId)
           .attr('fill', '#fbbf24')
           .attr('opacity', 1)
           .attr('stroke', '#f59e0b')

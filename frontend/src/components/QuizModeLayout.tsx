@@ -4,14 +4,16 @@ import Leaderboard from '@/components/Leaderboard';
 import GameChat from '@/components/GameChat';
 import MuteButton from '@/components/MuteButton';
 import { ModeRenderer } from '@/modes/ModeRenderer';
+import { MobileMultiplayerPanels } from '@/components/MobileMultiplayerPanels';
+import { GameChatMessage, GameState, LeaderboardPlayer } from '@/types/game';
 
 interface QuizModeLayoutProps {
   roomCode: string;
   roomType: string;
-  gameState: any;
+  gameState: GameState;
   username: string;
-  players: any[];
-  chatMessages: any[];
+  players: LeaderboardPlayer[];
+  chatMessages: GameChatMessage[];
   onLeave: () => void;
   onSubmitAnswer: (answer: string) => void;
   onSendMessage: (message: string) => void;
@@ -82,7 +84,7 @@ export const QuizModeLayout = ({
 
           {roomType !== 'SINGLE' && (
             <div className="w-80 flex-shrink-0 overflow-hidden">
-              <GameChat messages={chatMessages} onSendMessage={onSendMessage} />
+              <GameChat messages={chatMessages} onSendMessage={onSendMessage} players={players.map((player) => player.name)} />
             </div>
           )}
         </div>
@@ -100,51 +102,11 @@ export const QuizModeLayout = ({
           </div>
 
           {roomType !== 'SINGLE' && (
-            <>
-              <div className="flex-shrink-0 px-3 pb-2">
-                <div className="bg-card/50 backdrop-blur rounded-lg border border-border/30 p-2 max-h-[20vh] flex flex-col">
-                  <h3 className="text-xs font-bold mb-2 flex items-center gap-1 flex-shrink-0">
-                    <span>🏆</span> Leaderboard
-                  </h3>
-                  <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0">
-                    {players.map((player, idx) => (
-                      <div
-                        key={player.id}
-                        className="flex items-center justify-between text-xs py-1.5 px-2 rounded bg-muted/30"
-                      >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="flex-shrink-0">
-                            {idx === 0 ? '👑' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`}
-                          </span>
-                          <span className={`truncate ${player.isYou ? 'font-bold' : ''}`}>
-                            {player.name}
-                          </span>
-                        </div>
-                        <span className="font-bold flex-shrink-0 ml-2">{player.score}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-shrink-0 px-3 pb-3 h-28">
-                <div className="bg-card/50 backdrop-blur rounded-lg border border-border/30 p-2 h-full flex flex-col">
-                  <div className="flex-1 overflow-y-auto space-y-1 min-h-0 mb-1">
-                    {chatMessages.slice(-5).map((msg) => (
-                      <div key={msg.id} className="text-xs p-1.5 rounded bg-muted/20 break-words">
-                        <span className="font-semibold">{msg.sender}:</span>
-                        <span className="ml-1">{msg.text}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex-shrink-0 flex gap-1">
-                    <Button size="sm" variant="outline" className="w-full h-8 text-xs">
-                      Open Chat
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </>
+            <MobileMultiplayerPanels
+              players={players}
+              chatMessages={chatMessages}
+              onSendMessage={onSendMessage}
+            />
           )}
         </div>
       </div>

@@ -4,11 +4,37 @@ import { Button } from "@/components/ui/button";
 import { Users, Crown, Copy, Check, ChevronLeft } from "lucide-react";
 import { GameConfig, RoomUpdate } from "@/types/game";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { getOrCreateGuestUsername } from "@/lib/guestUsername";
+
+const getStoredConfig = (): GameConfig | null => {
+  const gameMode = sessionStorage.getItem("gameMode");
+  const roomType = sessionStorage.getItem("roomType");
+  const roomCode = sessionStorage.getItem("currentRoomCode") || undefined;
+  const rounds = Number(sessionStorage.getItem("rounds") || 10);
+  const timeout = Number(sessionStorage.getItem("timeout") || 15);
+  const username =
+    sessionStorage.getItem("username") ||
+    localStorage.getItem("username") ||
+    getOrCreateGuestUsername();
+
+  if (!gameMode || !roomType || !username) {
+    return null;
+  }
+
+  return {
+    username,
+    gameMode: gameMode as GameConfig["gameMode"],
+    roomType: roomType as GameConfig["roomType"],
+    roomCode,
+    rounds,
+    timeout,
+  };
+};
 
 const WaitingRoom = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const config = location.state as GameConfig | null;
+  const config = (location.state as GameConfig | null) || getStoredConfig();
 
   const [copied, setCopied] = useState(false);
   const [rounds, setRounds] = useState(10);
@@ -37,9 +63,11 @@ const WaitingRoom = () => {
   useEffect(() => {
     if (!config) return;
 
+    sessionStorage.setItem("username", config.username);
     sessionStorage.setItem("gameMode", config.gameMode);
     sessionStorage.setItem("roomType", config.roomType);
     sessionStorage.setItem("rounds", String(config.rounds ?? 10));
+    sessionStorage.setItem("timeout", String(config.timeout ?? 15));
   }, [config]);
 
   // Generate / restore room code (STABLE + MULTIPLAYER SAFE)

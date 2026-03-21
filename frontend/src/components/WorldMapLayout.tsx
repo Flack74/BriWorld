@@ -6,6 +6,8 @@ import GameChat from '@/components/GameChat';
 import CountryInput from '@/components/CountryInput';
 import MuteButton from '@/components/MuteButton';
 import { useState, useEffect } from 'react';
+import { MobileMultiplayerPanels } from '@/components/MobileMultiplayerPanels';
+import { GameChatMessage, LeaderboardPlayer } from '@/types/game';
 
 interface WorldMapLayoutProps {
   roomCode: string;
@@ -15,8 +17,8 @@ interface WorldMapLayoutProps {
   userColor: string;
   paintedCountries: Record<string, string>;
   playerColors: Record<string, string>;
-  players: any[];
-  chatMessages: any[];
+  players: LeaderboardPlayer[];
+  chatMessages: GameChatMessage[];
   lastPaintEvent?: { player: string; country: string } | null;
   onLeave: () => void;
   onSubmitAnswer: (guess: string) => void;
@@ -97,7 +99,7 @@ export const WorldMapLayout = ({
             <CountryInput onSubmit={onSubmitAnswer} />
           </div>
           <div className="w-80 overflow-hidden">
-            {roomType !== 'SINGLE' && <GameChat messages={chatMessages} onSendMessage={onSendMessage} />}
+            {roomType !== 'SINGLE' && <GameChat messages={chatMessages} onSendMessage={onSendMessage} players={players.map((player) => player.name)} />}
           </div>
         </div>
 
@@ -126,36 +128,13 @@ export const WorldMapLayout = ({
           </div>
 
           {roomType !== 'SINGLE' && (
-            <div className="flex-shrink-0 px-2 pb-2 bg-background">
-              <div className="bg-card/50 backdrop-blur rounded-lg border border-border/30 p-1.5">
-                <div className="flex gap-1">
-                  <input
-                    type="text"
-                    placeholder="Chat..."
-                    className="flex-1 text-xs px-2 py-1 rounded border border-border/30 bg-background"
-                    id="chat-input-mobile-map"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                        onSendMessage(e.currentTarget.value.trim());
-                        e.currentTarget.value = '';
-                      }
-                    }}
-                  />
-                  <button
-                    className="flex-shrink-0 px-2 py-1 bg-primary text-primary-foreground rounded text-xs font-medium"
-                    onClick={() => {
-                      const input = document.getElementById('chat-input-mobile-map') as HTMLInputElement;
-                      if (input && input.value.trim()) {
-                        onSendMessage(input.value.trim());
-                        input.value = '';
-                      }
-                    }}
-                  >
-                    Send
-                  </button>
-                </div>
-              </div>
-            </div>
+            <MobileMultiplayerPanels
+              players={players}
+              chatMessages={chatMessages}
+              onSendMessage={onSendMessage}
+              showPlayerColors={true}
+              bottomOffsetClass="bottom-24"
+            />
           )}
         </div>
       </div>

@@ -14,7 +14,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -37,12 +36,12 @@ func New() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Println("✓ Database connected")
+	log.Println("✅ Database connected")
 
 	// Migrations (skip if tables exist for faster startup)
 	var tableCount int64
 	gormDB.DB.Raw("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA() AND table_name IN ('users', 'rooms', 'game_sessions')").Scan(&tableCount)
-	
+
 	if tableCount < 3 {
 		log.Println("Running initial migrations...")
 		if err := database.MigrateMetaTables(gormDB); err != nil {
@@ -54,7 +53,7 @@ func New() (*App, error) {
 		log.Println("✓ Tables exist, skipping migrations")
 	}
 
-	// Redis (optional)
+	// Redis
 	if err := redis.InitRedis(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB, cfg.Redis.TLS); err != nil {
 		log.Printf("⚠️  Redis unavailable: %v", err)
 	} else {
@@ -79,10 +78,10 @@ func New() (*App, error) {
 	}
 
 	// Game data
-	if err := game.LoadCountries("static/world.json"); err != nil {
+	if err := game.LoadStaticData(); err != nil {
 		return nil, err
 	}
-	log.Println("✓ Countries loaded")
+	log.Println("✓ Game Data Loaded")
 
 	// Fiber app
 	app := fiber.New(fiber.Config{
@@ -92,9 +91,9 @@ func New() (*App, error) {
 
 	app.Use(recover.New())
 	app.Use(logger.New())
-	
+
 	// CORS configuration for decoupled frontend
-	allowedOrigins := getAllowedOrigins(cfg.Env)
+	allowedOrigins := getAllowedOrigins()
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     allowedOrigins,
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
@@ -133,24 +132,11 @@ func customErrorHandler(c *fiber.Ctx, err error) error {
 }
 
 // getAllowedOrigins returns CORS allowed origins based on environment
-func getAllowedOrigins(env string) string {
-	// Check for custom ALLOWED_ORIGINS env var
+func getAllowedOrigins() string {
+	// Production: Origins based on environment
 	if origins := os.Getenv("ALLOWED_ORIGINS"); origins != "" {
 		return origins
 	}
-	
-	// Default origins based on environment
-	if env == "production" {
-		// Production: Allow Vercel frontend and custom domains
-		origins := []string{
-			"https://briworld.vercel.app",
-			"https://www.briworld.com",
-			"https://briworld.com",
-			"https://bri-world.vercel.app",
-		}
-		return strings.Join(origins, ",")
-	}
-	
 	// Development: Allow localhost on common ports
-	return "http://localhost:3000,http://localhost:5173,http://localhost:8080"
+	return "http://localhost:5173"
 }

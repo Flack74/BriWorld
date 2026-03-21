@@ -13,6 +13,59 @@ interface SilhouetteModeProps {
 export function SilhouetteMode({ gameState, username, onSubmitAnswer }: SilhouetteModeProps) {
   const [answer, setAnswer] = useState('');
 
+  const renderSilhouette = () => {
+    const raw = gameState.question?.silhouette;
+    if (!raw) {
+      return null;
+    }
+
+    const matches = Array.from(
+      raw.matchAll(/(-?\d+\.?\d*),(-?\d+\.?\d*)/g),
+    );
+
+    if (matches.length === 0) {
+      return null;
+    }
+
+    const coords = matches.map((match) => ({
+      x: parseFloat(match[1]),
+      y: parseFloat(match[2]),
+    }));
+
+    const minX = Math.min(...coords.map((coord) => coord.x));
+    const maxX = Math.max(...coords.map((coord) => coord.x));
+    const minY = Math.min(...coords.map((coord) => coord.y));
+    const maxY = Math.max(...coords.map((coord) => coord.y));
+    const width = Math.max(maxX - minX, 1);
+    const height = Math.max(maxY - minY, 1);
+    const padding = 12;
+    const scale = Math.min((200 - padding * 2) / width, (180 - padding * 2) / height);
+    const offsetX = (200 - width * scale) / 2;
+    const offsetY = (180 - height * scale) / 2;
+
+    const converted = raw.replace(
+      /(-?\d+\.?\d*),(-?\d+\.?\d*)/g,
+      (_match, xStr: string, yStr: string) => {
+        const x = (parseFloat(xStr) - minX) * scale + offsetX;
+        const y = (maxY - parseFloat(yStr)) * scale + offsetY;
+
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      },
+    );
+
+    return (
+      <path
+        d={converted}
+        fill="currentColor"
+        className="text-primary"
+        stroke="currentColor"
+        strokeWidth="0.5"
+        fillRule="evenodd"
+        clipRule="evenodd"
+      />
+    );
+  };
+
   const handleSubmit = () => {
     if (!answer.trim()) return;
     onSubmitAnswer(answer);
@@ -36,13 +89,7 @@ export function SilhouetteMode({ gameState, username, onSubmitAnswer }: Silhouet
           {gameState.question.silhouette ? (
             <div className="flex items-center justify-center w-full h-52 sm:h-64">
               <svg viewBox="0 0 200 180" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-                <path
-                  d={gameState.question.silhouette}
-                  fill="currentColor"
-                  className="text-primary"
-                  stroke="currentColor"
-                  strokeWidth="0.5"
-                />
+                {renderSilhouette()}
               </svg>
             </div>
           ) : (

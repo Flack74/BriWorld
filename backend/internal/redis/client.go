@@ -14,14 +14,14 @@ var Client *redis.Client
 
 func InitRedis(addr, password string, db int, useTLS bool) error {
 	log.Printf("Initializing Redis with addr=%s, TLS=%v", addr, useTLS)
-	
+
 	var tlsConfig *tls.Config
 	if useTLS {
 		tlsConfig = &tls.Config{
 			MinVersion: tls.VersionTLS12,
 		}
 	}
-	
+
 	Client = redis.NewClient(&redis.Options{
 		Addr:         addr,
 		Password:     password,
@@ -42,8 +42,6 @@ func InitRedis(addr, password string, db int, useTLS bool) error {
 	if err := Client.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("redis connection failed: %w", err)
 	}
-
-	log.Println("✅ Redis connected")
 	return nil
 }
 

@@ -1,140 +1,212 @@
 #!/usr/bin/env python3
 """
-Generate country silhouettes from Natural Earth TopoJSON
-Outputs Go code for silhouette_data.go
+Generate country silhouettes from world-atlas TopoJSON.
+
+Outputs:
+- backend/static/silhouettes.json for runtime loading
+- backend/internal/game/silhouette_data.go as a compiled fallback
 """
 
+from __future__ import annotations
+
 import json
+import math
+import re
 import urllib.request
 from pathlib import Path
 
-# Natural Earth TopoJSON URL
-TOPO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
+TOPO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json"
+ROOT = Path(__file__).resolve().parents[1]
+WORLD_JSON = ROOT / "static" / "world.json"
+OUTPUT_JSON = ROOT / "static" / "silhouettes.json"
+OUTPUT_GO = ROOT / "internal" / "game" / "silhouette_data.go"
 
-# Country code mapping (Natural Earth ID -> ISO 3166-1 alpha-2)
-COUNTRY_CODES = {
-    "840": "US", "826": "GB", "250": "FR", "276": "DE", "392": "JP",
-    "156": "CN", "356": "IN", "076": "BR", "124": "CA", "036": "AU",
-    "484": "MX", "380": "IT", "724": "ES", "410": "KR", "643": "RU",
-    "710": "ZA", "566": "NG", "818": "EG", "554": "NZ", "702": "SG",
-    "643": "RU", "792": "TR", "392": "JP", "410": "KR", "158": "TW",
-    "360": "ID", "458": "MY", "764": "TH", "704": "VN", "608": "PH",
-    "116": "KH", "104": "MM", "887": "KP", "144": "HK", "446": "MO",
-    "586": "PK", "050": "BD", "144": "LK", "524": "NP", "004": "AF",
-    "364": "IR", "368": "IQ", "376": "IL", "400": "JO", "414": "KW",
-    "422": "LB", "512": "OM", "634": "QA", "682": "SA", "784": "AE",
-    "887": "YE", "504": "MA", "504": "MA", "504": "MA", "504": "MA",
+
+def normalize_name(name: str) -> str:
+    value = name.strip().lower()
+    value = value.replace("&", "and")
+    value = re.sub(r"[\.\']", "", value)
+    value = re.sub(r"\s+", " ", value)
+    return value
+
+
+NAME_ALIASES = {
+    "united states": "united states of america",
+    "usa": "united states of america",
+    "czechia": "czech republic",
+    "bosnia and herz": "bosnia and herzegovina",
+    "dominican rep": "dominican republic",
+    "central african rep": "central african republic",
+    "dem rep congo": "democratic republic of the congo",
+    "eq guinea": "equatorial guinea",
+    "solomon is": "solomon islands",
+    "timor-leste": "timor leste",
+    "w sahara": "western sahara",
 }
 
-def simplify_path(points, tolerance=0.5):
-    """Simplify SVG path using Ramer-Douglas-Peucker algorithm"""
-    if len(points) < 3:
-        return points
-    
-    # Find point with max distance
-    dmax = 0
-    index = 0
-    for i in range(1, len(points) - 1):
-        d = point_line_distance(points[i], points[0], points[-1])
-        if d > dmax:
-            dmax = d
-            index = i
-    
-    if dmax > tolerance:
-        rec1 = simplify_path(points[:index+1], tolerance)
-        rec2 = simplify_path(points[index:], tolerance)
-        return rec1[:-1] + rec2
-    else:
-        return [points[0], points[-1]]
 
-def point_line_distance(point, line_start, line_end):
-    """Calculate perpendicular distance from point to line"""
-    px, py = point
-    x1, y1 = line_start
-    x2, y2 = line_end
-    
-    num = abs((y2-y1)*px - (x2-x1)*py + x2*y1 - y2*x1)
-    den = ((y2-y1)**2 + (x2-x1)**2)**0.5
-    return num / den if den != 0 else 0
+def build_name_index() -> dict[str, str]:
+    countries = json.loads(WORLD_JSON.read_text())
+    name_index: dict[str, str] = {}
+    for code, name in countries.items():
+        normalized = normalize_name(name)
+        name_index[normalized] = code
 
-def generate_svg_path(geometry, arcs_list, transform):
-    """Convert TopoJSON geometry to SVG path"""
-    if not geometry or "arcs" not in geometry:
-        return None
-    
-    arcs = geometry["arcs"]
+    for alias, canonical in NAME_ALIASES.items():
+        canonical_code = name_index.get(normalize_name(canonical))
+        if canonical_code:
+            name_index[normalize_name(alias)] = canonical_code
+
+    return name_index
+
+
+def decode_arc(arcs_list, arc_idx, transform):
+    reverse = arc_idx < 0
+    arc = arcs_list[~arc_idx] if reverse else arcs_list[arc_idx]
+
+    x = 0
+    y = 0
     points = []
-    
-    # Handle both single and multi-part geometries
-    arc_indices = [arcs] if not isinstance(arcs[0], list) else arcs
-    
-    for arc_group in arc_indices:
-        indices = arc_group if isinstance(arc_group, list) else [arc_group]
-        for arc_idx in indices:
-            if isinstance(arc_idx, list):
-                continue
-            arc = arcs_list[~arc_idx] if arc_idx < 0 else arcs_list[arc_idx]
-            x, y = 0, 0
-            
-            for dx, dy in arc:
-                x += dx
-                y += dy
-                px = x * transform["scale"][0] + transform["translate"][0]
-                py = y * transform["scale"][1] + transform["translate"][1]
-                points.append((px, py))
-    
-    if not points:
-        return None
-    
-    # Simplify path
-    simplified = simplify_path(points, tolerance=1.0)
-    
-    # Generate SVG path
-    path = f"M{simplified[0][0]:.1f},{simplified[0][1]:.1f}"
-    for x, y in simplified[1:]:
-        path += f"L{x:.1f},{y:.1f}"
-    path += "Z"
-    
-    return path
+    for dx, dy in arc:
+        x += dx
+        y += dy
+        px = x * transform["scale"][0] + transform["translate"][0]
+        py = y * transform["scale"][1] + transform["translate"][1]
+        points.append((px, py))
+
+    if reverse:
+        points.reverse()
+
+    return points
+
+
+def project_local_equirectangular(points, center_lat):
+    cos_lat = math.cos(math.radians(center_lat))
+    scale_x = cos_lat if abs(cos_lat) > 1e-6 else 1.0
+
+    projected = []
+    for lon, lat in points:
+        projected.append((lon * scale_x, lat))
+    return projected
+
+
+def decode_ring(ring_arc_indices, arcs_list, transform):
+    ring_points = []
+    for arc_idx in ring_arc_indices:
+        arc_points = decode_arc(arcs_list, arc_idx, transform)
+        if ring_points and arc_points:
+            ring_points.extend(arc_points[1:])
+        else:
+            ring_points.extend(arc_points)
+    return ring_points
+
+
+def geometry_to_rings(geometry, arcs_list, transform):
+    rings = []
+    geom_type = geometry.get("type")
+    arcs = geometry.get("arcs", [])
+
+    if geom_type == "Polygon":
+        if arcs:
+            rings.append(decode_ring(arcs[0], arcs_list, transform))
+    elif geom_type == "MultiPolygon":
+        for polygon in arcs:
+            if polygon:
+                rings.append(decode_ring(polygon[0], arcs_list, transform))
+
+    return [ring for ring in rings if len(ring) >= 3]
+
+
+def polygon_area(points):
+    if len(points) < 3:
+        return 0.0
+
+    area = 0.0
+    for i, (x1, y1) in enumerate(points):
+        x2, y2 = points[(i + 1) % len(points)]
+        area += x1 * y2 - x2 * y1
+    return abs(area) / 2.0
+
+
+def project_and_filter_rings(rings):
+    if not rings:
+        return []
+
+    all_lats = [lat for ring in rings for _, lat in ring]
+    center_lat = sum(all_lats) / len(all_lats)
+    projected = [project_local_equirectangular(ring, center_lat) for ring in rings]
+
+    areas = [polygon_area(ring) for ring in projected]
+    max_area = max(areas, default=0.0)
+    if max_area <= 0:
+        return projected
+
+    min_keep_area = max_area * 0.002
+    kept = [ring for ring, area in zip(projected, areas) if area >= min_keep_area]
+    return kept or [projected[areas.index(max_area)]]
+
+
+def rings_to_svg_path(rings):
+    parts = []
+    for ring in rings:
+        open_ring = ring[:-1] if ring and ring[0] == ring[-1] else ring
+        if len(open_ring) < 3:
+            continue
+
+        part = f"M{open_ring[0][0]:.2f},{open_ring[0][1]:.2f}"
+        for x, y in open_ring[1:]:
+            part += f"L{x:.2f},{y:.2f}"
+        part += "Z"
+        parts.append(part)
+
+    return "".join(parts) if parts else None
+
+
+def write_go_fallback(silhouettes: dict[str, str]):
+    lines = ["package game", "", "var SilhouetteMap = map[string]string{"]
+    for code, path in sorted(silhouettes.items()):
+        lines.append(f'\t"{code}": "{path}",')
+    lines.append("}")
+    OUTPUT_GO.write_text("\n".join(lines) + "\n")
+
 
 def main():
-    print("Fetching Natural Earth TopoJSON...")
-    try:
-        with urllib.request.urlopen(TOPO_URL) as response:
-            topo = json.loads(response.read())
-    except Exception as e:
-        print(f"Error fetching: {e}")
-        return
-    
+    print("Fetching world atlas geometry...")
+    with urllib.request.urlopen(TOPO_URL) as response:
+        topo = json.loads(response.read())
+
+    name_index = build_name_index()
     transform = topo["transform"]
-    countries = topo["objects"]["countries"]["geometries"]
     arcs_list = topo["arcs"]
-    
-    silhouettes = {}
-    
-    for idx, geom in enumerate(countries):
-        country_id = str(geom.get("id", idx))
-        country_code = COUNTRY_CODES.get(country_id)
-        
-        if country_code:
-            path = generate_svg_path(geom, arcs_list, transform)
-            if path:
-                silhouettes[country_code] = path
-                print(f"✓ {country_code}: {len(path)} chars")
-    
-    # Generate Go code
-    go_code = "package game\n\nvar SilhouetteMap = map[string]string{\n"
-    for code, path in sorted(silhouettes.items()):
-        go_code += f'\t"{code}": "{path}",\n'
-    go_code += "}\n"
-    
-    # Save to file
-    output_path = Path(__file__).parent.parent / "internal" / "game" / "silhouette_data.go"
-    with open(output_path, "w") as f:
-        f.write(go_code)
-    
-    print(f"\n✓ Generated {len(silhouettes)} silhouettes")
-    print(f"✓ Saved to {output_path}")
+    countries = topo["objects"]["countries"]["geometries"]
+
+    silhouettes: dict[str, str] = {}
+    unmatched: list[str] = []
+
+    for geom in countries:
+        name = geom.get("properties", {}).get("name", "")
+        code = name_index.get(normalize_name(name))
+        if not code:
+            unmatched.append(name)
+            continue
+
+        rings = geometry_to_rings(geom, arcs_list, transform)
+        projected_rings = project_and_filter_rings(rings)
+        path = rings_to_svg_path(projected_rings)
+        if path:
+            silhouettes[code] = path
+
+    OUTPUT_JSON.write_text(json.dumps(dict(sorted(silhouettes.items())), separators=(",", ":")))
+    write_go_fallback(silhouettes)
+
+    print(f"Generated {len(silhouettes)} silhouettes")
+    print(f"Wrote {OUTPUT_JSON}")
+    print(f"Wrote {OUTPUT_GO}")
+
+    if unmatched:
+        sample = ", ".join(sorted(set(unmatched))[:20])
+        print(f"Unmatched names ({len(set(unmatched))}): {sample}")
+
 
 if __name__ == "__main__":
     main()

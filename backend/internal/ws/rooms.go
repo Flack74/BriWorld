@@ -31,9 +31,9 @@ func NewRoom(id string) *Room {
 	return &Room{
 		ID:          id,
 		Clients:     make(map[*Client]bool),
-		Broadcast:   make(chan []byte, 1024),
-		Register:    make(chan *Client, 256),
-		Unregister:  make(chan *Client, 256),
+		Broadcast:   make(chan []byte, 256),
+		Register:    make(chan *Client, 16),
+		Unregister:  make(chan *Client, 16),
 		GameState:   game.NewState(),
 		ctx:         ctx,
 		cancel:      cancel,

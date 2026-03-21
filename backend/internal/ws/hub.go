@@ -5,6 +5,13 @@ import (
 	"sync"
 )
 
+func getMaxPlayersForMode(mode string) int {
+	if mode == "TEAM_BATTLE" {
+		return 10
+	}
+	return 6
+}
+
 type Hub struct {
 	rooms           map[string]*Room
 	register        chan *Client
@@ -110,14 +117,15 @@ func (h *Hub) GetPublicRooms(gameMode string) []map[string]interface{} {
 		if room.GameState.RoomType == "PUBLIC" &&
 			(isWaiting || isInProgress) &&
 			playerCount > 0 &&
-			playerCount < 6 &&
+			playerCount < getMaxPlayersForMode(room.GameState.GameMode) &&
 			!room.isCleanedUp &&
 			(gameMode == "" || room.GameState.GameMode == gameMode) {
+			maxPlayers := getMaxPlayersForMode(room.GameState.GameMode)
 			publicRooms = append(publicRooms, map[string]interface{}{
 				"id":         code,
 				"host":       room.Owner,
 				"players":    playerCount,
-				"maxPlayers": 6,
+				"maxPlayers": maxPlayers,
 				"mode":       room.GameState.GameMode,
 				"status":     string(room.GameState.Status),
 			})

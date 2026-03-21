@@ -8,6 +8,8 @@ const getMusicUrl = (path: string) => {
   return path;
 };
 
+type JsonObject = Record<string, unknown>;
+
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -76,7 +78,7 @@ class ApiClient {
     return this.request('/user/profile');
   }
 
-  async updateProfile(data: Record<string, any>) {
+  async updateProfile(data: JsonObject) {
     return this.request('/user/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -107,7 +109,7 @@ class ApiClient {
     return this.request('/rooms');
   }
 
-  async createRoom(data: Record<string, any>) {
+  async createRoom(data: JsonObject) {
     return this.request('/rooms', {
       method: 'POST',
       body: JSON.stringify(data),

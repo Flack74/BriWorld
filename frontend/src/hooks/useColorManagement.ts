@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { RoomUpdate } from '@/types/game';
 
 interface UseColorManagementProps {
   isConnected: boolean;
   gameMode: string;
-  roomUpdate: any;
+  roomUpdate: RoomUpdate | null;
   username: string;
   roomCode: string;
   selectColor: (color: string) => void;

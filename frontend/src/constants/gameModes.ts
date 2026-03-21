@@ -13,7 +13,8 @@ const EXPLORATION_MODES = [];
 
 // ROUND-BASED MODES - Have rounds, timers, round state
 // const ROUND_BASED_MODES = ['FLAG', 'WORLD_MAP', 'CAPITAL_RUSH', 'SILHOUETTE', 'EMOJI', 'TEAM_BATTLE', 'LAST_STANDING', 'BORDER_LOGIC']; // 'AUDIO' - TODO: Will be added later
-const ROUND_BASED_MODES = ['FLAG', 'WORLD_MAP', 'SILHOUETTE', 'EMOJI', 'LAST_STANDING', 'BORDER_LOGIC']; // 'CAPITAL_RUSH', 'TEAM_BATTLE' - TODO: Will be added later
+// Emoji mode is intentionally disabled for now, but kept in code for future reuse.
+const ROUND_BASED_MODES = ['FLAG', 'WORLD_MAP', 'SILHOUETTE', 'LAST_STANDING', 'BORDER_LOGIC']; // 'CAPITAL_RUSH', 'EMOJI', 'TEAM_BATTLE' - TODO: Will be added later
 
 export const isExplorationMode = (mode: string): boolean => EXPLORATION_MODES.includes(mode);
 export const isRoundBasedMode = (mode: string): boolean => ROUND_BASED_MODES.includes(mode);
@@ -24,7 +25,7 @@ const GAME_MODE_CONFIG: GameModeConfig[] = [
   { id: "WORLD_MAP", title: "World Map", description: "Paint countries on the map", icon: "🗺️", roomTypes: ["single", "private", "public"] },
   // { id: "CAPITAL_RUSH", title: "Capital Rush", description: "Name capitals or countries", icon: "🏛️", roomTypes: ["single", "private", "public"] }, // TODO: Will be added later
   { id: "SILHOUETTE", title: "Silhouette", description: "Guess country by outline", icon: "🗾", roomTypes: ["single", "private", "public"] },
-  { id: "EMOJI", title: "Emoji Puzzle", description: "Decode country emoji sequences", icon: "😀", roomTypes: ["single", "private", "public"] },
+  // { id: "EMOJI", title: "Emoji Puzzle", description: "Decode country emoji sequences", icon: "😀", roomTypes: ["single", "private", "public"] }, // Intentionally hidden for now
 
   // Speed & Reaction Modes
   { id: "LAST_STANDING", title: "Last Standing", description: "Wrong answer = eliminated", icon: "💀", roomTypes: ["single", "private", "public"] },

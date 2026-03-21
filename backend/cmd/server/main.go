@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/joho/godotenv"
 )
@@ -12,22 +13,21 @@ import (
 func main() {
 	// Log current ENV value if development .env else render
 	env := os.Getenv("ENV")
-	
+
 	if env == "" || env == "development" {
 		err := godotenv.Load()
 		if err != nil {
 			log.Println("No .env file found")
 		}
 	}
-	
-	
+
 	app, err := bootstrap.New()
 	if err != nil {
 		log.Fatal(err)
 	}
 	go app.Run()
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	<-sig
 	app.Shutdown()
 }

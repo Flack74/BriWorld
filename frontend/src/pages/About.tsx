@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Github, ExternalLink, Globe, Users, Zap } from 'lucide-react';
@@ -44,7 +43,7 @@ const About = () => {
             <p className="text-gray-300 leading-relaxed">
               BriWorld is an immersive, real-time multiplayer geography quiz game built with cutting-edge technologies. 
               Challenge players worldwide, test your geography knowledge, and compete on live leaderboards. 
-              With 8 game modes, intelligent color management, and persistent player sessions, BriWorld delivers 
+              With 5 active game modes, intelligent color management, and persistent player sessions, BriWorld delivers 
               a lag-free gaming experience powered by WebSocket synchronization.
             </p>
           </div>
@@ -64,10 +63,10 @@ const About = () => {
             <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-3">
               <div className="flex items-center gap-3">
                 <Zap className="w-6 h-6 text-teal-400" />
-                <h3 className="text-lg font-semibold text-white">8 Game Modes</h3>
+                <h3 className="text-lg font-semibold text-white">5 Game Modes</h3>
               </div>
               <p className="text-gray-300 text-sm">
-                Flag Quiz, World Map, Capital Rush, Silhouette, Emoji Puzzle, Border Logic, Last Standing, and Team Battle
+                Flag Quiz, World Map, Silhouette, Border Logic, and Last Standing
               </p>
             </div>
 

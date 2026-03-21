@@ -150,6 +150,29 @@ export interface ChatMessage {
   reactions?: Record<string, string[]>;
 }
 
+export interface LeaderboardPlayer {
+  id: string;
+  name: string;
+  score: number;
+  isYou: boolean;
+  isLeader: boolean;
+  color: "correct" | "opponent";
+  avatar: string;
+  avatarUrl?: string;
+  playerColor?: string;
+}
+
+export interface GameChatMessage {
+  id: string;
+  sender: string;
+  text: string;
+  color: "correct" | "opponent";
+  timestamp?: Date;
+  playerColor?: string;
+  avatarUrl?: string;
+  reactions?: Record<string, string[]>;
+}
+
 /* -------------------------------------------------------------------------- */
 /*                              ROOM UPDATE (WS)                              */
 /* -------------------------------------------------------------------------- */
@@ -163,6 +186,8 @@ export interface RoomUpdate {
   owner?: string;
   game_mode?: GameMode;
   map_mode?: string;
+  room_type?: RoomType;
+  scores?: Record<string, number>;
 
   player_colors?: Record<string, string>;
   player_avatars?: Record<string, string>;
@@ -197,6 +222,14 @@ export interface PlayerDisconnectedPayload {
 
 export interface ErrorPayload {
   message: string;
+}
+
+export interface GameStateSnapshot extends GameState {
+  owner?: string;
+  players?: string[];
+  current_count?: number;
+  map_mode?: string;
+  player_avatars?: Record<string, string>;
 }
 
 /* -------------------------------------------------------------------------- */
