@@ -1,6 +1,10 @@
 package ws
 
 import (
+	"briworld/internal/config"
+	"briworld/internal/database"
+	"briworld/internal/models"
+	"briworld/internal/utils"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -16,6 +20,29 @@ var GlobalHub = NewHub()
 
 func init() {
 	go GlobalHub.Run()
+}
+
+func resolveAvatarURL(token string) string {
+	if token == "" {
+		return ""
+	}
+
+	claims, err := utils.ValidateJWT(token, config.Load().JWT.Secret)
+	if err != nil {
+		return ""
+	}
+
+	db := database.GetDB()
+	if db == nil {
+		return ""
+	}
+
+	var user models.User
+	if err := db.DB.Select("avatar_url").Where("id = ?", claims.UserID).First(&user).Error; err != nil {
+		return ""
+	}
+
+	return user.AvatarURL
 }
 
 func HandleWebSocket(c *websocket.Conn) {
@@ -205,7 +232,7 @@ func HandleWebSocket(c *websocket.Conn) {
 		GameMode:       gameMode,
 		RoomType:       roomType,
 		IsGuest:        sessionID != "",
-		AvatarURL:      "",
+		AvatarURL:      resolveAvatarURL(token),
 		TimeoutSeconds: timeoutSeconds,
 	}
 

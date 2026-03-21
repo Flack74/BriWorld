@@ -331,6 +331,8 @@ const Game = () => {
 
   const actualGameMode =
     gameState?.game_mode || roomUpdate?.game_mode || config.gameMode;
+  const sharedPaintedCountries = gameState?.painted_countries || {};
+  const totalCountriesFound = Object.keys(sharedPaintedCountries).length;
 
   // Handle game restart redirect
   useEffect(() => {
@@ -488,11 +490,12 @@ const Game = () => {
           roomCode={roomCode}
           roomType={config.roomType}
           gameStats={gameStats}
+          totalCountriesFound={totalCountriesFound}
           guessedCountries={guessedCountries}
           userColor={
             gameState?.player_colors?.[config.username] || selectedColor || ""
           }
-          paintedCountries={gameState?.painted_countries || {}}
+          paintedCountries={sharedPaintedCountries}
           playerColors={gameState?.player_colors || {}}
           players={players}
           chatMessages={chatMessages}

@@ -62,6 +62,7 @@ export interface GameState {
   current_country?: string;
   painted_countries?: Record<string, string>;
   player_colors?: Record<string, string>;
+  player_avatars?: Record<string, string>;
 
   // Timers / sync (reconnect + WS sync)
   deadline?: number; // unix timestamp from backend (authoritative)

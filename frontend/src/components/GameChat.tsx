@@ -188,6 +188,28 @@ const GameChat = ({ messages, onSendMessage, players = [] }: GameChatProps) => {
     setMessageTimes(prev => [...prev.filter(time => now - time < 10000), now]);
   };
 
+  const renderAvatar = (msg: Message) => {
+    if (msg.avatarUrl) {
+      return (
+        <img
+          src={msg.avatarUrl}
+          alt={msg.sender}
+          className="h-8 w-8 shrink-0 rounded-full object-cover"
+          style={{ backgroundColor: msg.playerColor || "#6b7280" }}
+        />
+      );
+    }
+
+    return (
+      <div
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+        style={{ backgroundColor: msg.playerColor || "#6b7280" }}
+      >
+        {msg.sender.charAt(0).toUpperCase()}
+      </div>
+    );
+  };
+
   return (
     <div className="card-elevated h-full flex flex-col overflow-hidden lg:relative">
       {/* Header - Hidden on mobile to save space */}
@@ -201,47 +223,32 @@ const GameChat = ({ messages, onSendMessage, players = [] }: GameChatProps) => {
         </div>
       </div>
 
-      {/* Messages - Mobile: full height with bottom padding, Desktop: normal */}
-      <div className="flex-1 overflow-y-auto lg:p-2 lg:space-y-1 p-1 space-y-0.5 pb-20 lg:pb-0">
+      <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {messages.map((msg, index) => (
           <div 
             key={msg.id} 
             className="animate-fade-in group"
             style={{ animationDelay: `${index * 50}ms` }}
           >
-            <div className="flex items-start gap-0.5 sm:gap-1 lg:gap-2 hover:bg-muted/30 p-0.5 sm:p-1 lg:p-2 rounded-sm sm:rounded-md lg:rounded-lg transition-colors relative">
-              {msg.avatarUrl ? (
-                <img 
-                  src={msg.avatarUrl}
-                  alt={msg.sender}
-                  className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 rounded-full shrink-0 mt-0.5 object-cover"
-                  style={{ backgroundColor: msg.playerColor || '#6b7280' }}
-                />
-              ) : (
-                <div 
-                  className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold text-white shrink-0 mt-0.5"
-                  style={{ backgroundColor: msg.playerColor || '#6b7280' }}
-                >
-                  {msg.sender.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
+            <div className="relative flex items-start gap-2 rounded-xl p-2 transition-colors hover:bg-muted/30">
+              {renderAvatar(msg)}
+              <div className="min-w-0 flex flex-1 items-start gap-2">
                 <span
-                  className={`font-semibold text-[10px] sm:text-xs lg:text-sm mr-0.5 sm:mr-1 lg:mr-2 ${
-                    msg.color === "correct" ? "text-foreground" : ""
-                  }`}
+                  className="shrink-0 pt-0.5 text-sm font-semibold"
                   style={{ color: msg.color === "correct" ? undefined : (msg.playerColor || "#fbbf24") }}
                 >
                   {msg.sender}
                 </span>
-                <span className="text-[10px] sm:text-xs lg:text-sm text-foreground break-words">{msg.text}</span>
+                <div className="min-w-0 flex-1 rounded-2xl bg-muted/60 px-3 py-2 text-sm text-foreground">
+                  <p className="break-words leading-relaxed">{msg.text}</p>
+                </div>
               </div>
 
               {/* Reaction button */}
               <button
                 type="button"
                 onClick={() => setReactingToMessage(reactingToMessage === msg.id ? null : msg.id)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground text-xs"
+                className="mt-1 shrink-0 opacity-0 transition-opacity text-muted-foreground hover:text-foreground text-xs group-hover:opacity-100"
               >
                 <Smile className="w-3 h-3" />
               </button>
@@ -263,7 +270,7 @@ const GameChat = ({ messages, onSendMessage, players = [] }: GameChatProps) => {
             
             {/* Display Reactions */}
             {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1 ml-6">
+              <div className="ml-10 mt-1 flex flex-wrap gap-1">
                 {Object.entries(msg.reactions).map(([emoji, users]) => (
                   <button
                     key={emoji}
@@ -281,9 +288,8 @@ const GameChat = ({ messages, onSendMessage, players = [] }: GameChatProps) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input - Fixed at bottom on mobile, normal on desktop */}
-      <form onSubmit={handleSubmit} className="lg:relative lg:p-2 lg:border-t lg:border-border/50 lg:bg-muted/30 fixed bottom-0 left-0 right-0 p-3 bg-card/95 backdrop-blur border-t border-border/50 z-[100] lg:z-auto safe-area-inset-bottom">
-        <div className="flex gap-0.5 sm:gap-1 lg:gap-2 items-center">
+      <form onSubmit={handleSubmit} className="border-t border-border/50 bg-muted/30 p-2">
+        <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Input
               ref={inputRef}
@@ -291,7 +297,7 @@ const GameChat = ({ messages, onSendMessage, players = [] }: GameChatProps) => {
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder={isChatMuted ? "Chat muted..." : "Message..."}
-              className="pr-8 sm:pr-10 lg:pr-12 bg-card border-border/50 focus-visible:ring-primary/50 text-[9px] sm:text-xs lg:text-sm h-5 sm:h-6 lg:h-8"
+              className="h-10 bg-card border-border/50 pr-12 text-sm focus-visible:ring-primary/50"
               disabled={isChatMuted}
             />
             
@@ -318,9 +324,9 @@ const GameChat = ({ messages, onSendMessage, players = [] }: GameChatProps) => {
             <button 
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="absolute right-1 sm:right-2 lg:right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10 hidden lg:block"
+              className="absolute right-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
             >
-              <Smile className="w-3 h-3 sm:w-4 sm:h-4 lg:w-4 lg:h-4" />
+              <Smile className="h-4 w-4" />
             </button>
             {showEmojiPicker && (
               <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={() => setShowEmojiPicker(false)}>
@@ -338,10 +344,10 @@ const GameChat = ({ messages, onSendMessage, players = [] }: GameChatProps) => {
           <Button 
             type="submit" 
             size="icon" 
-            className="shrink-0 gradient-primary shadow-glow-primary btn-primary-glow h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8"
-            disabled={isChatMuted}
+            className="h-10 w-10 shrink-0 gradient-primary shadow-glow-primary btn-primary-glow"
+            disabled={isChatMuted || !input.trim()}
           >
-            <Send className="w-2 h-2 sm:w-2.5 sm:h-2.5 lg:w-3 lg:h-3" />
+            <Send className="h-4 w-4" />
           </Button>
         </div>
       </form>

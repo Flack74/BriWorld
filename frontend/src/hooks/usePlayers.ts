@@ -11,13 +11,47 @@ export const usePlayers = ({ gameState, roomUpdate, username }: UsePlayersProps)
   const [playerAvatars, setPlayerAvatars] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (roomUpdate?.player_avatars) {
-      setPlayerAvatars(prev => ({ ...prev, ...roomUpdate.player_avatars }));
+    const snapshotAvatars = gameState?.player_avatars;
+    const roomAvatars = roomUpdate?.player_avatars;
+
+    if (snapshotAvatars || roomAvatars) {
+      setPlayerAvatars(prev => ({
+        ...prev,
+        ...(snapshotAvatars || {}),
+        ...(roomAvatars || {}),
+      }));
     }
-  }, [roomUpdate]);
+  }, [gameState?.player_avatars, roomUpdate?.player_avatars]);
 
   const players = useMemo<LeaderboardPlayer[]>(() => {
-    const scores = gameState?.scores || roomUpdate?.scores;
+    const mode = gameState?.game_mode || roomUpdate?.game_mode;
+    const paintedCountries = gameState?.painted_countries || {};
+
+    let scores = gameState?.scores || roomUpdate?.scores;
+
+    if (mode === 'WORLD_MAP') {
+      const countryCounts = Object.values(paintedCountries).reduce<Record<string, number>>(
+        (acc, owner) => {
+          acc[owner] = (acc[owner] || 0) + 1;
+          return acc;
+        },
+        {},
+      );
+      const playerNames = new Set<string>([
+        ...Object.keys(scores || {}),
+        ...(roomUpdate?.players || []),
+      ]);
+
+      if (Object.keys(countryCounts).length > 0) {
+        scores = Object.fromEntries(
+          Array.from(playerNames).map((name) => [name, countryCounts[name] || 0]),
+        );
+      } else if (scores) {
+        scores = Object.fromEntries(
+          Object.entries(scores).map(([name, score]) => [name, Math.round((score as number) / 10)]),
+        );
+      }
+    }
 
     if (scores) {
       return Object.entries(scores)

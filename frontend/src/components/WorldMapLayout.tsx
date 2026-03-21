@@ -13,6 +13,7 @@ interface WorldMapLayoutProps {
   roomCode: string;
   roomType: string;
   gameStats: { correct: number; incorrect: number };
+  totalCountriesFound: number;
   guessedCountries: string[];
   userColor: string;
   paintedCountries: Record<string, string>;
@@ -29,6 +30,7 @@ export const WorldMapLayout = ({
   roomCode,
   roomType,
   gameStats,
+  totalCountriesFound,
   guessedCountries,
   userColor,
   paintedCountries,
@@ -42,6 +44,7 @@ export const WorldMapLayout = ({
 }: WorldMapLayoutProps) => {
   const [showBanner, setShowBanner] = useState(false);
   const [bannerData, setBannerData] = useState<{ player: string; country: string } | null>(null);
+  const displayedCountriesFound = roomType === 'SINGLE' ? gameStats.correct : totalCountriesFound;
 
   useEffect(() => {
     if (lastPaintEvent && roomType !== 'SINGLE') {
@@ -74,7 +77,7 @@ export const WorldMapLayout = ({
             )}
           </div>
           <div className="bg-gradient-to-r from-blue-500 to-green-500 text-white px-4 py-2 rounded-full font-bold">
-            {gameStats.correct}/197 Countries
+            {displayedCountriesFound}/197 Countries
           </div>
           <MuteButton />
         </div>
@@ -87,7 +90,7 @@ export const WorldMapLayout = ({
           <div className="flex-1 flex flex-col gap-4 overflow-hidden">
             <div className="flex-1 card-elevated overflow-hidden">
               <WorldMap
-                countriesFound={gameStats.correct}
+                countriesFound={displayedCountriesFound}
                 recentGuesses={[]}
                 foundCountryCodes={guessedCountries}
                 currentCountry={undefined}
@@ -105,15 +108,9 @@ export const WorldMapLayout = ({
 
         {/* Mobile layout */}
         <div className="lg:hidden h-screen flex flex-col overflow-hidden">
-          {roomType !== 'SINGLE' && (
-            <div className="absolute top-14 right-2 z-10 bg-gradient-to-r from-blue-500 to-green-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-lg">
-              {gameStats.correct}/197
-            </div>
-          )}
-
           <div className="flex-1 min-h-0">
             <WorldMap
-              countriesFound={gameStats.correct}
+              countriesFound={displayedCountriesFound}
               recentGuesses={[]}
               foundCountryCodes={guessedCountries}
               currentCountry={undefined}
