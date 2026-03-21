@@ -305,8 +305,8 @@ cd frontend && npm run build
 
 ## Read Next
 
-- [UNDERSTANDING_BRIWORLD.md](https://github.com/Flack74/BriWorld/UNDERSTANDING_BRIWORLD.md)
-- [backend/README.md](https://github.com/Flack74/BriWorld/backend/README.md)
+- [UNDERSTANDING_BRIWORLD.md](https://github.com/Flack74/BriWorld/blob/main/UNDERSTANDING_BRIWORLD.md)
+- [backend/README.md](https://github.com/Flack74/BriWorld/blob/main/backend/README.md)
 
 
 <div align="center">
