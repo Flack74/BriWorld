@@ -230,17 +230,17 @@ const GameChat = ({ messages, onSendMessage, players = [] }: GameChatProps) => {
             className="animate-fade-in group"
             style={{ animationDelay: `${index * 50}ms` }}
           >
-            <div className="relative flex items-start gap-2 rounded-xl p-2 transition-colors hover:bg-muted/30">
+            <div className="relative flex items-center gap-2 rounded-xl p-2 transition-colors hover:bg-muted/30">
               {renderAvatar(msg)}
-              <div className="min-w-0 flex flex-1 items-start gap-2">
+              <div className="min-w-0 flex flex-1 items-center gap-2">
                 <span
-                  className="shrink-0 pt-0.5 text-sm font-semibold"
+                  className="shrink-0 self-center text-sm font-semibold leading-none"
                   style={{ color: msg.color === "correct" ? undefined : (msg.playerColor || "#fbbf24") }}
                 >
                   {msg.sender}
                 </span>
-                <div className="min-w-0 flex-1 rounded-2xl bg-muted/60 px-3 py-2 text-sm text-foreground">
-                  <p className="break-words leading-relaxed">{msg.text}</p>
+                <div className="min-w-0 flex-1 self-center rounded-2xl bg-muted/60 px-3 py-2 text-sm text-foreground">
+                  <p className="break-words leading-normal">{msg.text}</p>
                 </div>
               </div>
 
@@ -248,7 +248,7 @@ const GameChat = ({ messages, onSendMessage, players = [] }: GameChatProps) => {
               <button
                 type="button"
                 onClick={() => setReactingToMessage(reactingToMessage === msg.id ? null : msg.id)}
-                className="mt-1 shrink-0 opacity-0 transition-opacity text-muted-foreground hover:text-foreground text-xs group-hover:opacity-100"
+                className="shrink-0 self-center opacity-0 text-xs text-muted-foreground transition-opacity hover:text-foreground group-hover:opacity-100"
               >
                 <Smile className="w-3 h-3" />
               </button>

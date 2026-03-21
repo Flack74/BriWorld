@@ -16,13 +16,13 @@ type RoomStateManager struct {
 
 // RoomStateSnapshot represents a saved room state
 type RoomStateSnapshot struct {
-	RoomCode         string                 `json:"room_code"`
-	GameState        *game.State            `json:"game_state"`
-	Players          []string               `json:"players"`
-	Owner            string                 `json:"owner"`
-	SessionToUser    map[string]string      `json:"session_to_user"`
-	CreatedAt        time.Time              `json:"created_at"`
-	LastActivity     time.Time              `json:"last_activity"`
+	RoomCode      string            `json:"room_code"`
+	GameState     *game.State       `json:"game_state"`
+	Players       []string          `json:"players"`
+	Owner         string            `json:"owner"`
+	SessionToUser map[string]string `json:"session_to_user"`
+	CreatedAt     time.Time         `json:"created_at"`
+	LastActivity  time.Time         `json:"last_activity"`
 }
 
 var globalStateManager = &RoomStateManager{
@@ -42,14 +42,14 @@ func (rsm *RoomStateManager) SaveRoomState(room *Room) {
 	room.mu.RLock()
 	players := make([]string, 0, len(room.Clients))
 	sessionToUser := make(map[string]string)
-	
+
 	for client := range room.Clients {
 		players = append(players, client.Username)
 		if client.SessionID != "" {
 			sessionToUser[client.SessionID] = client.Username
 		}
 	}
-	
+
 	// Deep copy game state
 	gameStateCopy := *room.GameState
 	room.mu.RUnlock()
@@ -101,6 +101,34 @@ func (rsm *RoomStateManager) DeleteRoomState(roomCode string) {
 	defer rsm.mu.Unlock()
 
 	delete(rsm.states, roomCode)
+}
+
+// RemoveSessionFromRoom clears permanent-leave sessions from reconnect tracking.
+func (rsm *RoomStateManager) RemoveSessionFromRoom(roomCode, sessionID, username string) {
+	rsm.mu.Lock()
+	defer rsm.mu.Unlock()
+
+	snapshot, exists := rsm.states[roomCode]
+	if !exists {
+		return
+	}
+
+	if sessionID != "" {
+		delete(snapshot.SessionToUser, sessionID)
+	}
+
+	if username == "" {
+		return
+	}
+
+	filteredPlayers := snapshot.Players[:0]
+	for _, player := range snapshot.Players {
+		if player != username {
+			filteredPlayers = append(filteredPlayers, player)
+		}
+	}
+	snapshot.Players = filteredPlayers
+	snapshot.LastActivity = time.Now()
 }
 
 // CleanupExpiredStates removes expired room states

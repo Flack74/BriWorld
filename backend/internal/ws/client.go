@@ -26,6 +26,7 @@ type Client struct {
 	TimeoutSeconds      int
 	Role                domain.ClientRole
 	State               domain.ClientState
+	PermanentLeave      bool
 	DisconnectedAt      time.Time
 	ReconnectCancelFunc context.CancelFunc
 	writeMu             sync.Mutex

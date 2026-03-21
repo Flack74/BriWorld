@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Users, Crown, Copy, Check, ChevronLeft } from "lucide-react";
+import { LeaveRoomDialog } from "@/components/LeaveRoomDialog";
 import { GameConfig, RoomUpdate } from "@/types/game";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { getOrCreateGuestUsername } from "@/lib/guestUsername";
@@ -40,6 +41,7 @@ const WaitingRoom = () => {
   const [rounds, setRounds] = useState(10);
   const [roomCode, setRoomCode] = useState<string>("");
   const [mapInitialized, setMapInitialized] = useState(false);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
 
   // Initialize rounds safely
   useEffect(() => {
@@ -180,10 +182,16 @@ const WaitingRoom = () => {
   };
 
   const handleLeaveRoom = () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "leave_room" }));
+      setTimeout(() => ws.close(), 100);
+    }
     sessionStorage.removeItem("currentRoomCode");
     sessionStorage.removeItem("gameMode");
     sessionStorage.removeItem("roomType");
     sessionStorage.removeItem("rounds");
+    sessionStorage.removeItem("timeout");
+    sessionStorage.removeItem("mapMode");
     navigate("/lobby");
   };
 
@@ -225,7 +233,7 @@ const WaitingRoom = () => {
         variant="outline"
         size="sm"
         className="absolute top-4 left-4"
-        onClick={() => navigate("/lobby")}
+        onClick={() => setShowLeaveDialog(true)}
       >
         <ChevronLeft className="w-4 h-4" />
         Back
@@ -276,6 +284,12 @@ const WaitingRoom = () => {
           </div>
         )}
       </div>
+
+      <LeaveRoomDialog
+        open={showLeaveDialog}
+        onConfirm={handleLeaveRoom}
+        onCancel={() => setShowLeaveDialog(false)}
+      />
     </div>
   );
 };

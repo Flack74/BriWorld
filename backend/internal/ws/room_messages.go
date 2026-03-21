@@ -29,7 +29,8 @@ func (r *Room) HandleMessage(client *Client, msg *Message) {
 		r.RestartGame(client.Username)
 
 	case "leave_room":
-		// Player explicitly leaving - remove immediately
+		// Player explicitly leaving - remove immediately and suppress reconnect.
+		client.PermanentLeave = true
 		r.Unregister <- client
 
 	case "close_room":

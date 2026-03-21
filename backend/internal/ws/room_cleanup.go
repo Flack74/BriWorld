@@ -49,6 +49,16 @@ func (r *Room) RestartGame(username string) {
 	log.Printf("Game restarted in room %s by %s", r.ID, username)
 }
 
+func cleanupRoomResources(roomID string) {
+	GetStateManager().DeleteRoomState(roomID)
+	GlobalHub.RemoveRoom(roomID)
+
+	if redisClient.Client != nil {
+		ctx := context.Background()
+		redisClient.DeleteRoom(ctx, roomID)
+	}
+}
+
 // CloseRoom closes the room and kicks all players.
 func (r *Room) CloseRoom(username string) {
 	if r == nil {
@@ -94,11 +104,7 @@ func (r *Room) CloseRoom(username string) {
 	// Cancel context to stop all goroutines
 	r.cancel()
 
-	// Clean up Redis state
-	if redisClient.Client != nil {
-		ctx := context.Background()
-		redisClient.DeleteRoom(ctx, roomID)
-	}
+	cleanupRoomResources(roomID)
 
 	log.Printf("Room %s closed and removed by %s", roomID, username)
 }
@@ -127,11 +133,7 @@ func (r *Room) AutoCleanup() {
 	// Cancel context
 	r.cancel()
 
-	// Clean up Redis state
-	if redisClient.Client != nil {
-		ctx := context.Background()
-		redisClient.DeleteRoom(ctx, roomID)
-	}
+	cleanupRoomResources(roomID)
 
 	log.Printf("Room %s auto-cleaned due to inactivity", roomID)
 }
@@ -140,7 +142,7 @@ func (r *Room) AutoCleanup() {
 func (r *Room) ScheduleCleanup() {
 	log.Printf("Room %s: Starting 90-second cleanup timer", r.ID)
 	time.Sleep(90 * time.Second)
-	
+
 	r.mu.Lock()
 	if len(r.Clients) > 0 {
 		// Users reconnected - cancel cleanup
@@ -149,27 +151,23 @@ func (r *Room) ScheduleCleanup() {
 		log.Printf("Room %s: Cleanup cancelled - users reconnected", r.ID)
 		return
 	}
-	
+
 	if r.isCleanedUp {
 		r.mu.Unlock()
 		return
 	}
-	
+
 	r.GameState.Status = domain.RoomClosed
 	r.GameState.RoundActive = false
 	roomID := r.ID
 	r.isCleanedUp = true
 	r.mu.Unlock()
-	
+
 	// Cancel context
 	r.cancel()
-	
-	// Clean up Redis state
-	if redisClient.Client != nil {
-		ctx := context.Background()
-		redisClient.DeleteRoom(ctx, roomID)
-	}
-	
+
+	cleanupRoomResources(roomID)
+
 	log.Printf("Room %s: Auto-cleaned after 90s inactivity", roomID)
 }
 

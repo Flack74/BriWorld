@@ -171,6 +171,20 @@ func (r *Room) RemoveClient(client *Client) {
 		redisClient.RemovePlayer(ctx, r.ID, client.Username)
 	}
 
+	if client.PermanentLeave {
+		delete(r.GameState.Scores, client.Username)
+		delete(r.GameState.Answered, client.Username)
+		delete(r.GameState.PlayerColors, client.Username)
+		delete(r.GameState.EliminatedPlayers, client.Username)
+		delete(r.GameState.Teams, client.Username)
+		for countryCode, paintedBy := range r.GameState.PaintedCountries {
+			if paintedBy == client.Username {
+				delete(r.GameState.PaintedCountries, countryCode)
+			}
+		}
+		GetStateManager().RemoveSessionFromRoom(r.ID, client.SessionID, client.Username)
+	}
+
 	// Handle owner transfer - transfer to next non-spectator player
 	if r.Owner == client.Username && len(r.Clients) > 0 {
 		for c := range r.Clients {
@@ -208,19 +222,34 @@ func (r *Room) RemoveClient(client *Client) {
 	isEmpty := len(r.Clients) == 0
 	shouldCleanup := false
 	if isEmpty {
-		// Start 90-second inactivity timer
-		r.inactiveRoundCount++
-		log.Printf("Room %s is empty, starting 90s cleanup timer", r.ID)
+		if client.PermanentLeave {
+			r.GameState.Status = domain.RoomClosed
+			r.GameState.RoundActive = false
+			r.isCleanedUp = true
+			log.Printf("Room %s is empty after explicit leave, cleaning up immediately", r.ID)
+		} else {
+			// Start 90-second inactivity timer
+			r.inactiveRoundCount++
+			log.Printf("Room %s is empty, starting 90s cleanup timer", r.ID)
+		}
 		shouldCleanup = true
 	} else {
 		r.inactiveRoundCount = 0
 	}
 
+	immediateCleanup := isEmpty && client.PermanentLeave
+	roomID := r.ID
+
 	// Release lock before external calls
 	r.mu.Unlock()
 
 	if shouldCleanup {
-		go r.ScheduleCleanup()
+		if immediateCleanup {
+			r.cancel()
+			cleanupRoomResources(roomID)
+		} else {
+			go r.ScheduleCleanup()
+		}
 	} else if !isEmpty {
 		r.BroadcastRoomUpdate()
 	}
