@@ -60,9 +60,13 @@ func (sb *SnapshotBuilder) Build(r *Room, client *Client) map[string]interface{}
 	// Build player list and avatars
 	players := make([]string, 0, len(r.Clients))
 	playerAvatars := make(map[string]string)
+	playerBanners := make(map[string]string)
 	for c := range r.Clients {
 		players = append(players, c.Username)
 		playerAvatars[c.Username] = c.AvatarURL
+		if c.BannerURL != "" {
+			playerBanners[c.Username] = c.BannerURL
+		}
 	}
 
 	return map[string]interface{}{
@@ -83,6 +87,7 @@ func (sb *SnapshotBuilder) Build(r *Room, client *Client) map[string]interface{}
 		"role":                 client.Role,
 		"players":              players,
 		"player_avatars":       playerAvatars,
+		"player_banners":       playerBanners,
 		"current_count":        len(r.Clients),
 		"time_remaining":       r.GameState.TimeRemaining,
 		"answered":             r.GameState.Answered,

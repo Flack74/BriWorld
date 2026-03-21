@@ -1,279 +1,309 @@
 # BriWorld
 
-Real-time multiplayer geography game built with Go, Fiber, WebSocket, React, and TypeScript.
+BriWorld is a real-time, server-authoritative geography game built with Go on the backend and React on the frontend. Players can practice solo, open public rooms, or play in private rooms while the backend owns the room state, timers, scoring, round progression, and reconnection flow.
 
-BriWorld is structured as a server-authoritative game platform:
-- the backend owns rooms, rounds, questions, timers, scores, reconnection state, and multiplayer broadcasts
-- the frontend renders that state, collects player input, and keeps the UI responsive across desktop, tablet, and mobile
+The current codebase is broader than the currently shipped player flow. This README reflects the repository as it exists now, not every experiment or disabled path that still lives in source.
 
-## Current Status
+## What BriWorld Does
 
-The project currently exposes 5 active game modes in the main game-mode selection flow:
+- Runs live multiplayer geography games over WebSocket
+- Supports solo and room-based play
+- Persists user accounts, stats, ranks, profile media, and profile customization
+- Serves a modern responsive frontend with profile avatar/banner editing and animated decoration support
+- Combines PostgreSQL for durable data with Redis-backed runtime support
+
+## Current Product Surface
+
+### Active Game Modes
+
+These are the modes currently exposed in the main frontend selection flow and supported by the live join/runtime path:
+
 - `FLAG`
 - `WORLD_MAP`
 - `SILHOUETTE`
 - `LAST_STANDING`
 - `BORDER_LOGIC`
 
-The codebase still contains work-in-progress or temporarily disabled modes such as `EMOJI`, `CAPITAL_RUSH`, `TEAM_BATTLE`, and `AUDIO`. They are intentionally kept in the repository for future reuse, but they are not part of the current main player flow.
+### Present In Code, But Not Fully Live
 
-## Product Overview
+The repository still contains mode and feature code that is disabled, incomplete, or intentionally not exposed in the main flow:
 
-### Room Types
-- `SINGLE`: one-player practice or solo game loop
-- `PRIVATE`: invite-only room via room code
-- `PUBLIC`: open matchmaking-style room
+- `EMOJI`
+- `CAPITAL_RUSH`
+- `TEAM_BATTLE`
+- `AUDIO`
 
-### Core Features
-- real-time multiplayer synchronization over WebSocket
-- server-authoritative scoring and round progression
-- reconnect-aware sessions with room snapshot recovery
-- interactive world map rendering
-- chat and leaderboard support during multiplayer games
-- responsive UI for desktop, tablet, and mobile
-- account system with profile, auth, and stats support
+Do not assume a mode is production-ready just because backend generators or constants exist for it. The active frontend mode list and the WebSocket join validation are the real source of truth.
 
-## Architecture
-
-### High-Level Layout
+## Architecture At A Glance
 
 ```text
-frontend (React + TypeScript)
-    |
-    | HTTP: auth, rooms, profile, metadata
-    | WebSocket: live game state and player actions
-    v
-backend (Go + Fiber + WebSocket)
-    |
-    | database persistence
-    | cache / session state
-    v
-PostgreSQL + Redis
+React + TypeScript frontend
+  -> REST for auth, profile, leaderboard, meta, uploads, room setup
+  -> WebSocket for live gameplay
+
+Go + Fiber backend
+  -> room lifecycle
+  -> authoritative state mutation
+  -> question generation
+  -> scoring, timers, reconnects, broadcasts
+
+PostgreSQL + Redis + static assets/uploads
 ```
 
 ### Backend Responsibilities
-- create and manage rooms
-- validate joins and room mode compatibility
-- generate questions for active game modes
-- run game lifecycle transitions such as waiting, in progress, completed
-- track scores, answers, map paints, eliminations, and ownership
-- broadcast authoritative room snapshots to every player
-- handle reconnection and session continuity
+
+- Boot the Fiber application and infrastructure
+- Load static geography/game data
+- Register HTTP and WebSocket routes
+- Own room state, player state, timers, and scoring
+- Generate questions for supported modes
+- Persist users, stats, achievements, profile media metadata, and customization
 
 ### Frontend Responsibilities
-- collect lobby configuration and navigation state
-- connect to the correct backend WebSocket endpoint
-- render room updates, question UI, world map state, chat, and leaderboard
-- store minimal session data locally so refresh/re-entry can recover
-- adapt the same game state to desktop and mobile layouts
 
-## Repository Structure
+- Handle navigation, forms, and account flows
+- Create or join rooms
+- Connect to the gameplay WebSocket
+- Render server-driven room/game state
+- Manage profile editing, avatar/banner uploads, and decoration previews
+- Adapt the experience across desktop, tablet, and mobile
+
+## Tech Stack
+
+### Backend
+
+- Go `1.25`
+- Fiber `v2`
+- Fiber WebSocket
+- GORM + PostgreSQL
+- `pgx`
+- Redis `v9`
+- JWT auth
+- Cloudinary support for media uploads, with local upload fallback in development
+
+### Frontend
+
+- React `18`
+- TypeScript
+- Vite `5`
+- React Router `6`
+- TanStack Query `5`
+- Tailwind CSS
+- Radix UI
+- Framer Motion
+- GSAP
+- Lottie Web
+
+## Repository Layout
 
 ```text
 BriWorld/
 ├── backend/
-│   ├── cmd/server/              # application entrypoint
-│   ├── internal/bootstrap/      # app wiring, middleware, startup
+│   ├── cmd/server/              # backend entrypoint
+│   ├── internal/bootstrap/      # app construction and startup
 │   ├── internal/config/         # env/config loading
-│   ├── internal/database/       # DB setup, migrations, queries
-│   ├── internal/game/           # game modes, loaders, question generation
-│   ├── internal/handlers/       # REST handlers
+│   ├── internal/database/       # DB setup and migrations
+│   ├── internal/game/           # mode config, loaders, question generation
+│   ├── internal/handlers/       # HTTP handlers
 │   ├── internal/http/           # route registration
 │   ├── internal/middleware/     # auth and request middleware
-│   ├── internal/models/         # persistence models
-│   ├── internal/redis/          # cache/session setup
-│   ├── internal/services/       # service layer
-│   ├── internal/utils/          # shared helpers
-│   └── internal/ws/             # real-time room and multiplayer system
+│   ├── internal/models/         # DB models
+│   ├── internal/services/       # auth/profile/meta services
+│   ├── internal/ws/             # multiplayer room runtime
+│   └── static/                  # game data and generated assets
 ├── frontend/
-│   ├── src/components/          # UI building blocks
-│   ├── src/components/lobby/    # lobby-specific UI
-│   ├── src/constants/           # game mode config and constants
-│   ├── src/contexts/            # React context providers
-│   ├── src/hooks/               # websocket, game, chat, player hooks
-│   ├── src/lib/                 # api client and shared utilities
-│   ├── src/modes/               # mode-specific renderers
+│   ├── src/components/          # UI components and editors
+│   ├── src/constants/           # game mode and profile decoration config
+│   ├── src/contexts/            # theme and shared providers
+│   ├── src/hooks/               # websocket/game/player/chat hooks
+│   ├── src/lib/                 # API client and helpers
+│   ├── src/modes/               # mode-specific UI renderers
 │   ├── src/pages/               # route pages
-│   └── src/types/               # frontend contracts
+│   └── src/types/               # shared frontend contracts
 ├── README.md
 └── UNDERSTANDING_BRIWORLD.md
 ```
 
-## Game Flow
+## Runtime Flow
 
-### 1. Lobby
-- player picks a mode and room type
-- frontend stores the minimal config in session storage
-- for single-player, the frontend requests a room from the backend
+### 1. Account And Lobby Setup
 
-### 2. WebSocket Connection
-- frontend connects with room code, username, session, mode, room type, rounds, and timeout
-- backend validates the request and either joins an existing room or creates one
-- backend sends `room_joined`, `room_update`, and `state_snapshot`
+- The frontend handles auth and profile setup over REST
+- A player chooses a mode and room type in the lobby
+- For solo play, the frontend can request room creation before gameplay
 
-### 3. Round Lifecycle
-- room owner or auto-start logic triggers game start
-- backend generates a question
-- backend controls timers and state transitions
-- players answer or interact
-- backend updates scores and broadcasts snapshots
+### 2. WebSocket Join
 
-### 4. Completion / Reconnect
-- final results are broadcast when a game ends
-- reconnecting players can restore room state from the server snapshot path
+The frontend opens `/ws` with room and player context in query params, including:
 
-## Current Frontend Runtime
+- room code
+- username
+- session id
+- mode
+- room type
+- rounds
+- timeout
+- auth token when available
 
-### Main Pages
-- `/`: landing page
-- `/lobby`: game mode and room selection
-- `/game`: active gameplay shell
-- `/waiting-room`: multiplayer pre-start screen
-- `/about`: product and stack overview
+The backend validates the request, checks mode compatibility, restores reconnect state when possible, and attaches the player to the authoritative room runtime.
 
-### Important Frontend Modules
-- `src/hooks/useWebSocket.ts`: websocket connection, message handling, reconnect logic
-- `src/pages/Game.tsx`: main runtime page that composes the game shell
-- `src/components/lobby/GameLobby.tsx`: room and mode selection UI
-- `src/components/QuizModeLayout.tsx`: shared multiplayer layout for quiz-style modes
-- `src/components/WorldMapLayout.tsx`: map-mode layout
-- `src/components/MobileMultiplayerPanels.tsx`: mobile chat and leaderboard access
+### 3. Server-Authoritative Gameplay
 
-## Current Backend Runtime
+- The backend starts rounds and timers
+- Players submit answers, paints, and chat messages
+- The backend validates and mutates state
+- Updated room or snapshot messages are broadcast to all connected clients
 
-### Important Backend Modules
-- `backend/cmd/server/main.go`: process entrypoint
-- `backend/internal/bootstrap`: app wiring and startup sequence
-- `backend/internal/http`: REST route registration
-- `backend/internal/ws`: websocket room system and broadcasts
-- `backend/internal/game`: question generation and mode data
-- `backend/internal/services`: business logic around auth, profile, rooms, metadata
+### 4. Reconnect And Recovery
 
-### WebSocket System
+Room snapshots are stored server-side so players can recover a room after refresh or connection loss. The frontend also keeps minimal local session context so it can reconnect cleanly.
 
-The websocket layer is the multiplayer core of BriWorld.
+## Frontend Routes
 
-Key ideas:
-- each room owns its own client registry and game state
-- broadcasts are message-based
-- snapshots are used so reconnecting or newly joined clients receive a full state view
-- the server is authoritative for room ownership, scores, timers, and room progression
+Current routes visible in `frontend/src/App.tsx` include:
 
-Common message categories:
-- join / leave
-- room updates
-- game start / round start / round end
-- chat
-- answer submission
-- map paint submission
-- state snapshot
+- `/`
+- `/login`
+- `/register`
+- `/forgot-password`
+- `/reset-password`
+- `/about`
+- `/lobby`
+- `/profile`
+- `/leaderboard`
+- `/waiting`
+- `/game`
+- `/settings`
 
-## Environment
+## Backend Surface
+
+Important runtime routes and systems currently include:
+
+- `GET /api/v2/health`
+- auth routes for register, login, refresh, forgot-password, reset-password
+- profile routes for profile data and customization
+- avatar, banner, avatar-decoration upload/delete routes
+- profile asset library routes at `/api/v2/user/profile-assets`
+- achievements, rank, mastery, and daily challenge routes
+- leaderboard and season routes
+- WebSocket gameplay route at `/ws`
+
+The backend also serves:
+
+- built frontend assets from `./web-dist`
+- static assets from `/static`
+- music assets from `/Music`
+- locally uploaded media from `/uploads`
+
+## Profile And Media System
+
+The profile page currently supports:
+
+- username editing
+- animated avatar uploads, including GIF avatars
+- banner uploads for image, GIF, and Lottie JSON
+- saved banner transform settings for scale and positioning
+- animated avatar decoration presets
+- custom avatar decoration uploads
+- stat cards for points, wins, games, streaks, and countries mastered
+
+Media uploads use Cloudinary when configured. If Cloudinary is unavailable, the backend falls back to local file storage under `/uploads`, which is proxied by Vite during development.
+
+## Local Development
+
+### Prerequisites
+
+- Go
+- Node.js and npm
+- PostgreSQL
+- Redis
+
+### Backend Setup
+
+```bash
+cd backend
+cp .env.example .env
+go test ./...
+go run ./cmd/server
+```
+
+### Frontend Setup
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run build
+npm run dev
+```
+
+### Default Local URLs
+
+- frontend: `http://localhost:5173`
+- backend: `http://localhost:8080`
+- API via Vite proxy: `/api`
+- WebSocket via Vite proxy: `/ws`
+
+The Vite dev server also proxies `/uploads` so locally stored avatar, banner, and decoration media resolve correctly in development.
+
+## Environment Notes
 
 ### Backend
 
-Common backend environment variables:
+See `backend/.env.example` for the current baseline. The main categories are:
 
-```env
-PORT=8080
-ENV=development
-
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=briworld
-DB_PASSWORD=your_password
-DB_NAME=briworld_db
-DB_SSL_MODE=disable
-
-JWT_SECRET=change-me
-
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DB=0
-REDIS_TLS=false
-
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=
-SMTP_PASSWORD=
-SMTP_FROM=noreply@briworld.com
-```
+- database
+- server and CORS
+- JWT
+- Redis
+- SMTP
+- Cloudinary
+- game defaults
 
 ### Frontend
 
-Recommended local frontend environment:
+See `frontend/.env.example` for the current baseline. The main variables are:
 
-```env
-VITE_API_URL=http://localhost:8080/api/v2
-VITE_WS_URL=ws://localhost:8080/ws
-```
+- `VITE_API_URL`
+- `VITE_WS_URL`
+- app metadata
+- feature flags
+- default room settings
+- audio flags
 
-Notes:
-- if `VITE_WS_URL` is not set, the frontend derives the websocket URL from `VITE_API_URL`
-- in dev, this avoids accidental websocket attempts against the Vite server on port `5173`
-
-## Local Development
+## Useful Commands
 
 ### Backend
 
 ```bash
 cd backend
-go test ./...
-go run ./cmd/server
+make dev
+make build
+make test-unit
 ```
 
 ### Frontend
 
 ```bash
 cd frontend
-npm install
-npm run lint
-npm run build
 npm run dev
+npm run build
+npm test
 ```
 
-### Typical Local Setup
+## Quality Checks
 
-Run backend on `http://localhost:8080` and frontend on `http://localhost:5173`.
+These are the practical checks that match the current repo setup:
 
-## Quality Gates
+```bash
+cd backend && go test ./...
+cd frontend && npm run build
+```
 
-These are the practical quality checks for this repository:
-- `cd backend && go test ./...`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
+`npm run lint` may also be useful during frontend work if you are touching UI code.
 
-If all three are green, the repo is usually in a safe working state for feature work.
+## Read Next
 
-## Active Mode Summary
-
-### `FLAG`
-- timed guess-the-flag gameplay
-- server-scored rounds
-
-### `WORLD_MAP`
-- multiplayer map painting
-- shared room state, colors, and leaderboard
-
-### `SILHOUETTE`
-- country outline guessing
-- backend-generated silhouette data, frontend-rendered SVG
-
-### `LAST_STANDING`
-- elimination-based pressure mode
-
-### `BORDER_LOGIC`
-- country-neighbor deduction mode
-
-## Documentation
-
-For the full architecture walkthrough, read [UNDERSTANDING_BRIWORLD.md](./UNDERSTANDING_BRIWORLD.md).
-
-That document explains:
-- backend startup and module boundaries
-- websocket room architecture
-- frontend state flow
-- how room sync works
-- where to add a new game mode
-- operational and maintenance guidance
+- [UNDERSTANDING_BRIWORLD.md](/home/flack/Documents/Go_Projects/BriWorld-v2/UNDERSTANDING_BRIWORLD.md)
+- [backend/README.md](/home/flack/Documents/Go_Projects/BriWorld-v2/backend/README.md)

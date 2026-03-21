@@ -9,6 +9,7 @@ interface UsePlayersProps {
 
 export const usePlayers = ({ gameState, roomUpdate, username }: UsePlayersProps) => {
   const [playerAvatars, setPlayerAvatars] = useState<Record<string, string>>({});
+  const [playerBanners, setPlayerBanners] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const snapshotAvatars = gameState?.player_avatars;
@@ -22,6 +23,19 @@ export const usePlayers = ({ gameState, roomUpdate, username }: UsePlayersProps)
       }));
     }
   }, [gameState?.player_avatars, roomUpdate?.player_avatars]);
+
+  useEffect(() => {
+    const snapshotBanners = gameState?.player_banners;
+    const roomBanners = roomUpdate?.player_banners;
+
+    if (snapshotBanners || roomBanners) {
+      setPlayerBanners((prev) => ({
+        ...prev,
+        ...(snapshotBanners || {}),
+        ...(roomBanners || {}),
+      }));
+    }
+  }, [gameState?.player_banners, roomUpdate?.player_banners]);
 
   const players = useMemo<LeaderboardPlayer[]>(() => {
     const mode = gameState?.game_mode || roomUpdate?.game_mode;
@@ -64,6 +78,7 @@ export const usePlayers = ({ gameState, roomUpdate, username }: UsePlayersProps)
           color: (name === username ? 'correct' : 'opponent') as 'correct' | 'opponent',
           avatar: name.charAt(0).toUpperCase(),
           avatarUrl: playerAvatars[name],
+          bannerUrl: playerBanners[name],
           playerColor: gameState?.player_colors?.[name] || roomUpdate?.player_colors?.[name],
         }))
         .sort((a, b) => b.score - a.score)
@@ -81,6 +96,7 @@ export const usePlayers = ({ gameState, roomUpdate, username }: UsePlayersProps)
           color: (name === username ? 'correct' : 'opponent') as 'correct' | 'opponent',
           avatar: name.charAt(0).toUpperCase(),
           avatarUrl: playerAvatars[name],
+          bannerUrl: playerBanners[name],
           playerColor: gameState?.player_colors?.[name] || roomUpdate?.player_colors?.[name],
         }))
         .sort((a, b) => b.score - a.score)
@@ -98,6 +114,7 @@ export const usePlayers = ({ gameState, roomUpdate, username }: UsePlayersProps)
           color: (name === username ? 'correct' : 'opponent') as 'correct' | 'opponent',
           avatar: name.charAt(0).toUpperCase(),
           avatarUrl: playerAvatars[name],
+          bannerUrl: playerBanners[name],
           playerColor: gameState?.player_colors?.[name] || roomUpdate?.player_colors?.[name],
         }))
         .sort((a, b) => b.score - a.score)
@@ -105,7 +122,7 @@ export const usePlayers = ({ gameState, roomUpdate, username }: UsePlayersProps)
     }
 
     return [];
-  }, [gameState, roomUpdate, username, playerAvatars]);
+  }, [gameState, roomUpdate, username, playerAvatars, playerBanners]);
 
-  return { players, playerAvatars };
+  return { players, playerAvatars, playerBanners };
 };

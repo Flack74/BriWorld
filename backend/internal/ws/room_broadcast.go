@@ -44,6 +44,7 @@ func (r *Room) BuildStatePayload() map[string]interface{} {
 
 	players := make([]string, 0, len(r.Clients))
 	playerAvatars := make(map[string]string)
+	playerBanners := make(map[string]string)
 	for client := range r.Clients {
 		if client.IsSpectator {
 			continue
@@ -51,6 +52,9 @@ func (r *Room) BuildStatePayload() map[string]interface{} {
 		players = append(players, client.Username)
 		if client.AvatarURL != "" {
 			playerAvatars[client.Username] = client.AvatarURL
+		}
+		if client.BannerURL != "" {
+			playerBanners[client.Username] = client.BannerURL
 		}
 	}
 
@@ -69,6 +73,7 @@ func (r *Room) BuildStatePayload() map[string]interface{} {
 		"current_count":     len(players),
 		"player_colors":     cloneStringStringMap(r.GameState.PlayerColors),
 		"player_avatars":    playerAvatars,
+		"player_banners":    playerBanners,
 		"painted_countries": cloneStringStringMap(r.GameState.PaintedCountries),
 		"answered":          cloneStringBoolMap(r.GameState.Answered),
 		"eliminated_players": cloneStringBoolMap(
@@ -108,26 +113,31 @@ func (r *Room) BroadcastRoomUpdate() {
 	r.mu.RLock()
 	players := make([]string, 0, len(r.Clients))
 	playerAvatars := make(map[string]string)
+	playerBanners := make(map[string]string)
 	for client := range r.Clients {
 		if !client.IsSpectator {
 			players = append(players, client.Username)
 			if client.AvatarURL != "" {
 				playerAvatars[client.Username] = client.AvatarURL
 			}
+			if client.BannerURL != "" {
+				playerBanners[client.Username] = client.BannerURL
+			}
 		}
 	}
 	payload := map[string]interface{}{
-		"players":       players,
-		"current_count": len(players),
-		"status":        string(r.GameState.Status),
-		"current_round": r.GameState.CurrentRound,
-		"owner":         r.Owner,
-		"game_mode":     r.GameState.GameMode,
-		"room_type":     r.GameState.RoomType,
-		"map_mode":      r.GameState.MapMode,
-		"scores":        cloneStringIntMap(r.GameState.Scores),
-		"player_colors": r.GameState.PlayerColors,
+		"players":        players,
+		"current_count":  len(players),
+		"status":         string(r.GameState.Status),
+		"current_round":  r.GameState.CurrentRound,
+		"owner":          r.Owner,
+		"game_mode":      r.GameState.GameMode,
+		"room_type":      r.GameState.RoomType,
+		"map_mode":       r.GameState.MapMode,
+		"scores":         cloneStringIntMap(r.GameState.Scores),
+		"player_colors":  r.GameState.PlayerColors,
 		"player_avatars": playerAvatars,
+		"player_banners": playerBanners,
 	}
 	r.mu.RUnlock()
 

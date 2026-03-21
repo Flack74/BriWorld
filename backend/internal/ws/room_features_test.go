@@ -12,6 +12,7 @@ func TestSetPlayerColor(t *testing.T) {
 		Username: "alice",
 		Send:     make(chan []byte, 10),
 	}
+	room.Clients[client] = true
 
 	payload := map[string]interface{}{
 		"color": "red",
@@ -43,6 +44,8 @@ func TestSetPlayerColorDuplicatePrevention(t *testing.T) {
 		Username: "bob",
 		Send:     make(chan []byte, 10),
 	}
+	room.Clients[client] = true
+	room.Clients[&Client{Username: "alice", Send: make(chan []byte, 10)}] = true
 
 	payload := map[string]interface{}{
 		"color": "red",
@@ -68,6 +71,7 @@ func TestSetPlayerColorChange(t *testing.T) {
 		Username: "alice",
 		Send:     make(chan []byte, 10),
 	}
+	room.Clients[client] = true
 
 	// Set initial color
 	room.SetPlayerColor(client, map[string]interface{}{"color": "red"})
@@ -114,6 +118,7 @@ func TestMultiplePlayerColors(t *testing.T) {
 			Username: username,
 			Send:     make(chan []byte, 10),
 		}
+		room.Clients[client] = true
 		room.SetPlayerColor(client, map[string]interface{}{"color": color})
 	}
 
@@ -126,4 +131,27 @@ func TestMultiplePlayerColors(t *testing.T) {
 		}
 	}
 	room.mu.RUnlock()
+}
+
+func TestSetPlayerColorIgnoresDisconnectedColorReservations(t *testing.T) {
+	room := NewRoom("TEST123")
+	defer room.cancel()
+
+	room.mu.Lock()
+	room.GameState.PlayerColors["alice"] = "red"
+	room.mu.Unlock()
+
+	bob := &Client{
+		Username: "bob",
+		Send:     make(chan []byte, 10),
+	}
+	room.Clients[bob] = true
+
+	room.SetPlayerColor(bob, map[string]interface{}{"color": "red"})
+
+	room.mu.RLock()
+	defer room.mu.RUnlock()
+	if room.GameState.PlayerColors["bob"] != "red" {
+		t.Fatalf("bob should be able to reuse a disconnected player's color")
+	}
 }

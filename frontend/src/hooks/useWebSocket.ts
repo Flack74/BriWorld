@@ -101,6 +101,7 @@ export const useWebSocket = (
       map_mode: snapshot.map_mode,
       player_colors: snapshot.player_colors,
       player_avatars: snapshot.player_avatars,
+      player_banners: snapshot.player_banners,
       team_battle: snapshot.team_battle,
     });
   };
@@ -212,6 +213,8 @@ export const useWebSocket = (
                       prev.map_play_mode,
                     player_colors:
                       updatePayload.player_colors ?? prev.player_colors,
+                    player_banners:
+                      updatePayload.player_banners ?? prev.player_banners,
                     scores: updatePayload.scores ?? prev.scores,
                   }
                 : prev,

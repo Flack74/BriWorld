@@ -23,6 +23,7 @@ type Client struct {
 	IsGuest             bool
 	IsSpectator         bool
 	AvatarURL           string
+	BannerURL           string
 	TimeoutSeconds      int
 	Role                domain.ClientRole
 	State               domain.ClientState

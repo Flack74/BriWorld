@@ -23,6 +23,7 @@ import {
 } from "@/components/GameBanners";
 import { GameOverModal } from "@/components/GameOverModal";
 import { CongratsModal } from "@/components/CongratsModal";
+import { WorldMapCompletionModal } from "@/components/WorldMapCompletionModal";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { WorldMapLayout } from "@/components/WorldMapLayout";
 import { QuizModeLayout } from "@/components/QuizModeLayout";
@@ -289,14 +290,13 @@ const Game = () => {
 
   // UI state
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [showWorldMapCompletionModal, setShowWorldMapCompletionModal] = useState(false);
   // const [activeTab, setActiveTab] = useState<'leaderboard' | 'chat' | 'none'>('none');
 
   // Modal management
   const {
     showGameOver,
     setShowGameOver,
-    showCongratsModal,
-    setShowCongratsModal,
     isReconnecting,
     wasReconnected,
     setWasReconnected,
@@ -333,6 +333,23 @@ const Game = () => {
     gameState?.game_mode || roomUpdate?.game_mode || config.gameMode;
   const sharedPaintedCountries = gameState?.painted_countries || {};
   const totalCountriesFound = Object.keys(sharedPaintedCountries).length;
+  const activeTakenColors = (roomUpdate?.players || [])
+    .filter((player) => player !== config.username)
+    .map((player) => roomUpdate?.player_colors?.[player])
+    .filter((color): color is string => Boolean(color));
+
+  useEffect(() => {
+    if (actualGameMode !== "WORLD_MAP") {
+      return;
+    }
+
+    if (totalCountriesFound >= 197) {
+      const timer = setTimeout(() => setShowWorldMapCompletionModal(true), 900);
+      return () => clearTimeout(timer);
+    }
+
+    setShowWorldMapCompletionModal(false);
+  }, [actualGameMode, totalCountriesFound]);
 
   // Handle game restart redirect
   useEffect(() => {
@@ -418,7 +435,7 @@ const Game = () => {
       ws.send(JSON.stringify({ type: "restart_game" }));
     }
     setShowGameOver(false);
-    setShowCongratsModal(false);
+    setShowWorldMapCompletionModal(false);
   };
 
   // Handle back to lobby
@@ -515,7 +532,7 @@ const Game = () => {
           onClose={() => setShowColorModal(false)}
           onSelectColor={handleColorSelect}
           selectedColor={selectedColor}
-          takenColors={Object.values(roomUpdate?.player_colors || {})}
+          takenColors={activeTakenColors}
         />
         <CollisionDialog />
         <ReconnectionDialog
@@ -534,8 +551,11 @@ const Game = () => {
           onPlayAgain={handlePlayAgain}
           onBackToLobby={handleBackToLobby}
         />
-        <CongratsModal
-          show={showCongratsModal}
+        <WorldMapCompletionModal
+          show={showWorldMapCompletionModal}
+          players={players}
+          username={config.username}
+          roomType={config.roomType}
           onPlayAgain={handlePlayAgain}
           onBackToLobby={handleBackToLobby}
         />
@@ -576,19 +596,12 @@ const Game = () => {
         onPlayAgain={handlePlayAgain}
         onBackToLobby={handleBackToLobby}
       />
-      <CongratsModal
-        show={showCongratsModal}
-        onPlayAgain={handlePlayAgain}
-        onBackToLobby={handleBackToLobby}
-      />
       <ColorPickerModal
         open={showColorModal}
         onClose={() => setShowColorModal(false)}
         onSelectColor={handleColorSelect}
         selectedColor={selectedColor}
-        takenColors={Object.values(
-          gameState?.player_colors || roomUpdate?.player_colors || {},
-        )}
+        takenColors={activeTakenColors}
       />
       <CollisionDialog />
       <ReconnectionDialog

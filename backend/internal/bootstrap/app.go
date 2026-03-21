@@ -53,6 +53,10 @@ func New() (*App, error) {
 		log.Println("✓ Tables exist, skipping migrations")
 	}
 
+	if err := database.MigrateProfileCustomization(gormDB); err != nil {
+		log.Printf("⚠️  Profile customization migrations failed: %v", err)
+	}
+
 	// Redis
 	if err := redis.InitRedis(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB, cfg.Redis.TLS); err != nil {
 		log.Printf("⚠️  Redis unavailable: %v", err)

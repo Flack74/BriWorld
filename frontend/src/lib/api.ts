@@ -78,6 +78,10 @@ class ApiClient {
     return this.request('/user/profile');
   }
 
+  async getAchievements() {
+    return this.request('/achievements');
+  }
+
   async updateProfile(data: JsonObject) {
     return this.request('/user/profile', {
       method: 'PUT',
@@ -102,6 +106,85 @@ class ApiClient {
 
   async deleteAvatar() {
     return this.request('/user/avatar', { method: 'DELETE' });
+  }
+
+  async uploadBanner(file: File) {
+    const formData = new FormData();
+    formData.append('banner', file);
+
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE}/user/banner`, {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      try {
+        const errorData = JSON.parse(body) as { error?: string };
+        throw new Error(errorData.error || 'Banner upload failed');
+      } catch {
+        throw new Error(body || 'Banner upload failed');
+      }
+    }
+    return response.json();
+  }
+
+  async deleteBanner() {
+    return this.request('/user/banner', { method: 'DELETE' });
+  }
+
+  async uploadAvatarDecoration(file: File) {
+    const formData = new FormData();
+    formData.append('avatar_decoration', file);
+
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE}/user/avatar-decoration`, {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error('Decoration upload failed');
+    return response.json();
+  }
+
+  async deleteAvatarDecoration() {
+    return this.request('/user/avatar-decoration', { method: 'DELETE' });
+  }
+
+  async getProfileAssets() {
+    return this.request('/user/profile-assets');
+  }
+
+  async uploadProfileAsset(file: File, kind = 'decoration', target = 'avatar') {
+    const formData = new FormData();
+    formData.append('asset', file);
+    formData.append('kind', kind);
+    formData.append('target', target);
+    formData.append('name', file.name);
+
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE}/user/profile-assets`, {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error('Profile asset upload failed');
+    return response.json();
+  }
+
+  async deleteProfileAsset(assetId: string) {
+    return this.request(`/user/profile-assets/${assetId}`, { method: 'DELETE' });
+  }
+
+  async saveProfileCustomization(data: JsonObject) {
+    return this.request('/user/profile/customization', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   }
 
   // Room endpoints

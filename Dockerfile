@@ -10,35 +10,37 @@ RUN go mod download
 
 RUN go install github.com/air-verse/air@latest
 
-COPY backend/ .
+COPY backend/ ./
 
 EXPOSE 8080
 
 CMD ["air", "-c", ".air.toml"]
 
-# Builder stage for production
-FROM golang:1.25-alpine AS builder
+# Frontend build stage
+FROM node:20-alpine AS frontend-builder
 
-# Install build dependencies (removed Node.js/npm)
-RUN apk add --no-cache \
-    git \
-    ca-certificates \
-    tzdata \
-    gcc \
-    musl-dev
+WORKDIR /frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
+# Backend build stage
+FROM golang:1.25-alpine AS backend-builder
+
+RUN apk add --no-cache git ca-certificates tzdata gcc musl-dev
 
 WORKDIR /app
 
-# Copy Go modules first for better caching
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download && go mod verify
 
-# Copy source code and static assets
 COPY backend/cmd/ ./cmd/
 COPY backend/internal/ ./internal/
 COPY backend/static/ ./static/
 
-# Build optimized production binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
     -trimpath \
@@ -46,13 +48,11 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -installsuffix netgo \
     -o briworld ./cmd/server
 
-# Verify binary exists and is executable
-RUN ls -la briworld && chmod +x briworld
+RUN chmod +x ./briworld
 
-# Production stage with runtime dependencies
+# Production runtime stage
 FROM alpine:3.19 AS production
 
-# Install runtime dependencies for full functionality
 RUN apk add --no-cache \
     ca-certificates \
     tzdata \
@@ -61,38 +61,28 @@ RUN apk add --no-cache \
     bash \
     dumb-init
 
-# Update CA certificates
 RUN update-ca-certificates
 
-# Set timezone
 RUN cp /usr/share/zoneinfo/UTC /etc/localtime && \
     echo "UTC" > /etc/timezone
 
-# Create app user for security
 RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
 
 WORKDIR /app
 
-# Copy binary and application files
-COPY --from=builder /app/briworld ./
-COPY --from=builder /app/static ./static/
+COPY --from=backend-builder /app/briworld ./
+COPY --from=backend-builder /app/static ./static/
+COPY --from=frontend-builder /frontend/dist ./web-dist
 COPY frontend/Music ./Music/
-
-# Create uploads directory for avatars
-RUN mkdir -p uploads && chown -R appuser:appgroup uploads
-
-# Copy health check script
 COPY backend/healthcheck.sh ./
-RUN chmod +x ./briworld ./healthcheck.sh
 
-# Set proper ownership
-RUN chown -R appuser:appgroup /app
+RUN mkdir -p uploads && \
+    chmod +x ./briworld ./healthcheck.sh && \
+    chown -R appuser:appgroup /app
 
-# Switch to non-root user
 USER appuser
 
-# Production environment variables
 ENV ENV=production \
     PORT=8080 \
     GIN_MODE=release \
@@ -102,10 +92,8 @@ ENV ENV=production \
 
 EXPOSE 8080
 
-# Health check with proper timeout
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD ./healthcheck.sh || exit 1
 
-# Use dumb-init for proper signal handling
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["./briworld"]

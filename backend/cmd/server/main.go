@@ -11,14 +11,9 @@ import (
 )
 
 func main() {
-	// Log current ENV value if development .env else render
-	env := os.Getenv("ENV")
-
-	if env == "" || env == "development" {
-		err := godotenv.Load()
-		if err != nil {
-			log.Println("No .env file found")
-		}
+	err := godotenv.Load(".env", "backend/.env", ".env.local", "backend/.env.local")
+	if err != nil {
+		log.Println("No local .env file found")
 	}
 
 	app, err := bootstrap.New()

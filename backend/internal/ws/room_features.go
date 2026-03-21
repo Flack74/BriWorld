@@ -18,6 +18,14 @@ func (r *Room) SetPlayerColor(client *Client, payload interface{}) {
 	}
 	json.Unmarshal(data, &colorData)
 
+	colorData.Color = strings.TrimSpace(colorData.Color)
+	if colorData.Color == "" {
+		r.SendToClient(client, "color_rejected", map[string]interface{}{
+			"error": "Color is required",
+		})
+		return
+	}
+
 	// Try Redis first for atomic color selection
 	if redisClient.Client != nil {
 		ctx := context.Background()
@@ -39,9 +47,12 @@ func (r *Room) SetPlayerColor(client *Client, payload interface{}) {
 	} else {
 		// Fallback to in-memory validation
 		r.mu.Lock()
-		for username, color := range r.GameState.PlayerColors {
-			if color == colorData.Color && username != client.Username {
-				log.Printf("Color %s already taken by %s", colorData.Color, username)
+		for activeClient := range r.Clients {
+			if activeClient.Username == client.Username {
+				continue
+			}
+			if r.GameState.PlayerColors[activeClient.Username] == colorData.Color {
+				log.Printf("Color %s already taken by %s", colorData.Color, activeClient.Username)
 				r.mu.Unlock()
 				r.SendToClient(client, "color_rejected", map[string]interface{}{
 					"error": "Color already taken",

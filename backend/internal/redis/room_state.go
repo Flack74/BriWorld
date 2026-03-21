@@ -13,14 +13,14 @@ const roomTTL = 30 * time.Minute
 // SetPlayerColor sets a player's color with duplicate prevention
 func SetPlayerColor(ctx context.Context, roomCode, username, color string) error {
 	key := fmt.Sprintf("room:%s:colors", roomCode)
-	
+
 	colors, _ := Client.HGetAll(ctx, key).Result()
 	for user, c := range colors {
 		if c == color && user != username {
 			return errors.New("color already taken")
 		}
 	}
-	
+
 	pipe := Client.TxPipeline()
 	pipe.HSet(ctx, key, username, color)
 	pipe.Expire(ctx, key, roomTTL)
@@ -32,6 +32,12 @@ func SetPlayerColor(ctx context.Context, roomCode, username, color string) error
 func GetPlayerColors(ctx context.Context, roomCode string) (map[string]string, error) {
 	key := fmt.Sprintf("room:%s:colors", roomCode)
 	return Client.HGetAll(ctx, key).Result()
+}
+
+// RemovePlayerColor frees a player's active color reservation.
+func RemovePlayerColor(ctx context.Context, roomCode, username string) error {
+	key := fmt.Sprintf("room:%s:colors", roomCode)
+	return Client.HDel(ctx, key, username).Err()
 }
 
 // AddPlayer adds a player to the room
@@ -73,12 +79,12 @@ func GetScores(ctx context.Context, roomCode string) (map[string]string, error) 
 // PaintCountry marks a country as painted by a player
 func PaintCountry(ctx context.Context, roomCode, countryCode, username string) error {
 	key := fmt.Sprintf("room:%s:painted", roomCode)
-	
+
 	exists, _ := Client.HExists(ctx, key, countryCode).Result()
 	if exists {
 		return errors.New("country already painted")
 	}
-	
+
 	pipe := Client.TxPipeline()
 	pipe.HSet(ctx, key, countryCode, username)
 	pipe.Expire(ctx, key, roomTTL)
@@ -99,7 +105,7 @@ func SetGameState(ctx context.Context, roomCode string, state interface{}) error
 	if err != nil {
 		return err
 	}
-	
+
 	pipe := Client.TxPipeline()
 	pipe.Set(ctx, key, data, roomTTL)
 	_, err = pipe.Exec(ctx)
@@ -140,7 +146,7 @@ func UpdateRoomActivity(ctx context.Context, roomCode string) {
 		fmt.Sprintf("room:%s:timer", roomCode),
 		fmt.Sprintf("room:%s:combos", roomCode),
 	}
-	
+
 	pipe := Client.Pipeline()
 	for _, key := range keys {
 		pipe.Expire(ctx, key, roomTTL)
@@ -159,7 +165,7 @@ func DeleteRoom(ctx context.Context, roomCode string) error {
 		fmt.Sprintf("room:%s:state", roomCode),
 		fmt.Sprintf("room:%s:timer", roomCode),
 	}
-	
+
 	return Client.Del(ctx, keys...).Err()
 }
 

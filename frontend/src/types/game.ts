@@ -63,6 +63,7 @@ export interface GameState {
   painted_countries?: Record<string, string>;
   player_colors?: Record<string, string>;
   player_avatars?: Record<string, string>;
+  player_banners?: Record<string, string>;
 
   // Timers / sync (reconnect + WS sync)
   deadline?: number; // unix timestamp from backend (authoritative)
@@ -160,6 +161,7 @@ export interface LeaderboardPlayer {
   color: "correct" | "opponent";
   avatar: string;
   avatarUrl?: string;
+  bannerUrl?: string;
   playerColor?: string;
 }
 
@@ -192,6 +194,7 @@ export interface RoomUpdate {
 
   player_colors?: Record<string, string>;
   player_avatars?: Record<string, string>;
+  player_banners?: Record<string, string>;
 
   team_battle?: TeamBattleState;
 }
@@ -231,6 +234,7 @@ export interface GameStateSnapshot extends GameState {
   current_count?: number;
   map_mode?: string;
   player_avatars?: Record<string, string>;
+  player_banners?: Record<string, string>;
 }
 
 /* -------------------------------------------------------------------------- */

@@ -45,21 +45,27 @@ var iso2to3 = map[string]string{
 
 var countryAliases = map[string]string{
 	// Modern names
-	"czechia":     "czech republic",
-	"ivory coast": "cote d'ivoire",
-	"burma":       "myanmar",
-	"swaziland":   "eswatini",
-	"east timor":  "timor-leste",
+	"czechia":       "czech republic",
+	"ivory coast":   "cote d'ivoire",
+	"cote d ivoire": "cote d'ivoire",
+	"cote divoire":  "cote d'ivoire",
+	"burma":         "myanmar",
+	"swaziland":     "eswatini",
+	"east timor":    "timor-leste",
+	"cape verde":    "cabo verde",
 
 	// Short forms
-	"uk":    "united kingdom",
-	"usa":   "united states of america",
-	"us":    "united states of america",
-	"uae":   "united arab emirates",
-	"drc":   "democratic republic of the congo",
-	"car":   "central african republic",
-	"png":   "papua new guinea",
-	"saudi": "saudi arabia",
+	"uk":            "united kingdom",
+	"usa":           "united states of america",
+	"us":            "united states of america",
+	"united states": "united states of america",
+	"uae":           "united arab emirates",
+	"drc":           "democratic republic of the congo",
+	"car":           "central african republic",
+	"png":           "papua new guinea",
+	"saudi":         "saudi arabia",
+	"vatican":       "vatican city",
+	"sao tome":      "sao tome and principe",
 
 	// Common variations
 	"holland":       "netherlands",

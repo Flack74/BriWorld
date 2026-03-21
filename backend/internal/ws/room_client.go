@@ -87,11 +87,15 @@ func (r *Room) AddClient(client *Client) {
 	// Build room_joined payload while still holding the lock
 	players := make([]string, 0, len(r.Clients))
 	playerAvatars := make(map[string]string)
+	playerBanners := make(map[string]string)
 	for c := range r.Clients {
 		if !c.IsSpectator {
 			players = append(players, c.Username)
 			if c.AvatarURL != "" {
 				playerAvatars[c.Username] = c.AvatarURL
+			}
+			if c.BannerURL != "" {
+				playerBanners[c.Username] = c.BannerURL
 			}
 		}
 	}
@@ -112,6 +116,7 @@ func (r *Room) AddClient(client *Client) {
 		"painted_countries": cloneStringStringMap(r.GameState.PaintedCountries),
 		"player_colors":     cloneStringStringMap(r.GameState.PlayerColors),
 		"player_avatars":    playerAvatars,
+		"player_banners":    playerBanners,
 		"is_owner":          r.Owner == client.Username,
 	}
 
@@ -169,6 +174,7 @@ func (r *Room) RemoveClient(client *Client) {
 	if redisClient.Client != nil {
 		ctx := context.Background()
 		redisClient.RemovePlayer(ctx, r.ID, client.Username)
+		redisClient.RemovePlayerColor(ctx, r.ID, client.Username)
 	}
 
 	if client.PermanentLeave {

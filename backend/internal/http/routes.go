@@ -40,6 +40,7 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config, m 
 	// Static files (game data only)
 	app.Static("/static", "./static")
 	app.Static("/Music", "./Music")
+	app.Static("/uploads", "./uploads")
 
 	app.Get("/api/v2/rooms", handlers.GetPublicRooms)
 	app.Post("/api/v2/rooms", handlers.CreateRoom)
@@ -76,8 +77,16 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config, m 
 	profile.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 	profile.Get("/profile", profileHandler.GetProfile)
 	profile.Put("/profile", profileHandler.UpdateProfile)
+	profile.Put("/profile/customization", profileHandler.SaveCustomization)
 	profile.Post("/avatar", avatarHandler.UploadAvatar)
 	profile.Delete("/avatar", avatarHandler.DeleteAvatar)
+	profile.Post("/banner", avatarHandler.UploadBanner)
+	profile.Delete("/banner", avatarHandler.DeleteBanner)
+	profile.Post("/avatar-decoration", avatarHandler.UploadAvatarDecoration)
+	profile.Delete("/avatar-decoration", avatarHandler.DeleteAvatarDecoration)
+	profile.Get("/profile-assets", avatarHandler.ListProfileAssets)
+	profile.Post("/profile-assets", avatarHandler.UploadProfileAsset)
+	profile.Delete("/profile-assets/:assetId", avatarHandler.DeleteProfileAsset)
 
 	// Meta system routes
 	api.Get("/daily-challenge", handlers.GetDailyChallenge)

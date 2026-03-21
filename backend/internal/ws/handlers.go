@@ -22,27 +22,27 @@ func init() {
 	go GlobalHub.Run()
 }
 
-func resolveAvatarURL(token string) string {
+func resolveProfileMedia(token string) (string, string) {
 	if token == "" {
-		return ""
+		return "", ""
 	}
 
 	claims, err := utils.ValidateJWT(token, config.Load().JWT.Secret)
 	if err != nil {
-		return ""
+		return "", ""
 	}
 
 	db := database.GetDB()
 	if db == nil {
-		return ""
+		return "", ""
 	}
 
 	var user models.User
-	if err := db.DB.Select("avatar_url").Where("id = ?", claims.UserID).First(&user).Error; err != nil {
-		return ""
+	if err := db.DB.Select("avatar_url", "banner_url").Where("id = ?", claims.UserID).First(&user).Error; err != nil {
+		return "", ""
 	}
 
-	return user.AvatarURL
+	return user.AvatarURL, user.BannerURL
 }
 
 func HandleWebSocket(c *websocket.Conn) {
@@ -221,6 +221,8 @@ func HandleWebSocket(c *websocket.Conn) {
 	}
 	room.mu.Unlock()
 
+	avatarURL, bannerURL := resolveProfileMedia(token)
+
 	client := &Client{
 		ID:             uuid.New().String(),
 		Username:       username,
@@ -232,7 +234,8 @@ func HandleWebSocket(c *websocket.Conn) {
 		GameMode:       gameMode,
 		RoomType:       roomType,
 		IsGuest:        sessionID != "",
-		AvatarURL:      resolveAvatarURL(token),
+		AvatarURL:      avatarURL,
+		BannerURL:      bannerURL,
 		TimeoutSeconds: timeoutSeconds,
 	}
 

@@ -1,10 +1,6 @@
 // gameplay logic for countries
 package game
 
-import (
-	"strings"
-)
-
 func (g *GameData) GetRandomCountry() (code, name string) {
 	if len(g.CountryKeys) == 0 {
 		return "", ""
@@ -28,7 +24,7 @@ func (g *GameData) GetTotalCountries() int {
 }
 
 func (g *GameData) FindCountryByName(name string) (code, countryName string) {
-	code, ok := g.CountryNameIndex[strings.ToLower(name)]
+	code, ok := g.CountryNameIndex[normalizeCountryName(name)]
 	if !ok {
 		return "", ""
 	}

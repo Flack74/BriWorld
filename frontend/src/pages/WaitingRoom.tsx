@@ -3,9 +3,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Users, Crown, Copy, Check, ChevronLeft } from "lucide-react";
 import { LeaveRoomDialog } from "@/components/LeaveRoomDialog";
-import { GameConfig, RoomUpdate } from "@/types/game";
+import { GameConfig } from "@/types/game";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { getOrCreateGuestUsername } from "@/lib/guestUsername";
+import { api } from "@/lib/api";
 
 const getStoredConfig = (): GameConfig | null => {
   const gameMode = sessionStorage.getItem("gameMode");
@@ -35,20 +36,15 @@ const getStoredConfig = (): GameConfig | null => {
 const WaitingRoom = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const config = (location.state as GameConfig | null) || getStoredConfig();
+  const config = useMemo(
+    () => (location.state as GameConfig | null) || getStoredConfig(),
+    [location.state],
+  );
 
   const [copied, setCopied] = useState(false);
-  const [rounds, setRounds] = useState(10);
   const [roomCode, setRoomCode] = useState<string>("");
   const [mapInitialized, setMapInitialized] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
-
-  // Initialize rounds safely
-  useEffect(() => {
-    if (config?.rounds) {
-      setRounds(config.rounds);
-    }
-  }, [config]);
 
   // Redirect if config missing (NEVER early return before hooks)
   useEffect(() => {
@@ -92,23 +88,22 @@ const WaitingRoom = () => {
       }
 
       // Request room code from backend
-      fetch('/api/v2/rooms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          game_mode: config.gameMode,
-          room_type: config.roomType
-        })
+      api.createRoom({
+        game_mode: config.gameMode,
+        room_type: config.roomType,
       })
-        .then(res => res.json())
-        .then(data => {
+        .then((data: { room_code: string }) => {
           const newCode = data.room_code;
+          if (!newCode) {
+            throw new Error("Missing room code in create-room response");
+          }
+
           sessionStorage.setItem("currentRoomCode", newCode);
           setRoomCode(newCode);
         })
-        .catch(err => {
-          console.error('Failed to create room:', err);
-          navigate('/lobby');
+        .catch((err) => {
+          console.error("Failed to create room:", err);
+          navigate("/lobby");
         });
       return;
     }
@@ -128,18 +123,25 @@ const WaitingRoom = () => {
       gameMode: config.gameMode,
       roomType: config.roomType,
       rounds: config.rounds,
+      timeout: config.timeout,
     };
-  }, [config, roomCode]);
+  }, [
+    config?.gameMode,
+    config?.roomType,
+    config?.rounds,
+    config?.timeout,
+    config?.username,
+    roomCode,
+  ]);
 
   // MUST be called unconditionally (React Hooks rule)
   const {
+    ws,
     isConnected,
     gameState,
     roomUpdate,
     startGame,
     setMapMode,
-    sendMessage,
-    switchTeam,
   } = useWebSocket(wsConfig);
 
   // Navigate when game starts
@@ -174,11 +176,6 @@ const WaitingRoom = () => {
 
   const handleStartGame = () => {
     startGame();
-  };
-
-  const handleRoundsChange = (newRounds: number) => {
-    setRounds(newRounds);
-    // Rounds are sent via WebSocket config on connection
   };
 
   const handleLeaveRoom = () => {
@@ -226,6 +223,8 @@ const WaitingRoom = () => {
   const displayOwner = roomUpdate.owner;
   const displayIsOwner = displayOwner === config.username;
   const actualGameMode = roomUpdate.game_mode || config.gameMode;
+  const playerBanners = roomUpdate.player_banners || {};
+  const playerAvatars = roomUpdate.player_avatars || {};
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -264,12 +263,41 @@ const WaitingRoom = () => {
           {displayPlayers.map((player: string) => (
             <div
               key={player}
-              className="flex items-center gap-3 p-3 bg-muted/20 rounded-lg mb-2"
+              className="mb-3 overflow-hidden rounded-xl border border-white/10"
             >
-              <div className="flex-1">{player}</div>
-              {player === displayOwner && (
-                <Crown className="w-4 h-4 text-yellow-500" />
-              )}
+              <div
+                className="flex items-center gap-3 p-3"
+                style={{
+                  backgroundImage: playerBanners[player]
+                    ? `linear-gradient(rgba(8,12,18,0.45), rgba(8,12,18,0.72)), url(${playerBanners[player]})`
+                    : "linear-gradient(135deg, rgba(43,122,155,0.24), rgba(124,58,237,0.18), rgba(234,106,71,0.16))",
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              >
+                {playerAvatars[player] ? (
+                  <img
+                    src={playerAvatars[player]}
+                    alt={player}
+                    className="h-11 w-11 rounded-full object-cover ring-2 ring-white/70"
+                  />
+                ) : (
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-sm font-bold text-white ring-2 ring-white/70">
+                    {player.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-semibold text-white drop-shadow">
+                    {player}
+                  </div>
+                  <div className="text-xs text-white/70">
+                    {player === displayOwner ? "Room owner" : "Ready in lobby"}
+                  </div>
+                </div>
+                {player === displayOwner && (
+                  <Crown className="h-4 w-4 text-yellow-300" />
+                )}
+              </div>
             </div>
           ))}
         </div>
