@@ -21,6 +21,7 @@ export function AvatarEditorDialog({
   const [dragging, setDragging] = useState(false);
   const [saving, setSaving] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
+  const frameRef = useRef<HTMLDivElement | null>(null);
 
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
 
@@ -57,8 +58,8 @@ export function AvatarEditorDialog({
 
   const finishDrag = () => setDragging(false);
 
-  const generateCroppedFile = async () => {
-    if (!previewUrl || !file) return null;
+  const computePreviewGeometry = async () => {
+    if (!previewUrl || !file || !frameRef.current) return null;
 
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -68,6 +69,23 @@ export function AvatarEditorDialog({
       img.onload = resolve;
       img.onerror = reject;
     });
+
+    const frameRect = frameRef.current.getBoundingClientRect();
+    const baseScale = Math.max(frameRect.width / img.width, frameRect.height / img.height);
+
+    return {
+      img,
+      frameWidth: frameRect.width,
+      frameHeight: frameRect.height,
+      displayScale: baseScale * zoom,
+      displayWidth: img.width * baseScale * zoom,
+      displayHeight: img.height * baseScale * zoom,
+    };
+  };
+
+  const generateCroppedFile = async () => {
+    const geometry = await computePreviewGeometry();
+    if (!geometry) return null;
 
     const canvas = document.createElement("canvas");
     const size = 512;
@@ -80,13 +98,14 @@ export function AvatarEditorDialog({
     ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
     ctx.clip();
 
-    const baseScale = Math.max(size / img.width, size / img.height);
-    const drawWidth = img.width * baseScale * zoom;
-    const drawHeight = img.height * baseScale * zoom;
-    const drawX = (size - drawWidth) / 2 + offset.x * 1.8;
-    const drawY = (size - drawHeight) / 2 + offset.y * 1.8;
+    const scaleX = size / geometry.frameWidth;
+    const scaleY = size / geometry.frameHeight;
+    const drawWidth = geometry.displayWidth * scaleX;
+    const drawHeight = geometry.displayHeight * scaleY;
+    const drawX = (size - drawWidth) / 2 + offset.x * scaleX;
+    const drawY = (size - drawHeight) / 2 + offset.y * scaleY;
 
-    ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+    ctx.drawImage(geometry.img, drawX, drawY, drawWidth, drawHeight);
 
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, "image/png", 0.92),
@@ -134,12 +153,12 @@ export function AvatarEditorDialog({
               onTouchEnd={finishDrag}
             >
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(transparent_49%,rgba(255,255,255,0.05)_50%,transparent_51%)] bg-[length:100%_36px]" />
-              <div className="relative h-72 w-72 overflow-hidden rounded-full border-4 border-white/80 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+              <div ref={frameRef} className="relative h-72 w-72 overflow-hidden rounded-full border-4 border-white/80 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
                 {previewUrl && (
                   <img
                     src={previewUrl}
                     alt="Avatar preview"
-                    className="absolute left-1/2 top-1/2 max-w-none select-none"
+                    className="absolute left-1/2 top-1/2 h-full w-full max-w-none select-none object-cover"
                     draggable={false}
                     onMouseDown={(event) => handlePointerDown(event.clientX, event.clientY)}
                     onTouchStart={(event) => {
@@ -163,7 +182,7 @@ export function AvatarEditorDialog({
                 <div className="mt-4">
                   <Slider
                     value={[zoom]}
-                    min={0.3}
+                    min={0.5}
                     max={5}
                     step={0.05}
                     onValueChange={(value) => setZoom(value[0] || 1)}

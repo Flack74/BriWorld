@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 
 export default function Leaderboard() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [currentUser, setCurrentUser] = useState<LeaderboardEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -18,9 +19,13 @@ export default function Leaderboard() {
 
   const fetchLeaderboard = async () => {
     try {
-      const res = await fetch('/api/v2/leaderboard?limit=100');
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/v2/leaderboard?limit=100', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const data = await res.json();
       setLeaderboard(data.leaderboard || []);
+      setCurrentUser(data.current_user || null);
       setLoading(false);
     } catch (error) {
       console.error('Failed to fetch leaderboard:', error);
@@ -47,7 +52,10 @@ export default function Leaderboard() {
           <span>Back to Home</span>
         </button>
 
-        <h1 className="text-4xl font-bold mb-8 text-center">🏆 Global Leaderboard</h1>
+        <h1 className="text-4xl font-bold mb-4 text-center">🏆 Global Leaderboard</h1>
+        <p className="mx-auto mb-8 max-w-3xl text-center text-sm text-muted-foreground">
+          Players are ranked by rating first, then total points and wins. Anyone with match activity, earned points, or rating above the starter value appears here, and your own row stays visible when you are signed in even if you are outside the top 100.
+        </p>
         
         <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
@@ -68,7 +76,7 @@ export default function Leaderboard() {
                         {index === 0 && '👑'}
                         {index === 1 && '🥈'}
                         {index === 2 && '🥉'}
-                        {index > 2 && `#${index + 1}`}
+                        {index > 2 && `#${entry.position ?? index + 1}`}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -100,6 +108,33 @@ export default function Leaderboard() {
                     </td>
                   </tr>
                 ))}
+                {currentUser && !leaderboard.some((entry) => entry.id === currentUser.id) && (
+                  <tr className="border-t border-primary/30 bg-primary/10">
+                    <td className="px-6 py-4 font-bold text-xl">{`#${currentUser.position ?? '-'}`}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        {currentUser.avatar_url ? (
+                          <img
+                            src={currentUser.avatar_url}
+                            alt={currentUser.username}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                            {currentUser.username.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="font-medium text-lg">{currentUser.username} (You)</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center font-mono font-bold text-lg">
+                      {currentUser.rating}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <RankBadge rank={currentUser.rank} tier={currentUser.rank_tier} size="sm" />
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

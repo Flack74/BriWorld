@@ -386,7 +386,7 @@ export function ProfileCustomizationStudio({
                 <label className="cursor-pointer">
                   <input
                     type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif,application/json,.json"
+                    accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/svg+xml,application/json,.json,.avif,.svg"
                     className="hidden"
                     onChange={(event) => {
                       const file = event.target.files?.[0];
@@ -402,7 +402,7 @@ export function ProfileCustomizationStudio({
                 <label className="cursor-pointer">
                   <input
                     type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif,application/json,.json"
+                    accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/svg+xml,application/json,.json,.avif,.svg"
                     className="hidden"
                     onChange={(event) => {
                       const file = event.target.files?.[0];

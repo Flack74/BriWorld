@@ -73,6 +73,7 @@ func (sb *SnapshotBuilder) Build(r *Room, client *Client) map[string]interface{}
 		"status":               r.GameState.Status,
 		"current_round":        r.GameState.CurrentRound,
 		"total_rounds":         r.GameState.TotalRounds,
+		"round_time_limit":     r.GameState.RoundTimeLimit,
 		"question":             r.GameState.Question,
 		"scores":               scores,
 		"round_deadline":       deadline,

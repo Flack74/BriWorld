@@ -86,8 +86,12 @@ func (r *Room) StartRound() {
 	r.GameState.Question = question
 	r.GameState.UsedCountries[question.CountryCode] = true
 
-	// Set time limit
-	timeLimit := 15
+	// Use the configured room time limit instead of a hardcoded default.
+	timeLimit := r.GameState.RoundTimeLimit
+	if timeLimit <= 0 {
+		timeLimit = 15
+		r.GameState.RoundTimeLimit = timeLimit
+	}
 	r.GameState.TimeRemaining = timeLimit
 
 	r.mu.Unlock()

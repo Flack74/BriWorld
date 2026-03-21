@@ -14,6 +14,10 @@ export interface LeaderboardEntry {
   rating: number;
   rank: string;
   rank_tier: number;
+  total_games?: number;
+  total_wins?: number;
+  total_points?: number;
+  position?: number;
 }
 
 export interface Season {

@@ -84,14 +84,14 @@ func validateImageFile(file *multipart.FileHeader, maxSize int64) error {
 	}
 
 	filename := strings.ToLower(file.Filename)
-	allowedExts := []string{".jpg", ".jpeg", ".png", ".webp", ".gif"}
+	allowedExts := []string{".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif", ".svg"}
 	for _, ext := range allowedExts {
 		if strings.HasSuffix(filename, ext) {
 			return nil
 		}
 	}
 
-	return fmt.Errorf("only JPG, PNG, WebP, and GIF files are allowed")
+	return fmt.Errorf("only JPG, PNG, WebP, GIF, AVIF, and SVG files are allowed")
 }
 
 func detectAssetKind(file *multipart.FileHeader) (string, int64, string, error) {
@@ -102,10 +102,10 @@ func detectAssetKind(file *multipart.FileHeader) (string, int64, string, error) 
 		return "lottie", 5 * 1024 * 1024, "raw", nil
 	}
 	if ext == ".gif" || strings.Contains(contentType, "gif") {
-		return "gif", 10 * 1024 * 1024, "image", nil
+		return "gif", 25 * 1024 * 1024, "image", nil
 	}
-	if strings.HasPrefix(contentType, "image/") || ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" {
-		return "image", 5 * 1024 * 1024, "image", nil
+	if strings.HasPrefix(contentType, "image/") || ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".avif" || ext == ".svg" {
+		return "image", 15 * 1024 * 1024, "image", nil
 	}
 
 	return "", 0, "", fmt.Errorf("unsupported asset type")

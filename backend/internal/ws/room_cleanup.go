@@ -3,6 +3,7 @@ package ws
 import (
 	"briworld/internal/database"
 	"briworld/internal/domain"
+	"briworld/internal/models"
 	redisClient "briworld/internal/redis"
 	"context"
 	"log"
@@ -199,6 +200,31 @@ func (r *Room) UpdatePlayerStats(scores map[string]int) {
 			ratingService := &domain.RatingService{}
 			performanceScore := score
 			ratingChange := ratingService.CalculateRatingChange(performanceScore, isWinner)
+			var user models.User
+			if err := db.DB.Where("username = ?", username).First(&user).Error; err == nil {
+				newRank, newTier := models.GetRankFromRating(max(0, user.Rating+ratingChange))
+				if err := db.DB.Exec(`
+					UPDATE users 
+					SET total_points = total_points + ?,
+						total_games = total_games + 1,
+						total_wins = total_wins + ?,
+						win_streak = CASE WHEN ? = 1 THEN win_streak + 1 ELSE 0 END,
+						longest_win_streak = CASE 
+							WHEN ? = 1 AND win_streak + 1 > longest_win_streak 
+							THEN win_streak + 1 
+							ELSE longest_win_streak 
+						END,
+						rating = GREATEST(0, rating + ?),
+						rank = ?,
+						rank_tier = ?
+					WHERE username = ?
+				`, score, winValue, winValue, winValue, ratingChange, newRank, newTier, username).Error; err != nil {
+					log.Printf("Error updating stats for %s: %v", username, err)
+				} else {
+					log.Printf("Successfully updated stats for %s (rating change: %+d)", username, ratingChange)
+				}
+				continue
+			}
 
 			if err := db.DB.Exec(`
 				UPDATE users 

@@ -6,6 +6,7 @@ type State struct {
 	Status            domain.RoomStatus              `json:"status"`
 	CurrentRound      int                            `json:"current_round"`
 	TotalRounds       int                            `json:"total_rounds"`
+	RoundTimeLimit    int                            `json:"round_time_limit"`
 	Question          *Question                      `json:"question"`
 	Scores            map[string]int                 `json:"scores"`
 	TimeRemaining     int                            `json:"time_remaining"`
@@ -24,23 +25,24 @@ type State struct {
 }
 
 type Question struct {
-	Type                 string   `json:"type"`
-	FlagCode             string   `json:"flag_code"`
-	CountryName          string   `json:"country_name"`
-	CountryCode          string   `json:"country_code"`
-	TimeLimit            int      `json:"time_limit"`
-	Emoji                string   `json:"emoji,omitempty"`
-	Silhouette           string   `json:"silhouette,omitempty"`
-	SilhouetteUnavailable bool    `json:"silhouette_unavailable,omitempty"`
-	Capital              string   `json:"capital,omitempty"`
-	Neighbors            []string `json:"neighbors,omitempty"`
-	Options              []string `json:"options,omitempty"`
+	Type                  string   `json:"type"`
+	FlagCode              string   `json:"flag_code"`
+	CountryName           string   `json:"country_name"`
+	CountryCode           string   `json:"country_code"`
+	TimeLimit             int      `json:"time_limit"`
+	Emoji                 string   `json:"emoji,omitempty"`
+	Silhouette            string   `json:"silhouette,omitempty"`
+	SilhouetteUnavailable bool     `json:"silhouette_unavailable,omitempty"`
+	Capital               string   `json:"capital,omitempty"`
+	Neighbors             []string `json:"neighbors,omitempty"`
+	Options               []string `json:"options,omitempty"`
 }
 
 func NewState() *State {
 	return &State{
 		Status:            domain.RoomWaiting,
 		TotalRounds:       10,
+		RoundTimeLimit:    15,
 		Scores:            make(map[string]int),
 		Answered:          make(map[string]bool),
 		UsedCountries:     make(map[string]bool),

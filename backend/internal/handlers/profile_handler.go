@@ -63,6 +63,11 @@ func (h *ProfileHandler) GetProfile(c *fiber.Ctx) error {
 		"longest_win_streak":         user.LongestWinStreak,
 		"countries_mastered":         user.CountriesMastered,
 		"favorite_color":             user.FavoriteColor,
+		"rating":                     user.Rating,
+		"rank":                       user.Rank,
+		"rank_tier":                  user.RankTier,
+		"placement_matches":          user.PlacementMatches,
+		"is_placement_complete":      user.IsPlacementComplete,
 		"created_at":                 user.CreatedAt,
 	})
 }

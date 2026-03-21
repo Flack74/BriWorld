@@ -379,7 +379,7 @@ export default function Profile() {
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/35 to-transparent" />
             <div className="absolute left-3 right-3 top-3 flex flex-wrap justify-end gap-2 sm:left-auto sm:right-4 sm:top-4">
               <label className="cursor-pointer">
-                <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,application/json,.json" className="hidden" onChange={handleBannerUpload} />
+                <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/svg+xml,application/json,.json,.avif,.svg" className="hidden" onChange={handleBannerUpload} />
                 <div className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-black/35 px-3 py-2 text-xs font-semibold text-white backdrop-blur sm:px-4 sm:text-sm">
                   <ImagePlus className="h-4 w-4" />
                   Upload Banner

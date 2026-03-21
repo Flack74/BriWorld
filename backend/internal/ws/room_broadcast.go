@@ -65,6 +65,7 @@ func (r *Room) BuildStatePayload() map[string]interface{} {
 		"question":          r.GameState.Question,
 		"scores":            cloneStringIntMap(r.GameState.Scores),
 		"time_remaining":    r.GameState.TimeRemaining,
+		"round_time_limit":  r.GameState.RoundTimeLimit,
 		"game_mode":         r.GameState.GameMode,
 		"room_type":         r.GameState.RoomType,
 		"map_mode":          r.GameState.MapMode,
@@ -126,18 +127,20 @@ func (r *Room) BroadcastRoomUpdate() {
 		}
 	}
 	payload := map[string]interface{}{
-		"players":        players,
-		"current_count":  len(players),
-		"status":         string(r.GameState.Status),
-		"current_round":  r.GameState.CurrentRound,
-		"owner":          r.Owner,
-		"game_mode":      r.GameState.GameMode,
-		"room_type":      r.GameState.RoomType,
-		"map_mode":       r.GameState.MapMode,
-		"scores":         cloneStringIntMap(r.GameState.Scores),
-		"player_colors":  r.GameState.PlayerColors,
-		"player_avatars": playerAvatars,
-		"player_banners": playerBanners,
+		"players":          players,
+		"current_count":    len(players),
+		"status":           string(r.GameState.Status),
+		"current_round":    r.GameState.CurrentRound,
+		"total_rounds":     r.GameState.TotalRounds,
+		"owner":            r.Owner,
+		"game_mode":        r.GameState.GameMode,
+		"room_type":        r.GameState.RoomType,
+		"round_time_limit": r.GameState.RoundTimeLimit,
+		"map_mode":         r.GameState.MapMode,
+		"scores":           cloneStringIntMap(r.GameState.Scores),
+		"player_colors":    r.GameState.PlayerColors,
+		"player_avatars":   playerAvatars,
+		"player_banners":   playerBanners,
 	}
 	r.mu.RUnlock()
 

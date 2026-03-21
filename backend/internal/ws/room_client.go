@@ -10,6 +10,7 @@ import (
 // AddClient adds a new client to the room or handles reconnection.
 func (r *Room) AddClient(client *Client) {
 	r.mu.Lock()
+	isFirstClient := len(r.Clients) == 0
 
 	// Check for existing client (reconnection scenario)
 	var existingClient *Client
@@ -71,17 +72,18 @@ func (r *Room) AddClient(client *Client) {
 	}
 
 	// Set game mode and room type from first client
-	if r.GameState.GameMode == "" {
+	if isFirstClient {
 		r.GameState.GameMode = client.GameMode
 		r.GameState.RoomType = client.RoomType
 		r.GameState.TotalRounds = client.RoundsCount
 		if client.TimeoutSeconds > 0 {
-			r.GameState.TimeRemaining = client.TimeoutSeconds
+			r.GameState.RoundTimeLimit = client.TimeoutSeconds
 		}
+		r.GameState.TimeRemaining = r.GameState.RoundTimeLimit
 	} else {
 		// Joining existing room - inherit settings
 		client.RoundsCount = r.GameState.TotalRounds
-		client.TimeoutSeconds = r.GameState.TimeRemaining
+		client.TimeoutSeconds = r.GameState.RoundTimeLimit
 	}
 
 	// Build room_joined payload while still holding the lock
@@ -109,6 +111,7 @@ func (r *Room) AddClient(client *Client) {
 		"question":          r.GameState.Question,
 		"scores":            cloneStringIntMap(r.GameState.Scores),
 		"time_remaining":    r.GameState.TimeRemaining,
+		"round_time_limit":  r.GameState.RoundTimeLimit,
 		"owner":             r.Owner,
 		"game_mode":         r.GameState.GameMode,
 		"room_type":         r.GameState.RoomType,

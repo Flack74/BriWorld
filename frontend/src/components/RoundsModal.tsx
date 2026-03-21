@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ROUND_OPTIONS, TIMEOUT_OPTIONS } from "@/constants/gameSettings";
 
 interface RoundsModalProps {
@@ -17,6 +17,12 @@ export const RoundsModal = ({ open, onClose, onSelectRounds, onSelectTimeout, is
   const roundOptions = isLoggedIn ? ROUND_OPTIONS.loggedIn : ROUND_OPTIONS.guest;
   const [localTimeout, setLocalTimeout] = useState(selectedTimeout);
   const [localRounds, setLocalRounds] = useState(selectedRounds);
+
+  useEffect(() => {
+    if (!open) return;
+    setLocalTimeout(selectedTimeout);
+    setLocalRounds(selectedRounds);
+  }, [open, selectedRounds, selectedTimeout]);
   
   return (
     <Dialog open={open} onOpenChange={onClose}>

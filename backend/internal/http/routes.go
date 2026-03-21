@@ -71,7 +71,7 @@ func SetupRoutes(app *fiber.App, gormDB *database.GormDB, cfg *config.Config, m 
 	// Profile routes (protected)
 	profileHandler := handlers.NewProfileHandler(gormDB)
 	avatarHandler := handlers.NewAvatarHandler(gormDB)
-	rankingHandler := handlers.NewRankingHandler(gormDB.DB)
+	rankingHandler := handlers.NewRankingHandler(gormDB.DB, cfg.JWT.Secret)
 
 	profile := api.Group("/user")
 	profile.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
