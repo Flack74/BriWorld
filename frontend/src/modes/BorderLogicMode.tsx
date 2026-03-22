@@ -93,25 +93,6 @@ export function BorderLogicMode({ gameState, username, onSubmitAnswer }: BorderL
                 </p>
             </Card>
 
-            {/* Scores */}
-            {gameState.scores && gameState.room_type !== 'SINGLE' && Object.keys(gameState.scores).length > 1 && (
-                <Card className="glass-card p-4">
-                    <div className="text-sm font-semibold mb-3">🏆 Scores</div>
-                    <div className="space-y-2">
-                        {Object.entries(gameState.scores)
-                            .sort(([, a], [, b]) => (b as number) - (a as number))
-                            .map(([player, score], idx) => (
-                                <div key={player} className="flex justify-between items-center text-sm">
-                                    <span className={player === username ? 'font-bold text-primary' : ''}>
-                                        {idx === 0 && '👑 '}
-                                        {player}
-                                    </span>
-                                    <span className="font-mono font-bold">{score}</span>
-                                </div>
-                            ))}
-                    </div>
-                </Card>
-            )}
         </div>
     );
 }

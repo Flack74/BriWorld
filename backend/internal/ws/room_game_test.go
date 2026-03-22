@@ -2,6 +2,7 @@ package ws
 
 import (
 	"briworld/internal/domain"
+	"briworld/internal/game"
 	"testing"
 	"time"
 )
@@ -104,6 +105,78 @@ func TestEndRoundNotActive(t *testing.T) {
 
 	if round != 1 {
 		t.Error("Round changed when not active")
+	}
+}
+
+func TestEndRoundLastStandingSingleAdvancesOnCorrectAnswer(t *testing.T) {
+	room := NewRoom("TEST123")
+	defer room.cancel()
+
+	room.GameState.Status = domain.RoomInProgress
+	room.GameState.GameMode = "LAST_STANDING"
+	room.GameState.RoomType = "SINGLE"
+	room.GameState.RoundActive = true
+	room.GameState.CurrentRound = 1
+	room.GameState.TotalRounds = 3
+	room.GameState.Question = &game.Question{
+		Type:        "flag",
+		CountryName: "France",
+		CountryCode: "FR",
+	}
+	room.GameState.Scores["alice"] = 100
+	room.GameState.Answered["alice"] = true
+
+	go room.EndRound()
+	time.Sleep(100 * time.Millisecond)
+
+	room.mu.RLock()
+	status := room.GameState.Status
+	roundActive := room.GameState.RoundActive
+	room.mu.RUnlock()
+
+	if status != domain.RoomInProgress {
+		t.Fatalf("status = %v, want %v", status, domain.RoomInProgress)
+	}
+	if roundActive {
+		t.Fatal("expected the round to end before advancing")
+	}
+}
+
+func TestEndRoundLastStandingSingleEndsOnMissedAnswer(t *testing.T) {
+	room := NewRoom("TEST123")
+	defer room.cancel()
+
+	room.GameState.Status = domain.RoomInProgress
+	room.GameState.GameMode = "LAST_STANDING"
+	room.GameState.RoomType = "SINGLE"
+	room.GameState.RoundActive = true
+	room.GameState.CurrentRound = 1
+	room.GameState.TotalRounds = 3
+	room.GameState.Question = &game.Question{
+		Type:        "flag",
+		CountryName: "France",
+		CountryCode: "FR",
+	}
+	room.GameState.Scores["alice"] = 0
+
+	go room.EndRound()
+	time.Sleep(100 * time.Millisecond)
+
+	room.mu.RLock()
+	eliminated := room.GameState.EliminatedPlayers["alice"]
+	room.mu.RUnlock()
+	if !eliminated {
+		t.Fatal("expected player to be eliminated after missing the round")
+	}
+
+	time.Sleep(2100 * time.Millisecond)
+
+	room.mu.RLock()
+	status := room.GameState.Status
+	room.mu.RUnlock()
+
+	if status != domain.RoomCompleted {
+		t.Fatalf("status = %v, want %v", status, domain.RoomCompleted)
 	}
 }
 

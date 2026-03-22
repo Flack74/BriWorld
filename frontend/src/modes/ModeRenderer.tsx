@@ -55,6 +55,7 @@ export function ModeRenderer({
   roomCode = '',
   roomType = 'SINGLE'
 }: ModeRendererProps) {
+  const showInlineScores = roomType === 'SINGLE';
 
   /* Safety check: show a loading spinner if gameState hasn't arrived yet */
   if (!gameState) {
@@ -135,7 +136,7 @@ export function ModeRenderer({
         <div className="mb-4">
           {/* Check if this mode should have horizontal layout AND if it's single player or few players */}
           {['CAPITAL_RUSH', 'SILHOUETTE', 'BORDER_LOGIC', 'EMOJI', 'LAST_STANDING'].includes(gameState.game_mode || '') &&
-            (roomType === 'SINGLE' || Object.keys(gameState.scores || {}).length <= 2) ? (
+            (showInlineScores || Object.keys(gameState.scores || {}).length <= 2) ? (
             /* Horizontal layout for single player or 1-2 players */
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
               {/* Center: Mode badge and round counter */}
@@ -150,7 +151,7 @@ export function ModeRenderer({
                 )}
               </div>
               {/* Center: Scores panel */}
-              {gameState.scores && Object.keys(gameState.scores).length > 0 && (
+              {showInlineScores && gameState.scores && Object.keys(gameState.scores).length > 0 && (
                 <Card className="glass-card p-2 sm:p-3 min-w-[140px]">
                   <h3 className="font-bold mb-1 text-xs sm:text-sm">Scores</h3>
                   <div className="space-y-0.5">
@@ -188,7 +189,8 @@ export function ModeRenderer({
         {renderModeContent()}
 
         {/* Shared Scores Panel — for modes NOT using horizontal layout OR multiplayer with many players */}
-        {(!['CAPITAL_RUSH', 'SILHOUETTE', 'BORDER_LOGIC', 'EMOJI', 'LAST_STANDING'].includes(gameState.game_mode || '') ||
+        {showInlineScores &&
+          (!['CAPITAL_RUSH', 'SILHOUETTE', 'BORDER_LOGIC', 'EMOJI', 'LAST_STANDING'].includes(gameState.game_mode || '') ||
           (roomType !== 'SINGLE' && Object.keys(gameState.scores || {}).length > 2)) &&
           gameState.scores && Object.keys(gameState.scores).length > 0 && (
             <Card className="glass-card p-3 sm:p-4 mt-4">

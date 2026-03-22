@@ -191,6 +191,41 @@ func (r *Room) EndRound() {
 
 	// Handle LAST_STANDING elimination
 	if gameMode == "LAST_STANDING" {
+		r.mu.Lock()
+		roomType := r.GameState.RoomType
+		if roomType == "SINGLE" {
+			survivedRound := false
+			for username := range r.GameState.Scores {
+				if r.GameState.EliminatedPlayers[username] {
+					continue
+				}
+				if r.GameState.Answered[username] {
+					survivedRound = true
+					break
+				}
+				r.GameState.EliminatedPlayers[username] = true
+			}
+			r.mu.Unlock()
+
+			if !survivedRound {
+				time.Sleep(2 * time.Second)
+				r.EndGame()
+				return
+			}
+
+			if currentRound >= totalRounds {
+				time.Sleep(1 * time.Second)
+				r.EndGame()
+				return
+			}
+
+			time.Sleep(2 * time.Second)
+			r.StartRound()
+			return
+		}
+
+		r.mu.Unlock()
+
 		// Mark players who didn't answer correctly as eliminated
 		r.mu.Lock()
 		if r.GameState.EliminatedPlayers == nil {
